@@ -119,4 +119,13 @@ fine for performance). Right now only Punish and Forgive are required to be logg
 <h4>0.2.0.0 (21-MAY-2013)</h4>
 <b>Changes</b> <br/>
    * Minor bug fixes for version 2 release.<br/>
+<h4>0.2.0.1 (23-MAY-2013)</h4>
+<b>Changes</b> <br/>
+   * Using database time for all interactions to avoid conflicts with timezones.<br/>
+   * Player suggestion list will always suggest players with names starting what the text admins enter before 
+other players.<br/>
+   * Action taken on punish now in database<br/>
+   * Commands are auto-canceled if an admins moves on to other commands while one is waiting for confirmation
+   * Two random players are now round whitelisted for teamswap each round, in addition to the two which admins can 
+whitelist.<br/>
 </blockquote>
