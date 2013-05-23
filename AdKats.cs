@@ -46,7 +46,7 @@ namespace PRoConEvents
     {
         #region Variables
 
-        string plugin_version = "0.2.0.1";
+        string plugin_version = "0.2.0.0";
 
         // Enumerations
         //Messaging
@@ -1138,18 +1138,8 @@ namespace PRoConEvents
             this.round_reports = new Dictionary<string, ADKAT_Record>();
             this.round_mutedPlayers = new Dictionary<string, int>();
             this.teamswapRoundWhitelist = new Dictionary<string, Boolean>();
-            if (this.playerList.Count > 1)
-            {
-                Random random = new Random();
-                int player1 = random.Next(0, this.playerList.Count - 1);
-                int player2;
-                do
-                {
-                    player2 = random.Next(0, this.playerList.Count - 1);
-                } while (player2 == player1);
-                this.teamswapRoundWhitelist.Add(this.playerList[player1].SoldierName, false);
-                this.teamswapRoundWhitelist.Add(this.playerList[player2].SoldierName, false);
-            }
+
+            this.autoWhitelistPlayers(2);
         }
 
         //execute the swap code on player leaving
@@ -2277,6 +2267,31 @@ namespace PRoConEvents
 
         #region Action Methods
 
+        public void autoWhitelistPlayers(int playersToAutoWhitelist)
+        {
+            Random random = new Random();
+            List<string> playerListCopy = new List<string>();
+            foreach (CPlayerInfo player in this.playerList)
+            {
+                if (!this.isAdmin(player.SoldierName) && !this.isTeamswapWhitelisted(player.SoldierName))
+                {
+                    playerListCopy.Add(player.SoldierName);
+                }
+            }
+            if (playerListCopy.Count > 0)
+            {
+                for (int index = 0; index < (playerListCopy.Count < playersToAutoWhitelist) ? (playerListCopy.Count) : (playersToAutoWhitelist); index++)
+                {
+                    string playerName = null;
+                    do
+                    {
+                        playerName = playerListCopy[random.Next(0, playerListCopy.Count - 1)].SoldierName;
+                    } while (this.teamswapRoundWhitelist.ContainsKey(playerName));
+                    this.teamswapRoundWhitelist.Add(playerName, false);
+                }
+            }
+        }
+
         public Boolean handleRoundReport(ADKAT_Record record, String reportID)
         {
             Boolean acted = false;
@@ -2484,9 +2499,8 @@ namespace PRoConEvents
             {
                 if (this.teamswapRoundWhitelist.Count < 4)
                 {
-                    this.teamswapRoundWhitelist.Add(record.target_name, true);
+                    this.teamswapRoundWhitelist.Add(record.target_name, false);
                     string command = m_strTeamswapCommand.Split("|log")[0];
-                    this.ExecuteCommand("procon.protected.send", "admin.yell", "You can use TeamSwap for this round. Type @" + command + " to move yourself between teams.", this.m_iShowMessageLength, "player", soldierName);
                     this.ExecuteCommand("procon.protected.send", "admin.say", record.target_name + " can now use @" + command + " for this round.", "all");
                 }
                 else
