@@ -2,11 +2,14 @@
 <p>
 A MySQL reflected admin toolset that includes editable in-game commands, database reflected punishment and
 forgiveness, proper player report and admin call handling, player name completion, player muting, yell/say 
-pre-recording, and internal implementation of TeamSwap.
+pre-recording, and internal implementation of TeamSwap.<br/><br/>
 
 Visit the tool's github page 
 <a href="https://github.com/ColColonCleaner/AdKats/" target="_blank">here</a> 
-to submit bugs or wanted features.
+to submit bugs or wanted features.<br/><br/>
+
+Download the latest plugin (version 0.2.0.0) here: 
+<a href="http://sourceforge.net/projects/adkats/files/AdKats_v0.2.0.0.zip/download" target="_blank">Version 2</a>
 </p>
 <h2>Features</h2>
 <h3>Main</h3>
@@ -106,7 +109,7 @@ not send the report to admins unless reports are complete. This cleans up what a
 (useful if admins get reports and admin calls whether they are in-game or not).
 <br/>
 <h4>Using Report IDs</h4>
-All reports are issued a random three digit ID which expires at the end of each round. These ID's can be used in any 
+All reports are issued a random three digit ID which expires either at the end of each round, or when it is used. These ID's can be used in any 
 other action command, simply use that ID instead of a player-name and reason (e.g. waffleman73 baserapes, another player 
 reports them and gets report ID 582, admins just use @punish 582 instead of @punish waffleman73 baserape). Confirmation 
 of command with @yes is required before a report ID is acted on. Players are thanked for reporting when an admin uses 
@@ -153,10 +156,11 @@ any noticable lag even when logging everything on a very active server.
 </p>
 <h3>Database Usage</h3>
 <p>
-If must use an online MySQL database accessible from your procon layer. If you have your own website you can make one 
+You must use an online MySQL database accessible from your procon layer. If you have your own website you can make one 
 there, or you can use an online service. My clan runs our own, but I found this online one to be ok, and has a free 
 usage option. http://www.freesqldatabase.com/ But any online accessible MySql database will work. Be careful with that 
-free option though, the size is limited, and these things can log A LOT of data if it's an active server.
+free option though, the size is limited, and these things can log A LOT of data if it's an active server. When I first 
+activated it on a busy metro server we had over 1500 records in just a few days of use.
 
 The plugin checks the database for needed tables on connect. If it doesn't find the proper tables/views it will run 
 the script linked below. You can run the script beforehand if you dont want the plugin changing table structure in 
@@ -168,7 +172,7 @@ your database.<br/>
 <p>
 <u><b>You can edit the text typed for each command to suit your needs in plugin settings.</b></u> Usage of all
 commands is database logged by default, but each command can be told whether to log or not. Logging all is useful 
-especially when you have to hold 40+ admins accountable, and has not caused noticable lag.<br/><br/>
+especially when you have to hold 40+ admins accountable, and has not caused any noticable lag.<br/><br/>
 <table>
 	<tr>
 		<td><b>Command</b></td>
@@ -231,7 +235,7 @@ especially when you have to hold 40+ admins accountable, and has not caused noti
 		<td>The in-game command used for force-moving players between teams. Will immediately send the given player to TeamSwap.</td>
 	</tr>
 	<tr>
-		<td><b>TeamSwap Player</b></td>
+		<td><b>TeamSwap Self</b></td>
 		<td>None</td>
 		<td>Admin and TeamSwap Whitelist</td>
 		<td>The in-game command used for moving yourself between teams. Will immediately send the speaker to TeamSwap.</td>
@@ -344,7 +348,7 @@ them if found. Valid 'command_type's that can be acted on include the following:
 	</tr>
 	<tr>
 		<td><b>Kill Player</b></td>
-		<td>Kick</td>
+		<td>Kill</td>
 	</tr>
 	<tr>
 		<td><b>Kick Player</b></td>
