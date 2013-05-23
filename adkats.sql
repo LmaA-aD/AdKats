@@ -5,19 +5,20 @@
 
 CREATE TABLE `adkat_records` (
        `record_id` int(11) NOT NULL AUTO_INCREMENT, 
-       `server_id` int(11) NOT NULL, 
-       `command_type` varchar(45) NOT NULL, 
-       `record_durationMinutes` int(11) NOT NULL, 
-       `target_guid` varchar(100) NOT NULL, 
-       `target_name` varchar(45) NOT NULL, 
-       `source_name` varchar(45) NOT NULL, 
-       `record_message` varchar(100) NOT NULL, 
-       `record_time` DATETIME NOT NULL, 
-       `adkats_read` ENUM('Y', 'N') NOT NULL,
+       `server_id` int(11) NOT NULL DEFAULT -1, 
+       `command_type` varchar(45) NOT NULL DEFAULT "DefaultCommand", 
+       `command_action` varchar(45) NOT NULL DEFAULT "DefaultAction",
+       `record_durationMinutes` int(11) NOT NULL DEFAULT 0, 
+       `target_guid` varchar(100) NOT NULL DEFAULT "EA_NoGUID", 
+       `target_name` varchar(45) NOT NULL DEFAULT "NoTarget", 
+       `source_name` varchar(45) NOT NULL DEFAULT "NoNameAdmin", 
+       `record_message` varchar(100) NOT NULL DEFAULT "NoMessage", 
+       `record_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
+       `adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
        PRIMARY KEY (`record_id`));
 
 CREATE TABLE `adkat_teamswapwhitelist` (
-       `player_name` varchar(45) NOT NULL, 
+       `player_name` varchar(45) NOT NULL DEFAULT "NoPlayer", 
        `player_guid` varchar(100) NOT NULL DEFAULT 'WAITING ON USE FOR GUID', 
        PRIMARY KEY (`player_name`), 
        UNIQUE KEY `player_name_UNIQUE` (`player_name`));
