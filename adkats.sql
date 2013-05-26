@@ -3,6 +3,7 @@
 -- This is run automatically if AdKats does not find the main record table in your database.
 -- If you don't want the plugin changing tables in your database, run this beforehand.
 
+
 CREATE TABLE `adkat_records` ( 
 `record_id` int(11) NOT NULL AUTO_INCREMENT, 
 `server_id` int(11) NOT NULL DEFAULT -1, 
@@ -19,9 +20,10 @@ PRIMARY KEY (`record_id`)
 );
 
 
-CREATE TABLE `adkat_teamswapwhitelist` ( 
+CREATE TABLE `adkat_accesslist` ( 
 `player_name` varchar(45) NOT NULL DEFAULT "NoPlayer", 
 `player_guid` varchar(100) NOT NULL DEFAULT 'WAITING ON USE FOR GUID', 
+`access_level` int(11) NOT NULL DEFAULT 6, 
 PRIMARY KEY (`player_name`), UNIQUE KEY `player_name_UNIQUE` (`player_name`));
 
 
