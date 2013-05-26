@@ -3,11 +3,26 @@
 -- This is run automatically if AdKats does not find the main record table in your database.
 -- If you don't want the plugin changing tables in your database, run this beforehand.
 
-CREATE TABLE `adkat_records` ( `record_id` int(11) NOT NULL AUTO_INCREMENT, `server_id` int(11) NOT NULL DEFAULT -1, `command_type` varchar(45) NOT NULL DEFAULT "DefaultCommand", `command_action` varchar(45) NOT NULL DEFAULT "DefaultAction", `record_durationMinutes` int(11) NOT NULL DEFAULT 0, `target_guid` varchar(100) NOT NULL DEFAULT "EA_NoGUID", `target_name` varchar(45) NOT NULL DEFAULT "NoTarget", `source_name` varchar(45) NOT NULL DEFAULT "NoNameAdmin", `record_message` varchar(100) NOT NULL DEFAULT "NoMessage", `record_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON
-                              UPDATE CURRENT_TIMESTAMP, `adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N', PRIMARY KEY (`record_id`));
+CREATE TABLE `adkat_records` ( 
+`record_id` int(11) NOT NULL AUTO_INCREMENT, 
+`server_id` int(11) NOT NULL DEFAULT -1, 
+`command_type` varchar(45) NOT NULL DEFAULT "DefaultCommand", 
+`command_action` varchar(45) NOT NULL DEFAULT "DefaultAction", 
+`record_durationMinutes` int(11) NOT NULL DEFAULT 0, 
+`target_guid` varchar(100) NOT NULL DEFAULT "EA_NoGUID", 
+`target_name` varchar(45) NOT NULL DEFAULT "NoTarget", 
+`source_name` varchar(45) NOT NULL DEFAULT "NoNameAdmin", 
+`record_message` varchar(100) NOT NULL DEFAULT "NoMessage", 
+`record_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+`adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
+PRIMARY KEY (`record_id`)
+);
 
 
-CREATE TABLE `adkat_teamswapwhitelist` ( `player_name` varchar(45) NOT NULL DEFAULT "NoPlayer", `player_guid` varchar(100) NOT NULL DEFAULT 'WAITING ON USE FOR GUID', PRIMARY KEY (`player_name`), UNIQUE KEY `player_name_UNIQUE` (`player_name`));
+CREATE TABLE `adkat_teamswapwhitelist` ( 
+`player_name` varchar(45) NOT NULL DEFAULT "NoPlayer", 
+`player_guid` varchar(100) NOT NULL DEFAULT 'WAITING ON USE FOR GUID', 
+PRIMARY KEY (`player_name`), UNIQUE KEY `player_name_UNIQUE` (`player_name`));
 
 
 CREATE OR REPLACE VIEW `adkat_playerlist` AS
