@@ -7,6 +7,5 @@ ALTER TABLE `adkat_records` MODIFY `target_guid` varchar(100) NOT NULL DEFAULT "
 ALTER TABLE `adkat_records` MODIFY `target_name` varchar(45) NOT NULL DEFAULT "NoTarget"; 
 ALTER TABLE `adkat_records` MODIFY `source_name` varchar(45) NOT NULL DEFAULT "NoNameAdmin"; 
 ALTER TABLE `adkat_records` MODIFY `record_message` varchar(100) NOT NULL DEFAULT "NoMessage"; 
-ALTER TABLE `adkat_records` MODIFY `adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N'; 
-ALTER TABLE `adkat_records` MODIFY `record_time` DATETIME DEFAULT ON UPDATE CURRENT_TIMESTAMP; 
+ALTER TABLE `adkat_records` MODIFY `adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N';
 ALTER TABLE `adkat_teamswapwhitelist` MODIFY `player_name` varchar(45) NOT NULL DEFAULT "NoPlayer"; 
