@@ -230,7 +230,7 @@ namespace PRoConEvents
         //the lowest ticket count of either team to allow self move
         private int teamSwapTicketWindowLow = 0;
         //Round only whitelist
-        private Dictionary<string, Boolean> teamswapRoundWhitelist = new Dictionary<string, Boolean>();
+        private Dictionary<string, bool> teamswapRoundWhitelist = new Dictionary<string, bool>();
 
         //Reports for the current round
         private Dictionary<string, ADKAT_Record> round_reports = new Dictionary<string, ADKAT_Record>();
@@ -417,7 +417,6 @@ namespace PRoConEvents
                 {
                     lstReturn.Add(new CPluginVariable("Punishment Settings|Low Population Value", typeof(int), this.lowPopPlayerCount));
                 }
-                lstReturn.Add(new CPluginVariable("Punishment Settings|Punishment Timeout", typeof(Double), this.punishmentTimeout));
 
                 //Admin Settings
                 lstReturn.Add(new CPluginVariable("Admin Settings|Use Database Admin List", typeof(Boolean), this.useDatabaseAdminList));
@@ -796,10 +795,6 @@ namespace PRoConEvents
             else if (Regex.Match(strVariable, @"Low Population Value").Success)
             {
                 this.lowPopPlayerCount = Int32.Parse(strValue);
-            }
-            else if (Regex.Match(strVariable, @"Punishment Timeout").Success)
-            {
-                this.punishmentTimeout = Double.Parse(strValue);
             }
             #endregion
             #region admin settings
@@ -1209,20 +1204,27 @@ namespace PRoConEvents
 
         public override void OnPlayerSpawned(String soldierName, Inventory spawnedInventory)
         {
-            Boolean informed = true;
-            if (this.teamswapRoundWhitelist.TryGetValue(soldierName, out informed))
+            try
             {
-                if (informed == false)
+                Boolean informed = true;
+                if (this.teamswapRoundWhitelist.TryGetValue(soldierName, out informed))
                 {
-                    string command = m_strTeamswapCommand.Split("|log")[0];
-                    this.ExecuteCommand("procon.protected.send", "admin.yell", "You can use TeamSwap for this round. Type @" + command + " to move yourself between teams.", this.m_iShowMessageLength, "player", soldierName);
-                    this.teamswapRoundWhitelist[soldierName] = true;
+                    if (informed == false)
+                    {
+                        string command = this.m_strTeamswapCommand.Split("|log".ToCharArray())[0];
+                        this.ExecuteCommand("procon.protected.send", "admin.yell", "You can use TeamSwap for this round. Type @" + command + " to move yourself between teams.", this.m_strShowMessageLength, "player", soldierName);
+                        this.teamswapRoundWhitelist[soldierName] = true;
+                    }
+                }
+                if (!toldCol && soldierName == "ColColonCleaner" && isRelease)
+                {
+                    this.ExecuteCommand("procon.protected.send", "admin.yell", "CONGRATS! This server has version " + this.plugin_version + " of AdKats installed!", "20", "player", "ColColonCleaner");
+                    this.toldCol = true;
                 }
             }
-            if (!toldCol && soldierName == "ColColonCleaner" && isRelease)
+            catch (Exception e)
             {
-                this.ExecuteCommand("procon.protected.send", "admin.yell", "CONGRATS! This server has version " + this.plugin_version + " of AdKats installed!", "20", "player", "ColColonCleaner");
-                this.toldCol = true;
+                this.ConsoleException(e.ToString());
             }
         }
 
@@ -2230,7 +2232,7 @@ namespace PRoConEvents
                     }
                     else
                     {
-                        this.playerSayMessage(record.source_name, record.target_name + " already punished in the last " + this.punishmentTimeout + " minute(s).");
+                        this.playerSayMessage(record.source_name, record.target_name + " already punished in the last 30 seconds.");
                     }
                     break;
                 case ADKAT_CommandType.ForgivePlayer:
@@ -2269,26 +2271,33 @@ namespace PRoConEvents
 
         public void autoWhitelistPlayers(int playersToAutoWhitelist)
         {
-            Random random = new Random();
-            List<string> playerListCopy = new List<string>();
-            foreach (CPlayerInfo player in this.playerList)
+            try
             {
-                if (!this.isAdmin(player.SoldierName) && !this.isTeamswapWhitelisted(player.SoldierName))
+                Random random = new Random();
+                List<string> playerListCopy = new List<string>();
+                foreach (CPlayerInfo player in this.playerList)
                 {
-                    playerListCopy.Add(player.SoldierName);
+                    if (!this.isAdmin(player.SoldierName) && !this.isTeamswapWhitelisted(player.SoldierName))
+                    {
+                        playerListCopy.Add(player.SoldierName);
+                    }
+                }
+                if (playerListCopy.Count > 0)
+                {
+                    for (int index = 0; index < ((playerListCopy.Count < playersToAutoWhitelist) ? (playerListCopy.Count) : (playersToAutoWhitelist)); index++)
+                    {
+                        string playerName = null;
+                        do
+                        {
+                            playerName = playerListCopy[random.Next(0, playerListCopy.Count - 1)];
+                        } while (this.teamswapRoundWhitelist.ContainsKey(playerName));
+                        this.teamswapRoundWhitelist.Add(playerName, false);
+                    }
                 }
             }
-            if (playerListCopy.Count > 0)
+            catch (Exception e)
             {
-                for (int index = 0; index < (playerListCopy.Count < playersToAutoWhitelist) ? (playerListCopy.Count) : (playersToAutoWhitelist); index++)
-                {
-                    string playerName = null;
-                    do
-                    {
-                        playerName = playerListCopy[random.Next(0, playerListCopy.Count - 1)].SoldierName;
-                    } while (this.teamswapRoundWhitelist.ContainsKey(playerName));
-                    this.teamswapRoundWhitelist.Add(playerName, false);
-                }
+                this.ConsoleException(e.ToString());
             }
         }
 
@@ -2495,22 +2504,29 @@ namespace PRoConEvents
 
         public void roundWhitelistTarget(ADKAT_Record record)
         {
-            if (!this.teamswapRoundWhitelist.Contains(record.target_name))
+            try
             {
-                if (this.teamswapRoundWhitelist.Count < 4)
+                if (!this.teamswapRoundWhitelist.ContainsKey(record.target_name))
                 {
-                    this.teamswapRoundWhitelist.Add(record.target_name, false);
-                    string command = m_strTeamswapCommand.Split("|log")[0];
-                    this.ExecuteCommand("procon.protected.send", "admin.say", record.target_name + " can now use @" + command + " for this round.", "all");
+                    if (this.teamswapRoundWhitelist.Count < 4)
+                    {
+                        this.teamswapRoundWhitelist.Add(record.target_name, false);
+                        string command = m_strTeamswapCommand.Split("|log".ToCharArray())[0];
+                        this.ExecuteCommand("procon.protected.send", "admin.say", record.target_name + " can now use @" + command + " for this round.", "all");
+                    }
+                    else
+                    {
+                        this.playerSayMessage(record.source_name, "Cannot whitelist more than two extra people per round.");
+                    }
                 }
                 else
                 {
-                    this.playerSayMessage(record.source_name, "Cannot whitelist more than two extra people per round.");
+                    this.playerSayMessage(record.source_name, record.target_name + " is already in this round's teamswap whitelist.");
                 }
             }
-            else
+            catch (Exception e)
             {
-                this.playerSayMessage(record.source_name, record.target_name + " is already in this round's teamswap whitelist.");
+                this.ConsoleException(e.ToString());
             }
         }
 
@@ -2892,7 +2908,7 @@ namespace PRoConEvents
                         //Convert enum to DB string
                         string action = this.ADKAT_RecordTypes[record.command_action];
                         //Set values
-                        command.CommandText = "UPDATE `" + this.mySqlDatabaseName + "`.`adkat_records` SET `command_action` = '" + action + "', `record_durationMinutes` = " + record.durationMinutes + ", `adkats_read` = 'Y' WHERE `record_id` = " + record.record_id;
+                        command.CommandText = "UPDATE `" + this.mySqlDatabaseName + "`.`adkat_records` SET `command_action` = '" + action + "', `record_durationMinutes` = " + record.record_durationMinutes + ", `adkats_read` = 'Y' WHERE `record_id` = " + record.record_id;
                         //Attempt to execute the query
                         if (command.ExecuteNonQuery() > 0)
                         {
@@ -3202,27 +3218,35 @@ namespace PRoConEvents
 
         private Boolean isTeamswapWhitelisted(string player_name)
         {
-            if (this.useDatabaseTeamswapWhitelist)
+            try
             {
-                if (DateTime.Now > this.lastAccessListUpdate.AddMinutes(5))
+                if (this.useDatabaseTeamswapWhitelist)
                 {
-                    this.fetchAllAccessLists();
-                }
+                    if (DateTime.Now > this.lastAccessListUpdate.AddMinutes(5))
+                    {
+                        this.fetchAllAccessLists();
+                    }
 
-                if (this.databaseTeamswapWhitelistCache.Contains(player_name))
-                {
-                    return true;
+                    if (this.databaseTeamswapWhitelistCache.Contains(player_name))
+                    {
+                        return true;
+                    }
+                    Boolean informed = false;
+                    if (this.teamswapRoundWhitelist.TryGetValue(player_name, out informed))
+                    {
+                        return true;
+                    }
+                    return false;
                 }
-                Boolean informed = false;
-                if (this.teamswapRoundWhitelist.TryGetValue(player_name, out informed))
+                else
                 {
-                    return true;
+                    return this.staticTeamswapWhitelistCache.Contains(player_name);
                 }
-                return false;
             }
-            else
+            catch (Exception e)
             {
-                return this.staticTeamswapWhitelistCache.Contains(player_name);
+                this.ConsoleException(e.ToString());
+                return false;
             }
         }
 
