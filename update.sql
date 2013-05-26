@@ -1,4 +1,4 @@
-ALTER TABLE `adkat_records` MODIFY `record_time` DATETIME DEFAULT CURRENT_TIMESTAMP; 
+ALTER TABLE `adkat_records` MODIFY `record_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP; 
 ALTER TABLE `adkat_records` MODIFY `server_id` int(11) DEFAULT -1; 
 ALTER TABLE `adkat_records` MODIFY `command_type` varchar(45) NOT NULL DEFAULT "DefaultCommand"; 
 ALTER TABLE `adkat_records` ADD `command_action` varchar(45) NOT NULL DEFAULT "DefaultAction"; 
