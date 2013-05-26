@@ -326,6 +326,98 @@ especially when you have to hold 40+ admins accountable, and has not caused any 
 	</tr>
 </table>
 </p>
+<h3>Command Access Levels</h3>
+<p>
+Players need to be above certain access levels to perform commands. Players on the admin list can have their powers 
+disabled (without removing them from the admin list) by lowering their access level.
+<br/>
+<table>
+	<tr>
+		<td><b>Command</b></td>
+		<td><b>Access Level</b></td>
+	</tr>
+	<tr>
+		<td><b>Permaban Player</b></td>
+		<td>1</td>
+	</tr>
+	<tr>
+		<td><b>Restart Level</b></td>
+		<td>1</td>
+	</tr>
+	<tr>
+		<td><b>Next Level</b></td>
+		<td>1</td>
+	</tr>
+	<tr>
+		<td><b>End Level</b></td>
+		<td>1</td>
+	</tr>
+	<tr>
+		<td><b>Temp-Ban Player</b></td>
+		<td>2</td>
+	</tr>
+	<tr>
+		<td><b>Round Whitelist Player</b></td>
+		<td>2</td>
+	</tr>
+	<tr>
+		<td><b>Kill Player</b></td>
+		<td>3</td>
+	</tr>
+	<tr>
+		<td><b>Kick Player</b></td>
+		<td>3</td>
+	</tr>
+	<tr>
+		<td><b>Punish Player</b></td>
+		<td>3</td>
+	</tr>
+	<tr>
+		<td><b>Forgive Player</b></td>
+		<td>3</td>
+	</tr>
+	<tr>
+		<td><b>Mute Player</b></td>
+		<td>3</td>
+	</tr>
+	<tr>
+		<td><b>Move Player</b></td>
+		<td>4</td>
+	</tr>
+	<tr>
+		<td><b>Force-Move Player</b></td>
+		<td>4</td>
+	</tr>
+	<tr>
+		<td><b>Admin Say</b></td>
+		<td>4</td>
+	</tr>
+	<tr>
+		<td><b>Admin Yell</b></td>
+		<td>4</td>
+	</tr>
+	<tr>
+		<td><b>Player Say</b></td>
+		<td>4</td>
+	</tr>
+	<tr>
+		<td><b>Player Yell</b></td>
+		<td>4</td>
+	</tr>
+	<tr>
+		<td><b>TeamSwap</b></td>
+		<td>5</td>
+	</tr>
+	<tr>
+		<td><b>Report Player</b></td>
+		<td>6</td>
+	</tr>
+	<tr>
+		<td><b>Call Admin on Player</b></td>
+		<td>6</td>
+	</tr>
+</table>
+</p>
 <h3>Commanding AdKats from Outside the Game</h3>
 <p>
 AdKats can take orders from external systems via the database. If you have an external system (such as a web-based tool with access to bf3 server information), then have your 
