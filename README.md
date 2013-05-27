@@ -420,8 +420,8 @@ disabled (without removing them from the admin list) by lowering their access le
 </p>
 <h3>Commanding AdKats from Outside the Game</h3>
 <p>
-AdKats can take orders from external systems via the database. If you have an external system (such as a web-based tool 
-with access to bf3 server information), then there are two ways to interact externally.<br/><br/>
+If you have an external system (such as a web-based tool with access to bf3 server information), then there are two 
+ways to interact with AdKats externally.<br/><br/>
 
 1. Send commands to AdKats through procon's internal HTTP server, it just takes a couple setup steps. Turn on procon's 
 HTTP server by going to Tools (Upper right) --> Options --> HTTP Tab and enable the server. The default port should be 
