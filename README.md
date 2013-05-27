@@ -429,20 +429,21 @@ fine for most cases. Then in AdKats settings set the external access key to what
 is almost instant, and a helpful error message is given if incorrect params are entered. You can then 
 query the plugin in following manner.<br/><br/>
 
-The BF3 server ip and port are shown in AdKats settings.
+<b>The BF3 server ip and port are shown in AdKats settings.</b><br/>
 http://[procon_server_ip]:[server_port]/[bf3_server_ip]:[bf3_server_port]/plugins/AdKats/?[Parameters]<br/><br/>
 
-Required Params:<br/>
+<b>Required Parameters:</b><br/>
 command_type=[Command from list Below]<br/>
 target_name=[Full or Partial Player Name]<br/>
 record_message=[reason for action]<br/>
 access_key=[Your Access Key from AdKats Settings]<br/>
-Optional Params:<br/>
+<b>Optional Parameters:</b><br/>
 source_name=[Name of admin sending this command]<br/>
 record_durationMinutes=[Used for Temp-Bans, duration of time in minutes]<br/><br/>
 
-Example of Command:<br/>
-http://293.182.39.230:27360/173.199.91.187:25210/plugins/AdKats/?command_type=TempBan&source_name=ColonsEnemy&target_name=ColColonCleaner&record_message=Testing&record_durationMinutes=60&access_key=MyPassword<br/><br/>
+<b>Example of Command:</b><br/>
+http://293.182.39.230:27360/173.199.91.187:25210/plugins/AdKats/?command_type=TempBan&source_name=ColonsEnemy&<br/>
+target_name=ColColonCleaner&record_message=Testing&record_durationMinutes=60&access_key=MyPassword<br/><br/>
 
 2. Have your external system add a row to the record table with a new record to be acted on. All information is needed 
 in the row just like the ones sent from AdKats to the database. Just make the 'adkats_read' column for that row = "N" 
