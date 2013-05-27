@@ -1,4 +1,5 @@
 <h1>AdKats</h1>
+<h3>This doc is for version 0.2.0.1, your version is listed above. Update if desired.</h3>
 <p>
 A MySQL reflected admin toolset that includes editable in-game commands, an out-of-game controller, database 
 reflected punishment and forgiveness, proper player report and admin call handling, player name completion, 
