@@ -420,11 +420,36 @@ disabled (without removing them from the admin list) by lowering their access le
 </p>
 <h3>Commanding AdKats from Outside the Game</h3>
 <p>
-AdKats can take orders from external systems via the database. If you have an external system (such as a web-based tool with access to bf3 server information), then have your 
-external system add a row to the record table with a new record to be acted on. All information is needed in the row 
-just like the ones sent from AdKats to the database. Just make the 'adkats_read' column for that row = "N" and adkats 
-will act on that record. Every 5-10 seconds the plugin checks for new input from external systems, and will act on 
-them if found. Valid 'command_type's that can be acted on include the following:<br/>
+AdKats can take orders from external systems via the database. If you have an external system (such as a web-based tool 
+with access to bf3 server information), then there are two ways to interact externally.
+
+1. Send commands to AdKats through procon's internal HTTP server, it just takes a couple setup steps. Turn on procon's 
+HTTP server by going to Tools (Upper right) --> Options --> HTTP Tab and enable the server. The default port should be 
+fine for most cases. Then in AdKats settings set the external access key to what you want for a password. Action taken 
+is almost instant, and a helpful error message is given if incorrect params are entered. You can then 
+query the plugin in following manner.<br/><br/>
+
+The BF3 server ip and port are shown in AdKats settings.
+http://[procon_server_ip]:[server_port]/[bf3_server_ip]:[bf3_server_port]/plugins/AdKats/?[Parameters]<br/><br/>
+
+Required Params:<br/>
+command_type=[Command from list Below]<br/>
+target_name=[Full or Partial Player Name]<br/>
+record_message=[reason for action]<br/>
+access_key=[Your Access Key from AdKats Settings]<br/>
+Optional Params:<br/>
+source_name=[Name of admin sending this command]<br/>
+record_durationMinutes=[Used for Temp-Bans, duration of time in minutes]<br/><br/>
+
+Example of Command:<br/>
+http://293.182.39.230:27360/173.199.91.187:25210/plugins/AdKats/?command_type=TempBan&source_name=ColonsEnemy&target_name=ColColonCleaner&record_message=Testing&record_durationMinutes=60&access_key=MyPassword<br/><br/>
+
+2. Have your external system add a row to the record table with a new record to be acted on. All information is needed 
+in the row just like the ones sent from AdKats to the database. Just make the 'adkats_read' column for that row = "N" 
+and adkats will act on that record. Every ~20 seconds the plugin checks for new input in the table, and will 
+act on them if found, this is a much slower acting system than the HTTP server option.<br/>
+
+Valid 'command_type's that can be acted on include the following:<br/>
 <table>
 	<tr>
 		<td><b>Action To be Performed</b></td>
