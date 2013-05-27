@@ -421,7 +421,7 @@ disabled (without removing them from the admin list) by lowering their access le
 <h3>Commanding AdKats from Outside the Game</h3>
 <p>
 AdKats can take orders from external systems via the database. If you have an external system (such as a web-based tool 
-with access to bf3 server information), then there are two ways to interact externally.
+with access to bf3 server information), then there are two ways to interact externally.<br/><br/>
 
 1. Send commands to AdKats through procon's internal HTTP server, it just takes a couple setup steps. Turn on procon's 
 HTTP server by going to Tools (Upper right) --> Options --> HTTP Tab and enable the server. The default port should be 
@@ -530,13 +530,10 @@ Valid 'command_type's that can be acted on include the following:<br/>
 <p>
 <h3>Debugging Settings:</h3>
 * <b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step.
-<h3>Admin Settings:</h3>
-* <b>'Use Database Admin List'</b> - Whether to use list list of admins from database instead of static list. Admin names are cached in the plugin to save bandwidth. The list is updated when a non-admin tries a command, to see if list has changed.<br/>
-* <b>'Admin Table Name'</b> - Name of the database table that contains admin names. Default "tbl_adminlist". This table needs to be set up manually right now, as some people might have an existing admin table.<br/>
-* <b>'Column That Contains Admin Name'</b> - Name of the column in admin table that contains admin IGNs.<br/>
-* <b>'Current Database Admin List'</b> - <b>(NOT EDITABLE)</b> When using the database admin list, this will show what players are currently admins.<br/>
-* <b>'Static Admin List'</b> - List of admins input from plugin settings. Use if no admin database table. Each admin should have their own line.
+<h3>Player Access:</h3>
+* <b>*PlayerName*</b> - Players in the current database admin list are appeneded here with thier access level.
 <h3>Messaging Settings:</h3>
+* <b>'Yell display time seconds'</b> - The integer time in seconds that yell messages will be displayed.<br/>
 * <b>'Pre-Message List'</b> - List of messages for use in pre-say and pre-yell commands.
 <h3>MySQL Settings:</h3>
 * <b>'MySQL Hostname'</b> - Hostname of the MySQL server AdKats should connect to. <br/>
@@ -545,9 +542,7 @@ Valid 'command_type's that can be acted on include the following:<br/>
 * <b>'MySQL Username'</b> - Username of the MySQL server AdKats should connect to. <br/>
 * <b>'MySQL Password'</b> - Password of the MySQL server AdKats should connect to.
 <h3>Command Settings:</h3>
-* <b>'Minimum Required Reason Length'</b> - The minimum length a reason must be for commands that require a reason to execute.<br/>
-* <b>'Yell display time seconds'</b> - The integer time in seconds that yell messages will be displayed.
-  <br/><br/>
+* <b>'Minimum Required Reason Length'</b> - The minimum length a reason must be for commands that require a reason to execute.<br/><br/>
   <b>Specific command definitions given in features section above.</b> All command text must be a single string with no whitespace. E.G. kill. All commands can be suffixed with '|log', which will set whether use of that command is logged in the database or not.
 <h3>Punishment Settings:</h3>
 * <b>'Punishment Hierarchy'</b> - List of punishments in order from lightest to most severe. Index in list is the action taken at that number of points.<br/>
@@ -559,9 +554,6 @@ Valid 'command_type's that can be acted on include the following:<br/>
 <br/>
 <h3>TeamSwap Settings:</h3>
 * <b>'Require Whitelist for Access'</b> - Whether the 'moveme' command will require whitelisting. Admins are always allowed to use it.<br/>
-* <b>'Static Player Whitelist'</b> - Static list of players plugin-side that will be able to TeamSwap.<br/>
-* <b>'Use Database Whitelist'</b> - Whether to use 'adkat_teamswapwhitelist' table in the database for player whitelisting. Whitelisted names are cached in the plugin to save bandwidth. The list is updated when a non-whitelisted player is requesting access, to see if list has changed.<br/>
-* <b>'Current Database Whitelist'</b> - <b>(NOT EDITABLE)</b> When using the database whitelist, this will show what players are currently whitelisted.<br/>
 * <b>'Ticket Window High'</b> - When either team is above this ticket count, nobody (except admins) will be able to use TeamSwap.<br/>
 * <b>'Ticket Window Low'</b> - When either team is below this ticket count, nobody (except admins) will be able to use TeamSwap.
 </p>
