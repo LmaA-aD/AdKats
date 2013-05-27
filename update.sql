@@ -8,4 +8,8 @@ ALTER TABLE `adkat_records` MODIFY `target_name` varchar(45) NOT NULL DEFAULT "N
 ALTER TABLE `adkat_records` MODIFY `source_name` varchar(45) NOT NULL DEFAULT "NoNameAdmin"; 
 ALTER TABLE `adkat_records` MODIFY `record_message` varchar(100) NOT NULL DEFAULT "NoMessage"; 
 ALTER TABLE `adkat_records` MODIFY `adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N';
-ALTER TABLE `adkat_teamswapwhitelist` MODIFY `player_name` varchar(45) NOT NULL DEFAULT "NoPlayer"; 
+CREATE TABLE `adkat_accesslist` ( 
+`player_name` varchar(45) NOT NULL DEFAULT "NoPlayer", 
+`player_guid` varchar(100) NOT NULL DEFAULT 'WAITING ON USE FOR GUID', 
+`access_level` int(11) NOT NULL DEFAULT 6, 
+PRIMARY KEY (`player_name`), UNIQUE KEY `player_name_UNIQUE` (`player_name`));
