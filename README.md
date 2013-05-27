@@ -532,7 +532,9 @@ Valid 'command_type's that can be acted on include the following:<br/>
 <h3>Debugging Settings:</h3>
 * <b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step.
 <h3>Player Access:</h3>
-* <b>*PlayerName*</b> - Players in the current database admin list are appeneded here with thier access level.
+* <b>'Add Access'</b> - The integer time in seconds that yell messages will be displayed.<br/>
+* <b>'Remove Access'</b> - The integer time in seconds that yell messages will be displayed.<br/>
+* <b>*PlayerName*</b> - Players in the current database access list are appeneded here with thier access level.
 <h3>Messaging Settings:</h3>
 * <b>'Yell display time seconds'</b> - The integer time in seconds that yell messages will be displayed.<br/>
 * <b>'Pre-Message List'</b> - List of messages for use in pre-say and pre-yell commands.
