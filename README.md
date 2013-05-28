@@ -330,7 +330,8 @@ especially when you have to hold 40+ admins accountable, and has not caused any 
 <h3>Command Access Levels</h3>
 <p>
 Players need to be above certain access levels to perform commands. Players on the admin list can have their powers 
-disabled (without removing them from the admin list) by lowering their access level.
+disabled (without removing them from the admin list) by lowering their access level. The default is level 6 for 
+regular players who have no special access, level 1 is a full admin.
 <br/>
 <table>
 	<tr>
@@ -529,34 +530,40 @@ Valid 'command_type's that can be acted on include the following:<br/>
 </p>
 <h2>Settings</h2>
 <p>
-<h3>Debugging Settings:</h3>
+<h3>Banning:</h3>
+* <b>'Ban Type'</b> - The ban type that should be used when banning players, Frostbite - GUID is advised.
+<h3>In-Game Commands:</h3>
+* <b>'Minimum Required Reason Length'</b> - The minimum length a reason must be for commands that require a reason to execute.<br/><br/>
+  <b>Specific command definitions given in features section above.</b> All command text must be a single string with no whitespace. E.G. kill. All commands can be suffixed with '|log', which will set whether use of that command is logged in the database or not.
+<h3>Debugging:</h3>
 * <b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step.
-<h3>Player Access:</h3>
-* <b>'Add Access'</b> - The integer time in seconds that yell messages will be displayed.<br/>
-* <b>'Remove Access'</b> - The integer time in seconds that yell messages will be displayed.<br/>
-* <b>*PlayerName*</b> - Players in the current database access list are appeneded here with thier access level.
-<h3>Messaging Settings:</h3>
+<h3>HTTP Commands:</h3>
+* <b>'External Access Key'</b> - The access key required to use any HTTP commands, can be changed to whatever is desired, but the default is a random 64Bit hashcode generated when the plugin first runs.<br/>
+<h3>Messaging:</h3>
 * <b>'Yell display time seconds'</b> - The integer time in seconds that yell messages will be displayed.<br/>
 * <b>'Pre-Message List'</b> - List of messages for use in pre-say and pre-yell commands.
+<h3>Muting:</h3>
+* <b>'External Access Key'</b> - The access key required to use any HTTP commands, can be changed to whatever is desired, but the default is a random 64Bit hashcode generated when the plugin first runs.<br/>
 <h3>MySQL Settings:</h3>
 * <b>'MySQL Hostname'</b> - Hostname of the MySQL server AdKats should connect to. <br/>
 * <b>'MySQL Port'</b> - Port of the MySQL server AdKats should connect to, most of the time it's 3306. <br/>
 * <b>'MySQL Database'</b> - Database name AdKats should use for storage. Hardcoded table names and creation scripts given below.<br/>
 * <b>'MySQL Username'</b> - Username of the MySQL server AdKats should connect to. <br/>
 * <b>'MySQL Password'</b> - Password of the MySQL server AdKats should connect to.
-<h3>Command Settings:</h3>
-* <b>'Minimum Required Reason Length'</b> - The minimum length a reason must be for commands that require a reason to execute.<br/><br/>
-  <b>Specific command definitions given in features section above.</b> All command text must be a single string with no whitespace. E.G. kill. All commands can be suffixed with '|log', which will set whether use of that command is logged in the database or not.
+<h3>Player Access:</h3>
+* <b>'Add Access'</b> - The integer time in seconds that yell messages will be displayed.<br/>
+* <b>'Remove Access'</b> - The integer time in seconds that yell messages will be displayed.<br/>
+* <b>*PlayerName*</b> - Players in the current database access list are appeneded here with thier access level.
 <h3>Punishment Settings:</h3>
 * <b>'Punishment Hierarchy'</b> - List of punishments in order from lightest to most severe. Index in list is the action taken at that number of points.<br/>
 * <b>'Only Kill Players when Server in low population'</b> - When server population is below 'Low Server Pop Value', only kill players, so server does not empty. Player points will be incremented normally.<br/>
 * <b>'Low Server Pop Value'</b> - Number of players at which the server is deemed 'Low Population'.<br/>
 * <b>'Punishment Timeout'</b> - A player cannot be punished more than once every x.xx minutes. This prevents multiple admins from punishing a player multiple times for the same infraction.
 <h3>Server Settings:</h3>
-* <b>'Server ID'</b> - ID that will be used to identify this server in the database. This is not linked to any specific database attributes, instead it's used to differentiate between servers for infraction points. Set all instances of this tool to the same server ID if you want points to work across servers.
-<br/>
+* <b>'Server IP'</b> - IP address of this server. This value is auto-set when server info is gathered and cannot be edited. This value is used to identify this server in the database, and differentiate between servers for infraction points.<br/>
+* <b>'Isolate Server'</b> - Whether to count punishments from your other servers against players on this server. Default True.<br/>
 <h3>TeamSwap Settings:</h3>
-* <b>'Require Whitelist for Access'</b> - Whether the 'moveme' command will require whitelisting. Admins are always allowed to use it.<br/>
+* <b>'Require Whitelist for Access'</b> - Whether the 'moveme' command will require whitelisting. Admins are always allowed to use it. Default False.<br/>
 * <b>'Ticket Window High'</b> - When either team is above this ticket count, nobody (except admins) will be able to use TeamSwap.<br/>
 * <b>'Ticket Window Low'</b> - When either team is below this ticket count, nobody (except admins) will be able to use TeamSwap.
 </p>
