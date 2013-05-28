@@ -543,7 +543,8 @@ Valid 'command_type's that can be acted on include the following:<br/>
 * <b>'Yell display time seconds'</b> - The integer time in seconds that yell messages will be displayed.<br/>
 * <b>'Pre-Message List'</b> - List of messages for use in pre-say and pre-yell commands.
 <h3>Muting:</h3>
-* <b>'External Access Key'</b> - The access key required to use any HTTP commands, can be changed to whatever is desired, but the default is a random 64Bit hashcode generated when the plugin first runs.<br/>
+* <b>'Muted Player Message'</b> - What to tell players when they talk after being muted.<br/>
+* <b>'# Chances to give player before kicking'</b> - How many times the player will be killed before being kicked from the server for speaking.<br/>
 <h3>MySQL Settings:</h3>
 * <b>'MySQL Hostname'</b> - Hostname of the MySQL server AdKats should connect to. <br/>
 * <b>'MySQL Port'</b> - Port of the MySQL server AdKats should connect to, most of the time it's 3306. <br/>
