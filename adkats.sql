@@ -30,75 +30,75 @@ PRIMARY KEY (`player_name`), UNIQUE KEY `player_name_UNIQUE` (`player_name`));
 CREATE OR REPLACE VIEW `adkat_playerlist` AS
 SELECT `adkat_records`.`target_name` AS `player_name`,
        `adkat_records`.`target_guid` AS `player_guid`,
-       `adkat_records`.`server_id` AS `server_id`
+       `adkat_records`.`server_ip` AS `server_ip`
 FROM `adkat_records`
 GROUP BY `adkat_records`.`target_guid`,
-         `adkat_records`.`server_id`
+         `adkat_records`.`server_ip`
 ORDER BY `adkat_records`.`target_name`;
 
 
 CREATE OR REPLACE VIEW `adkat_playerpoints` AS
 SELECT `adkat_playerlist`.`player_name` AS `playername`,
        `adkat_playerlist`.`player_guid` AS `playerguid`,
-       `adkat_playerlist`.`server_id` AS `serverid`,
+       `adkat_playerlist`.`server_ip` AS `serverid`,
 
   (SELECT count(`adkat_records`.`target_guid`)
    FROM `adkat_records`
    WHERE ((`adkat_records`.`command_type` = 'Punish')
           AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-          AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`))) AS `punishpoints`,
+          AND (`adkat_records`.`server_ip` = `adkat_playerlist`.`server_ip`))) AS `punishpoints`,
 
   (SELECT count(`adkat_records`.`target_guid`)
    FROM `adkat_records`
    WHERE ((`adkat_records`.`command_type` = 'Forgive')
           AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-          AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`))) AS `forgivepoints`,
+          AND (`adkat_records`.`server_ip` = `adkat_playerlist`.`server_ip`))) AS `forgivepoints`,
        (
           (SELECT count(`adkat_records`.`target_guid`)
            FROM `adkat_records`
            WHERE ((`adkat_records`.`command_type` = 'Punish')
                   AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-                  AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`))) -
+                  AND (`adkat_records`.`server_ip` = `adkat_playerlist`.`server_ip`))) -
           (SELECT count(`adkat_records`.`target_guid`)
            FROM `adkat_records`
            WHERE ((`adkat_records`.`command_type` = 'Forgive')
                   AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-                  AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`)))) AS `totalpoints`
+                  AND (`adkat_records`.`server_ip` = `adkat_playerlist`.`server_ip`)))) AS `totalpoints`
 FROM `adkat_playerlist`;
 
 
 CREATE OR REPLACE VIEW `adkat_weeklyplayerpoints` AS
-SELECT `adkat_playerlist`.`player_name` AS `playername`, `adkat_playerlist`.`player_guid` AS `playerguid`, `adkat_playerlist`.`server_id` AS `serverid`,
+SELECT `adkat_playerlist`.`player_name` AS `playername`, `adkat_playerlist`.`player_guid` AS `playerguid`, `adkat_playerlist`.`server_ip` AS `serverid`,
   (SELECT count(`adkat_records`.`target_guid`)
    FROM `adkat_records`
    WHERE ((`adkat_records`.`command_type` = 'Punish')
           AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-          AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`)
+          AND (`adkat_records`.`server_ip` = `adkat_playerlist`.`server_ip`)
           AND (`adkat_records`.`record_time` BETWEEN date_sub(now(),INTERVAL 7 DAY) AND now())) ) AS `punishpoints`,
   (SELECT count(`adkat_records`.`target_guid`)
    FROM `adkat_records`
    WHERE ((`adkat_records`.`command_type` = 'Forgive')
           AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-          AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`)
+          AND (`adkat_records`.`server_ip` = `adkat_playerlist`.`server_ip`)
           AND (`adkat_records`.`record_time` BETWEEN date_sub(now(),INTERVAL 7 DAY) AND now())) ) AS `forgivepoints`, ( (
 SELECT count(`adkat_records`.`target_guid`)
           FROM `adkat_records`
           WHERE (    (`adkat_records`.`command_type` = 'Punish')
-              	  AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-       		  AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`)
+                       AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
+       		  AND (`adkat_records`.`server_ip` = `adkat_playerlist`.`server_ip`)
               AND (`adkat_records`.`record_time` between date_sub(now(),INTERVAL 7 DAY) and now()))) -
          (SELECT count(`adkat_records`.`target_guid`)
           FROM `adkat_records`
           WHERE (    (`adkat_records`.`command_type` = 'Forgive')
        		  AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-       		  AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`)
+       		  AND (`adkat_records`.`server_ip` = `adkat_playerlist`.`server_ip`)
               AND (`adkat_records`.`record_time` between date_sub(now(),INTERVAL 7 DAY) and now())))
        ) AS `totalpoints`
 FROM `adkat_playerlist`;
 
 CREATE OR REPLACE VIEW `adkat_reports` AS
 SELECT `adkat_records`.`record_id` AS `record_id`,
-       `adkat_records`.`server_id` AS `server_id`,
+       `adkat_records`.`server_ip` AS `server_ip`,
        `adkat_records`.`command_type` AS `command_type`,
        `adkat_records`.`record_durationMinutes` AS `record_durationMinutes`,
        `adkat_records`.`target_guid` AS `target_guid`,
@@ -111,7 +111,7 @@ WHERE ((`adkat_records`.`command_type` = 'Report')
        OR (`adkat_records`.`command_type` = 'CallAdmin'));
 
 CREATE OR REPLACE VIEW `adkat_naughtylist` AS
-SELECT `adkat_playerpoints`.`serverid` AS `server_id`,
+SELECT `adkat_playerpoints`.`serverid` AS `server_ip`,
        `adkat_playerpoints`.`playername` AS `player_name`,
        `adkat_playerpoints`.`totalpoints` AS `total_points`
 FROM `adkat_playerpoints`
@@ -121,7 +121,7 @@ ORDER BY  `adkat_playerpoints`.`totalpoints` DESC,
           `adkat_playerpoints`.`playername`;
 
 CREATE OR REPLACE VIEW `adkat_weeklynaughtylist` AS
-SELECT `adkat_weeklyplayerpoints`.`serverid` AS `server_id`,
+SELECT `adkat_weeklyplayerpoints`.`serverid` AS `server_ip`,
        `adkat_weeklyplayerpoints`.`playername` AS `player_name`,
        `adkat_weeklyplayerpoints`.`totalpoints` AS `total_points`
 FROM `adkat_weeklyplayerpoints`
