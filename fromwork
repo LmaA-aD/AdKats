@@ -1,0 +1,307 @@
+//Nuke stuff
+
+//Power Corner
+NukeServer
+
+private string m_strNukeCommand = "nuke|log";
+
+this.ADKAT_RecordTypes.Add(ADKAT_CommandType.NukeServer, "NukeServer");
+
+this.ADKAT_RecordTypesInv.Add("NukeServer", ADKAT_CommandType.NukeServer);
+
+this.ADKAT_CommandAccess.Add(ADKAT_CommandType.NukeServer, 1);
+
+lstReturn.Add(new CPluginVariable("Command Settings|Nuke Server", typeof(string), m_strNukeCommand));
+
+else if (Regex.Match(strVariable, @"Nuke Server").Success)
+{
+  if (strValue.Length > 0)
+	{
+		this.m_strNukeCommand = strValue;
+		rebindAllCommands();
+	}
+	else
+	{
+		this.m_strNukeCommand = ADKAT_CommandType.NukeServer + " COMMAND BLANK";
+	}
+}
+
+this.m_strNukeCommand = this.parseAddCommand(tempDictionary, this.m_strNukeCommand, ADKAT_CommandType.NukeServer);
+
+//Ban stuff
+this.banAppend = "Appeal at www.your_site.com";
+
+lstReturn.Add(new CPluginVariable("Additional Ban Message", typeof(string), this.banAppend));
+
+else if (strVariable.CompareTo("Ban Message") == 0)
+{
+	this.banAppend = strValue;
+}
+
+
+//Mail stuff
+// MAILING SYSTEM_____________________________
+private string strHostName;
+private string strPort;
+private enumBoolYesNo sendmail;
+private enumBoolYesNo blUseSSL;
+private string strSMTPServer;
+private int iSMTPPort;
+private string strSenderMail;
+private List<string> lstReceiverMail;
+private string strSMTPUser;
+private string strSMTPPassword;
+//--------------------------------------------
+
+
+	
+	// MAILING SYSTEM_________________________
+	this.sendmail = enumBoolYesNo.No;
+	this.blUseSSL = enumBoolYesNo.No;
+	this.strSMTPServer = String.Empty;
+	this.iSMTPPort = 25;
+	this.strSenderMail = String.Empty;
+	this.lstReceiverMail = new List<string>();
+	this.strSMTPUser = String.Empty;
+	this.strSMTPPassword = String.Empty;
+	//-----------------------------------------
+	
+	lstReturn.Add(new CPluginVariable("4. Email Settings|Use SSL?", typeof(enumBoolYesNo), this.blUseSSL));
+	lstReturn.Add(new CPluginVariable("4. Email Settings|SMTP-Server address", typeof(string), this.strSMTPServer));
+	lstReturn.Add(new CPluginVariable("4. Email Settings|SMTP-Server port", typeof(int), this.iSMTPPort));
+	lstReturn.Add(new CPluginVariable("4. Email Settings|Sender address", typeof(string), this.strSenderMail));
+	lstReturn.Add(new CPluginVariable("4. Email Settings|Receiver addresses", typeof(string[]), this.lstReceiverMail.ToArray()));
+	lstReturn.Add(new CPluginVariable("4. Email Settings|SMTP-Server username", typeof(string), this.strSMTPUser));
+	lstReturn.Add(new CPluginVariable("4. Email Settings|SMTP-Server password", typeof(string), this.strSMTPPassword));
+	
+	
+	
+	else if (strVariable.CompareTo("Admin Request Email?") == 0 && Enum.IsDefined(typeof(enumBoolYesNo), strValue) == true)
+	{
+		this.blNotifyEmail = (enumBoolYesNo)Enum.Parse(typeof(enumBoolYesNo), strValue);
+	}
+	else if (strVariable.CompareTo("Admin Request Notify SysTray?") == 0 && Enum.IsDefined(typeof(enumBoolYesNo), strValue) == true)
+	{
+		this.blNotifyTaskbar = (enumBoolYesNo)Enum.Parse(typeof(enumBoolYesNo), strValue);
+	}
+	
+	else if (strVariable.CompareTo("Use SSL?") == 0 && Enum.IsDefined(typeof(enumBoolYesNo), strValue) == true)
+	{
+		this.blUseSSL = (enumBoolYesNo)Enum.Parse(typeof(enumBoolYesNo), strValue);
+	}
+	else if (strVariable.CompareTo("SMTP-Server address") == 0)
+	{
+		this.strSMTPServer = strValue;
+	}
+	else if (strVariable.CompareTo("SMTP-Server port") == 0 && int.TryParse(strValue, out iPort) == true)
+	{
+		if (iPort > 0)
+		{
+			this.iSMTPPort = iPort;
+		}
+	}
+	else if (strVariable.CompareTo("Sender address") == 0)
+	{
+		this.strSenderMail = strValue;
+	}
+	else if (strVariable.CompareTo("Receiver addresses") == 0)
+	{
+		this.lstReceiverMail = new List<string>(CPluginVariable.DecodeStringArray(strValue));
+	}
+	else if (strVariable.CompareTo("SMTP-Server username") == 0)
+	{
+		this.strSMTPUser = strValue;
+	}
+	else if (strVariable.CompareTo("SMTP-Server password") == 0)
+	{
+		this.strSMTPPassword = strValue;
+	}
+	
+	#region Mailing Functions
+private void PrepareEmail(string sender, string message)
+{
+	if (this.blNotifyEmail == enumBoolYesNo.Yes)
+	{
+		string subject = String.Empty;
+		string body = String.Empty;
+
+		subject = "[Anu5 Admin Request] - (" + sender + ") requested an admin. Message - " + message;
+
+		StringBuilder sb = new StringBuilder();
+		sb.Append("<b>Anu5 Admin Request Notification</b><br /><br />");
+		sb.Append("Date/Time of call:<b> " + DateTime.Now.ToString() + "</b><br />");
+		sb.Append("Servername:<b> " + this.csiServer.ServerName + "</b><br />");
+		sb.Append("Server address:<b> " + this.strHostName + ":" + this.strPort + "</b><br />");
+		sb.Append("Playercount:<b> " + this.csiServer.PlayerCount + "/" + this.csiServer.MaxPlayerCount + "</b><br />");
+		sb.Append("Map:<b> " + this.csiServer.Map + "</b><br /><br />");
+		sb.Append("Request-Sender:<b> " + sender + "</b><br />");
+		sb.Append("Message:<b> " + message + "</b><br /><br />");
+		sb.Append("<i>Playertable:</i><br />");
+		sb.Append("<table border='1' rules='rows'><tr><th>Playername</th><th>Score</th><th>Kills</th><th>Deaths</th><th>HPK%</th><th>KDR</th><th>GUID</th></tr>");
+		foreach (CPlayerInfo player in this.lstPlayers)
+		{
+			double mHeadshots = 0;
+			if (this.d_Headshots.ContainsKey(player.SoldierName.ToLower()) == true)
+			{
+				if (player.Kills > 0) { mHeadshots = (double)(d_Headshots[player.SoldierName.ToLower()] * 100) / player.Kills; }
+			}
+			sb.Append("<tr align='center'><td>" + player.SoldierName + "</td><td>" + player.Score + "</td><td>" + player.Kills + "</td><td>" + player.Deaths + "</td><td>" + String.Format("{0:0.##}", mHeadshots) + "</td><td>" + String.Format("{0:0.##}", player.Kdr) + "</td><td>" + player.GUID + "</td></tr>");
+		}
+		sb.Append("</table>");
+
+		body = sb.ToString();
+
+		this.EmailWrite(subject, body);
+	}
+}
+
+private void SuspectMail(string player, string trigger, string weapons)
+{
+	string subject = String.Empty;
+	string body = String.Empty;
+	string adminword = "Please remember the player that triggered this email is just a SUSPECT.<br />Please do not kick or ban just based off the information in this mail.<br />Please make sure you do things like checking their battlelog page,<br />and monitor them in-game so that you can make a fair decision.";
+	subject = "[Anu5 Suspicious Player Alert!] - (" + player + ") is a suspected cheater. Trigger(" + trigger + ")";
+
+	StringBuilder sb = new StringBuilder();
+	sb.Append("<table border='1' rules='rows'><tr align='left'><td>");
+	sb.Append("Suspected Cheater:</td><td><b>" + player + "</b></td></tr><tr align='left'><td>");
+	sb.Append("Date/Time of call:</td><td><b>" + DateTime.Now.ToString() + "</b></td></tr><tr align='left'><td>");
+	sb.Append("Servername:</td><td><b>" + this.csiServer.ServerName + "</b></td></tr><tr align='left'><td>");
+	sb.Append("Server address:</td><td><b>" + this.strHostName + ":" + this.strPort + "</b></td></tr><tr align='left'><td>");
+	sb.Append("Playercount:</td><td><b>" + this.csiServer.PlayerCount + "/" + this.csiServer.MaxPlayerCount + "</b></td></tr><tr align='left'><td>");
+	sb.Append("Map:</td><td><b>" + this.csiServer.Map + "</b></td></tr><tr align='left'><td>");
+	sb.Append("Alert Trigger:</td><td><b>" + trigger + "</b></td></tr><tr align='left'><td>");
+	sb.Append("Word to Admins:</td><td><b>" + adminword + "</b>");
+	sb.Append("</td></tr></table><br /><br />");
+
+	sb.Append("<table border='1' rules='rows'><tr><th>Playername</th><th>Score</th><th>Kills</th><th>Deaths</th><th>HPK%</th><th>KDR</th><th>GUID</th></tr>");
+
+	double mHeadshots = 0;
+	if (this.d_Headshots.ContainsKey(player.ToLower()) == true)
+	{
+		if (this.m_dicPlayers[player].Kills > 0) { mHeadshots = (double)(this.d_Headshots[player] * 100) / this.m_dicPlayers[player].Kills; }
+	}
+	sb.Append("<tr align='center'><td>" + player + "</td><td>" + this.m_dicPlayers[player].Score + "</td><td>" + this.m_dicPlayers[player].Kills + "</td><td>" + this.m_dicPlayers[player].Deaths + "</td><td>" + String.Format("{0:0.##}", mHeadshots) + "</td><td>" + String.Format("{0:0.##}", this.m_dicPlayers[player].Kdr) + "</td><td>" + this.m_dicPlayers[player].GUID + "</td></tr>");
+	sb.Append("</table><br /><br /><table border='1' rules='rows'><tr align='center'><td>");
+	sb.Append("Weapons Used By Suspected Player</td></tr><tr align='left'><td>" + weapons + "</td></tr><tr align='center'><td><b>Keep in mind vehicle kills show as Weapon-(DEATH).</b></td></tr></table>");
+	body = sb.ToString();
+
+	this.EmailWrite(subject, body);
+}
+
+private void EmailWrite(string subject, string body)
+{
+	try
+	{
+		if (this.strSenderMail == null || this.strSenderMail == String.Empty)
+		{
+			this.ConsoleWrite("[Mailer]", "No sender-mail is given!");
+			return;
+		}
+
+		MailMessage email = new MailMessage();
+
+		email.From = new MailAddress(this.strSenderMail);
+
+		if (this.lstReceiverMail.Count > 0)
+		{
+			foreach (string mailto in this.lstReceiverMail)
+			{
+				if (mailto.Contains("@") && mailto.Contains("."))
+				{
+					email.To.Add(new MailAddress(mailto));
+				}
+				else
+				{
+					this.ConsoleWrite("[Mailer]", "Error in receiver-mail: " + mailto);
+				}
+			}
+		}
+		else
+		{
+			this.ConsoleWrite("[Mailer]", "No receiver-mail are given!");
+			return;
+		}
+
+		email.Subject = subject;
+		email.Body = body;
+		email.IsBodyHtml = true;
+		email.BodyEncoding = UTF8Encoding.UTF8;
+
+		SmtpClient smtp = new SmtpClient(this.strSMTPServer, this.iSMTPPort);
+		if (this.blUseSSL == enumBoolYesNo.Yes)
+		{
+			smtp.EnableSsl = true;
+		}
+		else if (this.blUseSSL == enumBoolYesNo.No)
+		{
+			smtp.EnableSsl = false;
+		}
+		smtp.Timeout = 10000;
+		smtp.DeliveryMethod = SmtpDeliveryMethod.Network;
+		smtp.UseDefaultCredentials = false;
+		smtp.Credentials = new NetworkCredential(this.strSMTPUser, this.strSMTPPassword);
+		smtp.Send(email);
+
+		this.ConsoleWrite("[Mailer]", "A notification email has been sent.");
+	}
+	catch (Exception e)
+	{
+		this.ConsoleWrite("[Mailer]", "Error while sending mails: " + e.ToString());
+	}
+}
+
+
+private void SendLogMail(string subject, string body, string address)
+{
+	try
+	{
+		if (this.strSenderMail == null || this.strSenderMail == String.Empty)
+		{
+			this.ConsoleWrite("[Mailer]", "No sender-mail is given!");
+			return;
+		}
+
+		MailMessage email = new MailMessage();
+
+		email.From = new MailAddress(this.strSenderMail);
+
+		if (address.Contains("@") && address.Contains("."))
+		{
+			email.To.Add(new MailAddress(address));
+		}
+		else
+		{
+			this.ChatWrite("[Mailer]", "Error in receiver-mail: " + address);
+		}
+
+
+		email.Subject = subject;
+		email.Body = body;
+		email.IsBodyHtml = true;
+		email.BodyEncoding = UTF8Encoding.UTF8;
+
+		SmtpClient smtp = new SmtpClient(this.strSMTPServer, this.iSMTPPort);
+		if (this.blUseSSL == enumBoolYesNo.Yes)
+		{
+			smtp.EnableSsl = true;
+		}
+		else if (this.blUseSSL == enumBoolYesNo.No)
+		{
+			smtp.EnableSsl = false;
+		}
+		smtp.Timeout = 10000;
+		smtp.DeliveryMethod = SmtpDeliveryMethod.Network;
+		smtp.UseDefaultCredentials = false;
+		smtp.Credentials = new NetworkCredential(this.strSMTPUser, this.strSMTPPassword);
+		smtp.Send(email);
+
+		this.ConsoleWrite("[Mailer]", "Command Log has been sent.");
+	}
+	catch (Exception e)
+	{
+		this.ConsoleWrite("[Mailer]", "Error while sending mails: " + e.ToString());
+	}
+}
+#endregion
+			
