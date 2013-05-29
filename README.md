@@ -21,10 +21,12 @@ for small servers.
 <h3>New in Version 0.2.5.0</h3>
 <p>
 <ul>
+  <li><b>Editable Admin list Through Procon.</b> You can now edit who the admins are, and what level of access they 
+  have from within AdKats settings, no need to access the database manually.</li>
   <li><b>Admins now have multiple levels of access.</b> They range from full admin (1) to normal player (6). List of commands for each 
-  level is given below. Admin can issue commands at or below their level. Admins of higher level can use commands on 
+  level is given below. Admins can issue commands at or below their level. Admins of higher level can use commands on 
   lower level admins</li>
-  <li type="square"><b>HTTP Server Online.</b> Commands can now be sent to AdKats using procon's internal HTTP server, or through the database. 
+  <li><b>HTTP Server Online.</b> Commands can now be sent to AdKats using procon's internal HTTP server, or through the database. 
   Info given below on security of this system.</li>
   <li><b>Player name suggestion system improved.</b> System now considers player names starting with what was typed more correct than those 
   with it just somewhere in their name.</li>
@@ -33,7 +35,7 @@ for small servers.
   <li><b>TeamSwap can now auto-whitelist X random players in the server each round.</b> The random list is changed each 
   round. Use this to generate hype for players to get full access to teamswap. Players are told the first time they 
   spawn that they have access. Players who already have access are not added to the auto-whitelist.</li>
-  <li><b>"Admin Assistant" position added.</b> Random players who consistently send useful reports get a small bonus. 
+  <li><b>"Admin Assistant" position added.</b> Players who consistently send useful player reports get a small bonus. 
   Details below. This can be disabled.</li>
   <li><b>Commands can now be issued from the procon console, as well as through AdKats settings window.</b></li>
   <li><b>Server IDs can be different now, yet still have punishments increase across servers.</b></li>
@@ -43,6 +45,7 @@ for small servers.
   </li>
   <li><b>Actions against yourself nolonger require a reason.</b></li>
   <li><b>Additional ban message option added.</b> e.g. Optionally add "appeal at www.yoursite.com" to the end of bans.</li>
+  <li><b>30 seconds now hardcoded as punishment timeout.</b> Setting was only editable for testing purposes.</li>
   <li><b>Optimizations in code, database, and settings handling.</b></li>
 </ul>
 </p>
@@ -60,7 +63,9 @@ After a player is 'punished' (and the Punish log is made in the database), their
 this basic formula:<br/>
 <b>(Punishment Count - Forgiveness Count = Total Points)</b></center><br/>
 Then an action is decided using total points from the punishment hierarchy. Punishments should get more harsh as the
-player gets more points. The punishment hierarchy is configurable to suit your needs, but the default is below.<br/>
+player gets more points. A player cannot be punished more than once every 30 seconds. This prevents multiple admins from 
+accidentally punishing a player multiple times for the same thing. The punishment hierarchy is configurable to suit 
+your needs, but the default is below.<br/>
 
 <table>
 	<tr>
@@ -117,11 +122,12 @@ Players may also be 'forgiven', which will reduce their total point value by 1 e
 website where players can apologize for their actions in-game. Players can be forgiven into negative total point values 
 which is why a 'less than 1' clause is needed.<br/><br/>
 
-You can run multiple servers with this plugin on the same database, as long as you use different serverID's for each 
-one in plugin settings. By setting each server to a different ID, rule breaking on one server won't cause increase in 
-punishments on another server for that same player. If you want punishments to increase across all your servers, 
-make the serverID the same for all. This is available since many groups run different rule sets on each server they 
-own, so players breaking rules on one server may not know rules on another, they get a clean slate on each server.
+You can run multiple servers with this plugin on the same database, as long as you use different serverIDs for each 
+one in plugin settings. Rule breaking on another server won't cause increase in punishments on the current server 
+for that same player if "Combine Server Punishments" is false. If you want punishments to increase on this server when 
+infractions are commited on others set "Combine Server Punishments" to true. This is available since many groups run 
+different rule sets on each server they own, so players breaking rules on one server may not know rules on another, 
+so they get a clean slate.
 <br/><br/>
 
 When deciding to use this system, 'punish' should be the only command used for player rule-breaking. Other commands 
@@ -143,6 +149,18 @@ other action command, simply use that ID instead of a player-name and reason (e.
 reports them and gets report ID 582, admins just use @punish 582 instead of @punish waffleman73 baserape). Confirmation 
 of command with @yes is required before a report ID is acted on. Players are thanked for reporting when an admin uses 
 their report ID.
+</p>
+<h3>Admin Assistants</h3>
+<p>
+When a player sends a report, then an admin uses that report by ID, it is considered a "good" report. When a player 
+has X good reports in the past week a small bonus is given, access to teamswap. When a player gets access it simply 
+tells them "For your consistent player reporting you now have access to TeamSwap. Type @moveme to swap between teams." 
+They do not know they are considered an admin assistant, only that they have access to that. The assistant list is 
+recalculated at the beginning of each round. They need to keep that report count up to keep access, if they have less 
+then they are automatically removed.<br/><br/>
+
+When an admin assistant sends a report, to the admins that report is prefixed with [AA] to note it as a (most likely) 
+reliable report.
 </p>
 <h3>Player Muting</h3>
 <p>
@@ -559,40 +577,63 @@ Valid 'command_type's that can be acted on include the following:<br/>
 <h2>Settings</h2>
 <p>
 <h3>Banning:</h3>
-* <b>'Ban Type'</b> - The ban type that should be used when banning players, Frostbite - GUID is advised.
+<ul>
+  <li><b>'Ban Type'</b> - The ban type that should be used when banning players, Frostbite - GUID is advised as that is the most reliable.</li>
+  <li><b>'Additional Ban Message'</b> - Additional ban message to append on each ban. e.g. "Dispute at www.yourclansite.com"</li>
+</ul>
 <h3>In-Game Commands:</h3>
-* <b>'Minimum Required Reason Length'</b> - The minimum length a reason must be for commands that require a reason to execute.<br/><br/>
-  <b>Specific command definitions given in features section above.</b> All command text must be a single string with no whitespace. E.G. kill. All commands can be suffixed with '|log', which will set whether use of that command is logged in the database or not.
+<ul>
+  <li><b>'Minimum Required Reason Length'</b> - The minimum length a reason must be for commands that require a reason to execute.</li>
+</ul>
+<b>Specific command definitions given in features section above.</b> All command text must be a single string with no whitespace. E.G. kill. All commands can be suffixed with '|log', which will set whether use of that command is logged in the database or not.
 <h3>Debugging:</h3>
-* <b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step.
+<ul>
+  <li><b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step.</li>
+</ul>
 <h3>HTTP Commands:</h3>
-* <b>'External Access Key'</b> - The access key required to use any HTTP commands, can be changed to whatever is desired, but the default is a random 64Bit hashcode generated when the plugin first runs.<br/>
+<ul>
+  <li><b>'External Access Key'</b> - The access key required to use any HTTP commands, can be changed to whatever is desired, but the default is a random 64Bit hashcode generated when the plugin first runs.<br/></li>
+</ul>
 <h3>Messaging:</h3>
-* <b>'Yell display time seconds'</b> - The integer time in seconds that yell messages will be displayed.<br/>
-* <b>'Pre-Message List'</b> - List of messages for use in pre-say and pre-yell commands.
+<ul>
+  <li><b>'Yell display time seconds'</b> - The integer time in seconds that yell messages will be displayed.</li>
+  <li><b>'Pre-Message List'</b> - List of messages for use in pre-say and pre-yell commands.</li>
+</ul>
 <h3>Muting:</h3>
-* <b>'Muted Player Message'</b> - What to tell players when they talk after being muted.<br/>
-* <b>'# Chances to give player before kicking'</b> - How many times the player will be killed before being kicked from the server for speaking.<br/>
+<ul>
+  <li><b>'Player Muted Message'</b> - What to tell players when they are muted.</li>
+  <li><b>'Muted Kill Message'</b> - What to tell players when they talk after being muted.</li>
+  <li><b>'# Chances to give player before kicking'</b> - How many times the player will be killed before being kicked from the server for speaking.</li>
+</ul>
 <h3>MySQL Settings:</h3>
-* <b>'MySQL Hostname'</b> - Hostname of the MySQL server AdKats should connect to. <br/>
-* <b>'MySQL Port'</b> - Port of the MySQL server AdKats should connect to, most of the time it's 3306. <br/>
-* <b>'MySQL Database'</b> - Database name AdKats should use for storage. Hardcoded table names and creation scripts given below.<br/>
-* <b>'MySQL Username'</b> - Username of the MySQL server AdKats should connect to. <br/>
-* <b>'MySQL Password'</b> - Password of the MySQL server AdKats should connect to.
+<ul>
+  <li><b>'MySQL Hostname'</b> - Hostname of the MySQL server AdKats should connect to.</li>
+  <li><b>'MySQL Port'</b> - Port of the MySQL server AdKats should connect to, most of the time it's 3306.</li>
+  <li><b>'MySQL Database'</b> - Database name AdKats should use for storage. Creation script given in database section.</li>
+  <li><b>'MySQL Username'</b> - Username of the MySQL server AdKats should connect to.</li>
+  <li><b>'MySQL Password'</b> - Password of the MySQL server AdKats should connect to.</li>
+</ul>
 <h3>Player Access:</h3>
-* <b>'Add Access'</b> - The integer time in seconds that yell messages will be displayed.<br/>
-* <b>'Remove Access'</b> - The integer time in seconds that yell messages will be displayed.<br/>
-* <b>*PlayerName*</b> - Players in the current database access list are appeneded here with thier access level.
+<ul>
+  <li><b>'Add Access'</b> - The integer time in seconds that yell messages will be displayed.<br/></li>
+  <li><b>'Remove Access'</b> - The integer time in seconds that yell messages will be displayed.<br/></li>
+  <li><b>*PlayerName*</b> - Players in the current database access list are appeneded here with thier access level.</li>
+</ul> 
 <h3>Punishment Settings:</h3>
-* <b>'Punishment Hierarchy'</b> - List of punishments in order from lightest to most severe. Index in list is the action taken at that number of points.<br/>
-* <b>'Only Kill Players when Server in low population'</b> - When server population is below 'Low Server Pop Value', only kill players, so server does not empty. Player points will be incremented normally.<br/>
-* <b>'Low Server Pop Value'</b> - Number of players at which the server is deemed 'Low Population'.<br/>
-* <b>'Punishment Timeout'</b> - A player cannot be punished more than once every x.xx minutes. This prevents multiple admins from punishing a player multiple times for the same infraction.
+<ul>
+  <li><b>'Punishment Hierarchy'</b> - List of punishments in order from lightest to most severe. Index in list is the action taken at that number of points.</li>
+  <li><b>'Combine Server Punishments'</b> - Whether to make punishes from all servers on this database affect players on this server. Default is false.</li>
+  <li><b>'Only Kill Players when Server in low population'</b> - When server population is below 'Low Server Pop Value', only kill players, so server does not empty. Player points will be incremented normally.</li>
+  <li><b>'Low Server Pop Value'</b> - Number of players at which the server is deemed 'Low Population'.</li>
 <h3>Server Settings:</h3>
-* <b>'Server IP'</b> - IP address of this server. This value is auto-set when server info is gathered and cannot be edited. This value is used to identify this server in the database, and differentiate between servers for infraction points.<br/>
-* <b>'Isolate Server'</b> - Whether to count punishments from your other servers against players on this server. Default True.<br/>
+<ul>
+  <li><b>'Server ID'</b> - Value used to identify this server in the database. Must be different from all other servers you run.</li>
+  <li><b>'Server IP'</b> - IP address of this server, just a display for your benefit.<br/></li>
+</ul>
 <h3>TeamSwap Settings:</h3>
-* <b>'Require Whitelist for Access'</b> - Whether the 'moveme' command will require whitelisting. Admins are always allowed to use it. Default False.<br/>
-* <b>'Ticket Window High'</b> - When either team is above this ticket count, nobody (except admins) will be able to use TeamSwap.<br/>
-* <b>'Ticket Window Low'</b> - When either team is below this ticket count, nobody (except admins) will be able to use TeamSwap.
+<ul>
+  <li><b>'Require Whitelist for Access'</b> - Whether the 'moveme' command will require whitelisting. Admins are always allowed to use it. Default False.</li>
+  <li><b>'Ticket Window High'</b> - When either team is above this ticket count, nobody (except admins) will be able to use TeamSwap.</li>
+  <li><b>'Ticket Window Low'</b> - When either team is below this ticket count, nobody (except admins) will be able to use TeamSwap.</li>
+</ul>
 </p>
