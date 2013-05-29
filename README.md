@@ -24,14 +24,26 @@ for small servers.
   <li><b>Admins now have multiple levels of access.</b> They range from full admin (1) to normal player (6). List of commands for each 
   level is given below. Admin can issue commands at or below their level. Admins of higher level can use commands on 
   lower level admins</li>
-  <li type="square">Commands can now be sent to AdKats using procon's internal HTTP server, or through the database. 
+  <li type="square"><b>HTTP Server Online.</b> Commands can now be sent to AdKats using procon's internal HTTP server, or through the database. 
   Info given below on security of this system.</li>
-  <li>Player name suggestion system now puts player names starting with what was typed over those with it just 
-  somewhere in their name.</li>
-  <li>wef</li>
-  <li>ef</li>
-  <li>ewf</li>
-  <li>wef</li>
+  <li><b>Player name suggestion system improved.</b> System now considers player names starting with what was typed more correct than those 
+  with it just somewhere in their name.</li>
+  <li><b>Commands admins send but don't confirm will be auto-canceled if they move on to other things.</b> This stops 
+  unwanted commands from being acted on after the fact.</li>
+  <li><b>TeamSwap can now auto-whitelist X random players in the server each round.</b> The random list is changed each 
+  round. Use this to generate hype for players to get full access to teamswap. Players are told the first time they 
+  spawn that they have access. Players who already have access are not added to the auto-whitelist.</li>
+  <li><b>"Admin Assistant" position added.</b> Random players who consistently send useful reports get a small bonus. 
+  Details below. This can be disabled.</li>
+  <li><b>Commands can now be issued from the procon console, as well as through AdKats settings window.</b></li>
+  <li><b>Server IDs can be different now, yet still have punishments increase across servers.</b></li>
+  <li><b>Added several commands.</b> Kick all Players, and Nuke Server. Details below.</li>
+  <li><b>Commands can now operate in shortened hidden mode.</b> When commands are issued in hidden mode they normally 
+  require an extra character. e.g. /@kill target reason. They now work with just the slash. e.g. /kill target reason. 
+  </li>
+  <li><b>Actions against yourself nolonger require a reason.</b></li>
+  <li><b>Additional ban message option added.</b> e.g. Optionally add "appeal at www.yoursite.com" to the end of bans.</li>
+  <li><b>Optimizations in code, database, and settings handling.</b></li>
 </ul>
 </p>
 <h3>Punishment/Forgiveness System</h3>
