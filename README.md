@@ -1,5 +1,5 @@
-<h1>AdKats</h1>
 <h3>This doc is for version 0.2.5.0, if using procon your version is listed above. See "New in Version 2.5" for updates.</h3>
+<h1>AdKats</h1>
 <p>
 A MySQL reflected admin toolset that includes editable in-game commands, an out-of-game controller, database 
 reflected punishment and forgiveness, proper player report and admin call handling, player name completion, 
@@ -21,7 +21,7 @@ for small servers.
 <h3>New in Version 0.2.5.0</h3>
 <p>
 <ul>
-  <li><b>Editable Admin list Through Procon.</b> You can now edit who the admins are, and what level of access they 
+  <li><b>Editable admin list through procon.</b> You can now edit who the admins are, and what level of access they 
   have from within AdKats settings, no need to access the database manually.</li>
   <li><b>Admins now have multiple levels of access.</b> They range from full admin (1) to normal player (6). List of commands for each 
   level is given below. Admins can issue commands at or below their level. Admins of higher level can use commands on 
@@ -30,7 +30,7 @@ for small servers.
   Info given below on security of this system.</li>
   <li><b>Player name suggestion system improved.</b> System now considers player names starting with what was typed more correct than those 
   with it just somewhere in their name.</li>
-  <li><b>Commands admins send but don't confirm will be auto-canceled if they move on to other things.</b> This stops 
+  <li><b>Ghost Commands Fixed</b> Commands admins send but don't confirm will be auto-canceled if they move on to other things. This stops 
   unwanted commands from being acted on after the fact.</li>
   <li><b>TeamSwap can now auto-whitelist X random players in the server each round.</b> The random list is changed each 
   round. Use this to generate hype for players to get full access to teamswap. Players are told the first time they 
@@ -63,7 +63,7 @@ After a player is 'punished' (and the Punish log is made in the database), their
 this basic formula:<br/>
 <b>(Punishment Count - Forgiveness Count = Total Points)</b></center><br/>
 Then an action is decided using total points from the punishment hierarchy. Punishments should get more harsh as the
-player gets more points. A player cannot be punished more than once every 30 seconds. This prevents multiple admins from 
+player gets more points. A player cannot be punished more than once every 30 seconds, this prevents multiple admins from 
 accidentally punishing a player multiple times for the same thing. The punishment hierarchy is configurable to suit 
 your needs, but the default is below.<br/>
 
@@ -625,6 +625,7 @@ Valid 'command_type's that can be acted on include the following:<br/>
   <li><b>'Combine Server Punishments'</b> - Whether to make punishes from all servers on this database affect players on this server. Default is false.</li>
   <li><b>'Only Kill Players when Server in low population'</b> - When server population is below 'Low Server Pop Value', only kill players, so server does not empty. Player points will be incremented normally.</li>
   <li><b>'Low Server Pop Value'</b> - Number of players at which the server is deemed 'Low Population'.</li>
+</ul>
 <h3>Server Settings:</h3>
 <ul>
   <li><b>'Server ID'</b> - Value used to identify this server in the database. Must be different from all other servers you run.</li>
