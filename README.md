@@ -1,5 +1,5 @@
 <h1>AdKats</h1>
-<h3>This doc is for version 0.2.0.1, your version is listed above. Update if desired.</h3>
+<h3>This doc is for version 0.2.5.0, if using procon your version is listed above. See "New in Version 2.5" for updates.</h3>
 <p>
 A MySQL reflected admin toolset that includes editable in-game commands, an out-of-game controller, database 
 reflected punishment and forgiveness, proper player report and admin call handling, player name completion, 
@@ -17,6 +17,22 @@ Download the latest plugin (version 0.2.0.0) here:
 <p>
 This tool was designed for use by groups with high traffic servers and many admins, but will function just as well 
 for small servers.
+</p>
+<h3>New in Version 0.2.5.0</h3>
+<p>
+<ul>
+  <li><b>Admins now have multiple levels of access.</b> They range from full admin (1) to normal player (6). List of commands for each 
+  level is given below. Admin can issue commands at or below their level. Admins of higher level can use commands on 
+  lower level admins</li>
+  <li type="square">Commands can now be sent to AdKats using procon's internal HTTP server, or through the database. 
+  Info given below on security of this system.</li>
+  <li>Player name suggestion system now puts player names starting with what was typed over those with it just 
+  somewhere in their name.</li>
+  <li>wef</li>
+  <li>ef</li>
+  <li>ewf</li>
+  <li>wef</li>
+</ul>
 </p>
 <h3>Punishment/Forgiveness System</h3>
 <p>
