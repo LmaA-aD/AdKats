@@ -154,10 +154,10 @@ their report ID.
 <p>
 When a player sends a report, then an admin uses that report by ID, it is considered a "good" report. When a player 
 has X good reports in the past week a small bonus is given, access to teamswap. When a player gets access it simply 
-tells them "For your consistent player reporting you now have access to TeamSwap. Type @moveme to swap between teams." 
-They do not know they are considered an admin assistant, only that they have access to that. The assistant list is 
-recalculated at the beginning of each round. They need to keep that report count up to keep access, if they have less 
-then they are automatically removed.<br/><br/>
+tells them "For your consistent player reporting you now have access to TeamSwap. Type @moveme to swap 
+between teams as often as you want." They do not know they are considered an admin assistant, only that they have access to that. The 
+assistant list is recalculated at the beginning of each round. They need to keep that report count up to keep access, 
+if they have less than the required amount they are automatically removed.<br/><br/>
 
 When an admin assistant sends a report, to the admins that report is prefixed with [AA] to note it as a (most likely) 
 reliable report.
@@ -375,8 +375,8 @@ especially when you have to hold 40+ admins accountable, and has not caused any 
 </p>
 <h3>Command Access Levels</h3>
 <p>
-Players need to be above certain access levels to perform commands. Players on the admin list can have their powers 
-disabled (without removing them from the admin list) by lowering their access level. The default is level 6 for 
+Players need to be at or above certain access levels to perform commands. Players on the admin list can have their 
+powers disabled (without removing them from the admin list) by lowering their access level. The default is level 6 for 
 regular players who have no special access, level 1 is a full admin.
 <br/>
 <table>
@@ -469,13 +469,14 @@ regular players who have no special access, level 1 is a full admin.
 <h3>Commanding AdKats from Outside the Game</h3>
 <p>
 If you have an external system (such as a web-based tool with access to bf3 server information), then there are two 
-ways to interact with AdKats externally.<br/><br/>
+ways to interact with AdKats externally.<br/>
 
-1. Send commands to AdKats through procon's internal HTTP server, it just takes a couple setup steps. Turn on procon's 
+<h4>1. Procon HTTP Server</h4>
+Send commands to AdKats through procon's internal HTTP server, it just takes a couple setup steps. Turn on procon's 
 HTTP server by going to Tools (Upper right) --> Options --> HTTP Tab and enable the server. The default port should be 
 fine for most cases. Then in AdKats settings set the external access key to what you want for a password. Action taken 
-is almost instant, and a helpful error message is given if incorrect params are entered. You can then 
-query the plugin in following manner.<br/><br/>
+is almost instant, and a helpful error message is given if incorrect params are entered. You can then query the plugin 
+in following manner.<br/><br/>
 
 <b>The BF3 server ip and port are shown in AdKats settings.</b><br/>
 http://[procon_server_ip]:[server_port]/[bf3_server_ip]:[bf3_server_port]/plugins/AdKats/?[Parameters]<br/><br/>
@@ -486,17 +487,23 @@ target_name=[Full or Partial Player Name]<br/>
 record_message=[reason for action]<br/>
 access_key=[Your Access Key from AdKats Settings]<br/>
 <b>Optional Parameters:</b><br/>
-source_name=[Name of admin sending this command]<br/>
+source_name=[Name of admin sending this command. This system has access level 1 (full admin) regardless of this entry.]<br/>
 record_durationMinutes=[Used for Temp-Bans, duration of time in minutes]<br/><br/>
 
 <b>Example of Command:</b><br/>
 http://293.182.39.230:27360/173.199.91.187:25210/plugins/AdKats/?command_type=TempBan&source_name=ColonsEnemy&<br/>
 target_name=ColColonCleaner&record_message=Testing&record_durationMinutes=60&access_key=MyPassword<br/><br/>
 
-2. Have your external system add a row to the record table with a new record to be acted on. All information is needed 
+<b>SECURITY NOTE. As some will notice this works through GET commands, which are insecure, if you issue commands and 
+someone outside gets the command URL you entered with your access key they will have full access to issue commands on 
+your instance of this plugin. It is only insecure if you use this method though, as internally the key is randomized. 
+I am working on securing this system, as it is ultimately better than option 2.</b>
+
+<h4>2. Adding Database Records</h4>
+Have your external system add a row to the record table with a new record to be acted on. All information is needed 
 in the row just like the ones sent from AdKats to the database. Just make the 'adkats_read' column for that row = "N" 
 and adkats will act on that record. Every ~20 seconds the plugin checks for new input in the table, and will 
-act on them if found, this is a much slower acting system than the HTTP server option.<br/>
+act on them if found, this is a much slower acting system than the HTTP server option, but is much MUCH more secure.<br/>
 
 Valid 'command_type's that can be acted on include the following:<br/>
 <table>
@@ -576,36 +583,12 @@ Valid 'command_type's that can be acted on include the following:<br/>
 </p>
 <h2>Settings</h2>
 <p>
-<h3>Banning:</h3>
+<h3>1.Server Settings:</h3>
 <ul>
-  <li><b>'Ban Type'</b> - The ban type that should be used when banning players, Frostbite - GUID is advised as that is the most reliable.</li>
-  <li><b>'Additional Ban Message'</b> - Additional ban message to append on each ban. e.g. "Dispute at www.yourclansite.com"</li>
+  <li><b>'Server ID'</b> - Value used to identify this server in the database. Must be different from all other servers you run.</li>
+  <li><b>'Server IP'</b> - IP address of this server, just a display for your benefit.<br/></li>
 </ul>
-<h3>In-Game Commands:</h3>
-<ul>
-  <li><b>'Minimum Required Reason Length'</b> - The minimum length a reason must be for commands that require a reason to execute.</li>
-</ul>
-<b>Specific command definitions given in features section above.</b> All command text must be a single string with no whitespace. E.G. kill. All commands can be suffixed with '|log', which will set whether use of that command is logged in the database or not.
-<h3>Debugging:</h3>
-<ul>
-  <li><b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step.</li>
-</ul>
-<h3>HTTP Commands:</h3>
-<ul>
-  <li><b>'External Access Key'</b> - The access key required to use any HTTP commands, can be changed to whatever is desired, but the default is a random 64Bit hashcode generated when the plugin first runs.<br/></li>
-</ul>
-<h3>Messaging:</h3>
-<ul>
-  <li><b>'Yell display time seconds'</b> - The integer time in seconds that yell messages will be displayed.</li>
-  <li><b>'Pre-Message List'</b> - List of messages for use in pre-say and pre-yell commands.</li>
-</ul>
-<h3>Muting:</h3>
-<ul>
-  <li><b>'Player Muted Message'</b> - What to tell players when they are muted.</li>
-  <li><b>'Muted Kill Message'</b> - What to tell players when they talk after being muted.</li>
-  <li><b>'# Chances to give player before kicking'</b> - How many times the player will be killed before being kicked from the server for speaking.</li>
-</ul>
-<h3>MySQL Settings:</h3>
+<h3>2. MySQL Settings:</h3>
 <ul>
   <li><b>'MySQL Hostname'</b> - Hostname of the MySQL server AdKats should connect to.</li>
   <li><b>'MySQL Port'</b> - Port of the MySQL server AdKats should connect to, most of the time it's 3306.</li>
@@ -613,28 +596,47 @@ Valid 'command_type's that can be acted on include the following:<br/>
   <li><b>'MySQL Username'</b> - Username of the MySQL server AdKats should connect to.</li>
   <li><b>'MySQL Password'</b> - Password of the MySQL server AdKats should connect to.</li>
 </ul>
-<h3>Player Access:</h3>
+<h3>3. Player Access Settings:</h3>
 <ul>
   <li><b>'Add Access'</b> - The integer time in seconds that yell messages will be displayed.<br/></li>
   <li><b>'Remove Access'</b> - The integer time in seconds that yell messages will be displayed.<br/></li>
-  <li><b>*PlayerName*</b> - Players in the current database access list are appeneded here with thier access level.</li>
+  <li><b>*PlayerName*</b> - Players in the current database access list are appeneded here with their access level.</li>
 </ul> 
-<h3>Punishment Settings:</h3>
+<h3>4. In-Game Command Settings:</h3>
+<ul>
+  <li><b>'Minimum Required Reason Length'</b> - The minimum length a reason must be for commands that require a reason to execute.</li>
+</ul>
+<b>Specific command definitions given in features section above.</b> All command text must be a single string with no whitespace. E.G. kill. All commands can be suffixed with '|log', which will set whether use of that command is logged in the database or not.
+<h3>5. Punishment Settings:</h3>
 <ul>
   <li><b>'Punishment Hierarchy'</b> - List of punishments in order from lightest to most severe. Index in list is the action taken at that number of points.</li>
   <li><b>'Combine Server Punishments'</b> - Whether to make punishes from all servers on this database affect players on this server. Default is false.</li>
   <li><b>'Only Kill Players when Server in low population'</b> - When server population is below 'Low Server Pop Value', only kill players, so server does not empty. Player points will be incremented normally.</li>
   <li><b>'Low Server Pop Value'</b> - Number of players at which the server is deemed 'Low Population'.</li>
 </ul>
-<h3>Server Settings:</h3>
-<ul>
-  <li><b>'Server ID'</b> - Value used to identify this server in the database. Must be different from all other servers you run.</li>
-  <li><b>'Server IP'</b> - IP address of this server, just a display for your benefit.<br/></li>
-</ul>
-<h3>TeamSwap Settings:</h3>
+<h3>6. TeamSwap Settings:</h3>
 <ul>
   <li><b>'Require Whitelist for Access'</b> - Whether the 'moveme' command will require whitelisting. Admins are always allowed to use it. Default False.</li>
   <li><b>'Ticket Window High'</b> - When either team is above this ticket count, nobody (except admins) will be able to use TeamSwap.</li>
   <li><b>'Ticket Window Low'</b> - When either team is below this ticket count, nobody (except admins) will be able to use TeamSwap.</li>
+</ul>
+<h3>7. Messaging Settings:</h3>
+<ul>
+  <li><b>'Yell display time seconds'</b> - The integer time in seconds that yell messages will be displayed.</li>
+  <li><b>'Pre-Message List'</b> - List of messages for use in pre-say and pre-yell commands.</li>
+</ul>
+<h3>8. Banning Settings:</h3>
+<ul>
+  <li><b>'Ban Type'</b> - The ban type that should be used when banning players, Frostbite - GUID is advised as that is the most reliable.</li>
+  <li><b>'Additional Ban Message'</b> - Additional ban message to append on each ban. e.g. "Dispute at www.yourclansite.com"</li>
+</ul>
+<h3>9. HTTP Command Settings:</h3>
+<ul>
+  <li><b>'External Access Key'</b> - The access key required to use any HTTP commands, can be changed to whatever is desired, but the default is a random 64Bit hashcode generated when the plugin first runs.<br/></li>
+</ul>
+<h3>10. Debug Settings:</h3>
+Don't edit unless you really wanna be spammed with console logs.
+<ul>
+  <li><b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step.</li>
 </ul>
 </p>
