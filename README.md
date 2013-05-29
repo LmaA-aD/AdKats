@@ -122,12 +122,11 @@ Players may also be 'forgiven', which will reduce their total point value by 1 e
 website where players can apologize for their actions in-game. Players can be forgiven into negative total point values 
 which is why a 'less than 1' clause is needed.<br/><br/>
 
-You can run multiple servers with this plugin on the same database, as long as you use different serverIDs for each 
-one in plugin settings. Rule breaking on another server won't cause increase in punishments on the current server 
-for that same player if "Combine Server Punishments" is false. If you want punishments to increase on this server when 
-infractions are commited on others set "Combine Server Punishments" to true. This is available since many groups run 
-different rule sets on each server they own, so players breaking rules on one server may not know rules on another, 
-so they get a clean slate.
+You can run multiple servers with this plugin on the same database, just use different serverIDs for each 
+one in plugin settings. If you want punishments to increase on this server when infractions are commited on others set 
+"Combine Server Punishments" to true. Rule breaking on another server won't cause increase in punishments on the current 
+server if "Combine Server Punishments" is false. This is available since many groups run different rule sets on each 
+server they own, so players breaking rules on one server may not know rules on another, so they get a clean slate.
 <br/><br/>
 
 When deciding to use this system, 'punish' should be the only command used for player rule-breaking. Other commands 
@@ -495,9 +494,9 @@ http://293.182.39.230:27360/173.199.91.187:25210/plugins/AdKats/?command_type=Te
 target_name=ColColonCleaner&record_message=Testing&record_durationMinutes=60&access_key=MyPassword<br/><br/>
 
 <b>SECURITY NOTE. As some will notice this works through GET commands, which are insecure, if you issue commands and 
-someone outside gets the command URL you entered with your access key they will have full access to issue commands on 
-your instance of this plugin. It is only insecure if you use this method though, as internally the key is randomized. 
-I am working on securing this system, as it is ultimately better than option 2.</b>
+someone outside gets the command URL you entered they will have full access to issue commands on your instance of this 
+plugin. It is only insecure if you use this method though, as internally the key is randomized. I am working on securing 
+this system, as it is ultimately better than option 2.</b>
 
 <h4>2. Adding Database Records</h4>
 Have your external system add a row to the record table with a new record to be acted on. All information is needed 
