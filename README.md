@@ -619,22 +619,27 @@ Valid 'command_type's that can be acted on include the following:<br/>
   <li><b>'Ticket Window High'</b> - When either team is above this ticket count, nobody (except admins) will be able to use TeamSwap.</li>
   <li><b>'Ticket Window Low'</b> - When either team is below this ticket count, nobody (except admins) will be able to use TeamSwap.</li>
 </ul>
-<h3>7. Messaging Settings:</h3>
+<h3>7. Admin Assistant Settings:</h3>
 <ul>
   <li><b>'Yell display time seconds'</b> - The integer time in seconds that yell messages will be displayed.</li>
   <li><b>'Pre-Message List'</b> - List of messages for use in pre-say and pre-yell commands.</li>
 </ul>
-<h3>8. Banning Settings:</h3>
+<h3>8. Messaging Settings:</h3>
+<ul>
+  <li><b>'Yell display time seconds'</b> - The integer time in seconds that yell messages will be displayed.</li>
+  <li><b>'Pre-Message List'</b> - List of messages for use in pre-say and pre-yell commands.</li>
+</ul>
+<h3>9. Banning Settings:</h3>
 <ul>
   <li><b>'Ban Type'</b> - The ban type that should be used when banning players, Frostbite - GUID is advised as that is the most reliable.</li>
   <li><b>'Additional Ban Message'</b> - Additional ban message to append on each ban. e.g. "Dispute at www.yourclansite.com"</li>
 </ul>
-<h3>9. HTTP Command Settings:</h3>
+<h3>10. HTTP Command Settings:</h3>
 <ul>
   <li><b>'External Access Key'</b> - The access key required to use any HTTP commands, can be changed to whatever is desired, but the default is a random 64Bit hashcode generated when the plugin first runs.<br/></li>
 </ul>
-<h3>10. Debug Settings:</h3>
-Don't edit unless you really wanna be spammed with console logs.
+<h3>11. Debug Settings:</h3>
+Don't edit unless you really wanna be spammed with console logs, it will also slow down the plugin when turned up.
 <ul>
   <li><b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step.</li>
 </ul>
