@@ -582,7 +582,7 @@ Valid 'command_type's that can be acted on include the following:<br/>
 </p>
 <h2>Settings</h2>
 <p>
-<h3>1.Server Settings:</h3>
+<h3>1. Server Settings:</h3>
 <ul>
   <li><b>'Server ID'</b> - Value used to identify this server in the database. Must be different from all other servers you run.</li>
   <li><b>'Server IP'</b> - IP address of this server, just a display for your benefit.<br/></li>
@@ -639,6 +639,7 @@ Valid 'command_type's that can be acted on include the following:<br/>
 <h3>10. Banning Settings:</h3>
 <ul>
   <li><b>'Ban Type'</b> - The ban type that should be used when banning players, Frostbite - GUID is advised as that is the most reliable.</li>
+  <li><b>'Use Additional Ban Message'</b> - Whether to have an additional message append on each ban.</li>
   <li><b>'Additional Ban Message'</b> - Additional ban message to append on each ban. e.g. "Dispute at www.yourclansite.com"</li>
 </ul>
 <h3>11. HTTP Command Settings:</h3>
