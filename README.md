@@ -37,7 +37,6 @@ for small servers.
   spawn that they have access. Players who already have access are not added to the auto-whitelist.</li>
   <li><b>"Admin Assistant" position added.</b> Players who consistently send useful player reports get a small bonus. 
   Details below. This can be disabled.</li>
-  <li><b>Commands can now be issued from the procon console, as well as through AdKats settings window.</b></li>
   <li><b>Server IDs can be different now, yet still have punishments increase across servers.</b></li>
   <li><b>Added several commands.</b> Kick all Players, and Nuke Server. Details below.</li>
   <li><b>Commands can now operate in shortened hidden mode.</b> When commands are issued in hidden mode they normally 
