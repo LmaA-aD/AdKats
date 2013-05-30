@@ -624,14 +624,14 @@ Valid 'command_type's that can be acted on include the following:<br/>
   <li><b>'Enable Admin Assistants'</b> - Whether admin assistants will be enabled or not.</li>
   <li><b>'Minimum Confirmed Reports Per Week'</b> - How many confirmed reports the player must have in the past week to get/keep the admin assistant perk.</li>
 </ul>
-<h3>8. Messaging Settings:</h3>
+<h3>8. Player Mute Settings:</h3>
 <ul>
   <li><b>'On-Player-Muted Message'</b> - The message given to players when they are muted by an admin.</li>
   <li><b>'On-Player-Killed Message'</b> - The message given to players when they are killed for talking in chat after muting.</li>
   <li><b>'On-Player-Kicked Message'</b> - The message given to players when they are kicked for talking more than X times in chat after muting.</li>
   <li><b>'# Chances to give player before kicking'</b> - The number of chances players get to talk after being muted before they are kicked. After testing, 5 appears to be the perfect number, but change as desired.</li>
 </ul>
-<h3>9. Player Mute Settings:</h3>
+<h3>9. Messaging Settings:</h3>
 <ul>
   <li><b>'Yell display time seconds'</b> - The integer time in seconds that yell messages will be displayed.</li>
   <li><b>'Pre-Message List'</b> - List of messages for use in pre-say and pre-yell commands.</li>
