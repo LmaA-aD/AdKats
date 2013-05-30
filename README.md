@@ -626,19 +626,26 @@ Valid 'command_type's that can be acted on include the following:<br/>
 </ul>
 <h3>8. Messaging Settings:</h3>
 <ul>
+  <li><b>'On-Player-Muted Message'</b> - The message given to players when they are muted by an admin.</li>
+  <li><b>'On-Player-Killed Message'</b> - The message given to players when they are killed for talking in chat after muting.</li>
+  <li><b>'On-Player-Kicked Message'</b> - The message given to players when they are kicked for talking more than X times in chat after muting.</li>
+  <li><b>'# Chances to give player before kicking'</b> - The number of chances players get to talk after being muted before they are kicked. After testing, 5 appears to be the perfect number, but change as desired.</li>
+</ul>
+<h3>9. Player Mute Settings:</h3>
+<ul>
   <li><b>'Yell display time seconds'</b> - The integer time in seconds that yell messages will be displayed.</li>
   <li><b>'Pre-Message List'</b> - List of messages for use in pre-say and pre-yell commands.</li>
 </ul>
-<h3>9. Banning Settings:</h3>
+<h3>10. Banning Settings:</h3>
 <ul>
   <li><b>'Ban Type'</b> - The ban type that should be used when banning players, Frostbite - GUID is advised as that is the most reliable.</li>
   <li><b>'Additional Ban Message'</b> - Additional ban message to append on each ban. e.g. "Dispute at www.yourclansite.com"</li>
 </ul>
-<h3>10. HTTP Command Settings:</h3>
+<h3>11. HTTP Command Settings:</h3>
 <ul>
   <li><b>'External Access Key'</b> - The access key required to use any HTTP commands, can be changed to whatever is desired, but the default is a random 64Bit hashcode generated when the plugin first runs.<br/></li>
 </ul>
-<h3>11. Debug Settings:</h3>
+<h3>12. Debug Settings:</h3>
 Don't edit unless you really wanna be spammed with console logs, it will also slow down the plugin when turned up.
 <ul>
   <li><b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step.</li>
