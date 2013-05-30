@@ -1,4 +1,4 @@
-<h3>This doc is for version 0.2.5.0, if using procon your version is listed above. See "New in Version 2.5" for updates.</h3>
+<h3>This doc is for version 0.2.5.0, your version is listed above (Procon Only).</h3>
 <h1>AdKats</h1>
 <p>
 A MySQL reflected admin toolset that includes editable in-game commands, an out-of-game controller, database 
@@ -624,8 +624,8 @@ Valid 'command_type's that can be acted on include the following:<br/>
 </ul>
 <h3>8. Admin Assistant Settings:</h3>
 <ul>
-  <li><b>'Enable Admin Assistants'</b> - Whether admin assistants will be enabled or not.</li>
-  <li><b>'Minimum Confirmed Reports Per Week'</b> - How many confirmed reports the player must have in the past week to get/keep the admin assistant perk.</li>
+  <li><b>'Enable Admin Assistant Perk'</b> - Whether admin assistants will get a perk for their help.</li>
+  <li><b>'Minimum Confirmed Reports Per Week'</b> - How many confirmed reports the player must have in the past week to be an admin assistant.</li>
 </ul>
 <h3>9. Player Mute Settings:</h3>
 <ul>
