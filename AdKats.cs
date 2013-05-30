@@ -11,7 +11,7 @@
  * Code Credit:
  * Email System from "Notify Me!" By MorpheusX(AUT)
  * Twitter Post System from Micovery's InsaneLimits
- * Modded Suggestion System from Micovery's InsaneLimits
+ * Modded Player-Name Suggestion System from Micovery's InsaneLimits
  * 
  * AdKats.cs
  */
