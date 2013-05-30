@@ -6,7 +6,7 @@
 
 CREATE TABLE `adkat_records` ( 
 `record_id` int(11) NOT NULL AUTO_INCREMENT, 
-`server_is` int(11) NOT NULL DEFAULT -1, 
+`server_id` int(11) NOT NULL DEFAULT -1, 
 `server_ip` varchar(45) NOT NULL DEFAULT "0.0.0.0:0000", 
 `command_type` varchar(45) NOT NULL DEFAULT "DefaultCommand", 
 `command_action` varchar(45) NOT NULL DEFAULT "DefaultAction", 
