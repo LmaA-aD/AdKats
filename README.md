@@ -592,6 +592,7 @@ Valid 'command_type's that can be acted on include the following:<br/>
 <h3>7. TeamSwap Settings:</h3>
 <ul>
   <li><b>'Require Whitelist for Access'</b> - Whether the 'moveme' command will require whitelisting. Admins are always allowed to use it. Default False.</li>
+  <li><b>'Auto-Whitelist Count'</b> - At the start of each round, X random players will be whitelisted for teamswap during that round. At the end of the round they lose their whitelisting. Use to get players interested in permanent whitelisting.</li>
   <li><b>'Ticket Window High'</b> - When either team is above this ticket count, nobody (except admins) will be able to use TeamSwap.</li>
   <li><b>'Ticket Window Low'</b> - When either team is below this ticket count, nobody (except admins) will be able to use TeamSwap.</li>
 </ul>
