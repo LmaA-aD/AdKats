@@ -126,7 +126,7 @@ namespace PRoConEvents
         };
 
         // General settings
-        private int serverID = -1;
+        private int server_id = -1;
         //Whether to get the release version of plugin description, or the dev version.
         //This setting is unchangeable by users, and will always be TRUE for released versions of the plugin.
         private bool isRelease = false;
@@ -282,8 +282,8 @@ namespace PRoConEvents
         //Mail Settings
         private string strHostName;
         private string strPort;
-        private enumBoolYesNo sendmail;
-        private enumBoolYesNo blUseSSL;
+        private Boolean sendmail;
+        private Boolean blUseSSL;
         private string strSMTPServer;
         private int iSMTPPort;
         private string strSenderMail;
@@ -409,8 +409,8 @@ namespace PRoConEvents
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.CallAdmin, 6);
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.ConfirmReport, 6);
 
-            this.sendmail = enumBoolYesNo.No;
-            this.blUseSSL = enumBoolYesNo.No;
+            this.sendmail = false;
+            this.blUseSSL = false;
             this.strSMTPServer = String.Empty;
             this.iSMTPPort = 25;
             this.strSenderMail = String.Empty;
@@ -493,7 +493,7 @@ namespace PRoConEvents
             try
             {
                 //Server Settings
-                lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID", typeof(int), this.serverID));
+                lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID", typeof(int), this.server_id));
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Server IP", typeof(string), (this.serverInfo == null) ? ("Waiting on Server Info (10-20 seconds)") : (this.serverInfo.ExternalGameIpandPort)));
 
                 //SQL Settings
@@ -543,9 +543,9 @@ namespace PRoConEvents
 
                 //Player Report Settings
                 lstReturn.Add(new CPluginVariable("6. Email Settings|Send Emails", typeof(string), "Disabled Until Implemented"));//, typeof(enumBoolYesNo), this.sendmail));
-                if (this.sendmail == enumBuulYesNo.Yes)
+                if (this.sendmail == false)
                 {
-                    lstReturn.Add(new CPluginVariable("6. Email Settings|Email: Use SSL?", typeof(enumBoolYesNo), this.blUseSSL));
+                    lstReturn.Add(new CPluginVariable("6. Email Settings|Email: Use SSL?", typeof(Boolean), this.blUseSSL));
                     lstReturn.Add(new CPluginVariable("6. Email Settings|SMTP-Server address", typeof(string), this.strSMTPServer));
                     lstReturn.Add(new CPluginVariable("6. Email Settings|SMTP-Server port", typeof(int), this.iSMTPPort));
                     lstReturn.Add(new CPluginVariable("6. Email Settings|Sender address", typeof(string), this.strSenderMail));
@@ -628,7 +628,7 @@ namespace PRoConEvents
             {
                 int tmp = -1;
                 int.TryParse(strValue, out tmp);
-                this.serverID = tmp;
+                this.server_id = tmp;
             }
             #endregion
             #region ban settings
@@ -1075,24 +1075,25 @@ namespace PRoConEvents
             }
             #endregion
             #region email settings
-            else if (strVariable.CompareTo("Send Emails") == 0 && Enum.IsDefined(typeof(enumBoolYesNo), strValue) == true)
+            else if (strVariable.CompareTo("Send Emails")==0)
             {
-                this.sendmail = (enumBoolYesNo)Enum.Parse(typeof(enumBoolYesNo), strValue);
+                this.sendmail = Boolean.Parse(strValue);
             }
-            else if (strVariable.CompareTo("Admin Request Email?") == 0 && Enum.IsDefined(typeof(enumBoolYesNo), strValue) == true)
+            else if (strVariable.CompareTo("Admin Request Email?") == 0)
             {
-                this.blNotifyEmail = (enumBoolYesNo)Enum.Parse(typeof(enumBoolYesNo), strValue);
+                //this.blNotifyEmail = Boolean.Parse(strValue);
             }
-            else if (strVariable.CompareTo("Use SSL?") == 0 && Enum.IsDefined(typeof(enumBoolYesNo), strValue) == true)
+            else if (strVariable.CompareTo("Use SSL?") == 0)
             {
-                this.blUseSSL = (enumBoolYesNo)Enum.Parse(typeof(enumBoolYesNo), strValue);
+                this.blUseSSL = Boolean.Parse(strValue);
             }
             else if (strVariable.CompareTo("SMTP-Server address") == 0)
             {
                 this.strSMTPServer = strValue;
             }
-            else if (strVariable.CompareTo("SMTP-Server port") == 0 && int.TryParse(strValue, out iPort) == true)
+            else if (strVariable.CompareTo("SMTP-Server port") == 0)
             {
+                int iPort = Int32.Parse(strValue);
                 if (iPort > 0)
                 {
                     this.iSMTPPort = iPort;
@@ -1504,7 +1505,7 @@ namespace PRoConEvents
                     //Create record
                     ADKAT_Record record = new ADKAT_Record();
                     record.command_source = ADKAT_CommandSource.InGame;
-                    record.serverID = this.serverID;
+                    record.server_id = this.server_id;
                     record.server_ip = this.serverInfo.ExternalGameIpandPort;
                     record.record_time = DateTime.Now;
                     record.record_durationMinutes = 0;
@@ -1545,10 +1546,10 @@ namespace PRoConEvents
                     return;
                 }
                 //Create the record
-                ADKAT_Record record = new ADKAT_Record();
-                record.command_source = ADKAT_CommandSource.InGame;
-                record.source_name = speaker;
-                this.completeRecord(record, message);
+                ADKAT_Record recordItem  = new ADKAT_Record();
+                recordItem.command_source = ADKAT_CommandSource.InGame;
+                recordItem.source_name = speaker;
+                this.completeRecord(recordItem, message);
             }
         }
         public override void OnTeamChat(string speaker, string message, int teamId) { this.OnGlobalChat(speaker, message); }
@@ -1710,7 +1711,7 @@ namespace PRoConEvents
             String[] splitCommand = message.Split(' ');
 
             //GATE 1: Add general data
-            record.serverID = this.serverID;
+            record.server_id = this.server_id;
             record.server_ip = this.serverInfo.ExternalGameIpandPort;
             record.record_time = DateTime.Now;
 
@@ -1729,7 +1730,7 @@ namespace PRoConEvents
 
             //GATE 3: Add source
             //Check if player has the right to perform what he's asking, only perform for InGame actions
-            if (record.command_source==ADKAT_CommandSource.InGame && !this.hasAccess(speaker, record.command_type))
+            if (record.command_source==ADKAT_CommandSource.InGame && !this.hasAccess(record.source_name, record.command_type))
             {
                 DebugWrite("No rights to call command", 6);
                 this.sendMessageToSource(record, "No rights to use " + commandString + " command. Inquire about access with admins.");
@@ -1750,7 +1751,7 @@ namespace PRoConEvents
 
                 #region MovePlayer
                 case ADKAT_CommandType.MovePlayer:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         //Handle based on report ID if possible
@@ -1772,7 +1773,7 @@ namespace PRoConEvents
                 #endregion
                 #region ForceMovePlayer
                 case ADKAT_CommandType.ForceMovePlayer:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         //Handle based on report ID if possible
@@ -1799,8 +1800,8 @@ namespace PRoConEvents
                         this.sendMessageToSource(record, "You cannot use teamswap directly from outside the game. Use force move.");
                         return;
                     }
-                    this.actionAttemptList.Remove(speaker);
-                    record.target_name = speaker;
+                    this.actionAttemptList.Remove(record.source_name);
+                    record.target_name = record.source_name;
                     record.record_message = "TeamSwap";
                     //Sets target_guid and completes target_name, then calls processRecord
                     completeTargetName(record);
@@ -1808,7 +1809,7 @@ namespace PRoConEvents
                 #endregion
                 #region KillPlayer
                 case ADKAT_CommandType.KillPlayer:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         //Handle based on report ID if possible
@@ -1837,7 +1838,7 @@ namespace PRoConEvents
                 #endregion
                 #region KickPlayer
                 case ADKAT_CommandType.KickPlayer:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         //Handle based on report ID if possible
@@ -1866,7 +1867,7 @@ namespace PRoConEvents
                 #endregion
                 #region TempBanPlayer
                 case ADKAT_CommandType.TempBanPlayer:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         int record_duration = 0;
@@ -1901,7 +1902,7 @@ namespace PRoConEvents
                 #endregion
                 #region PermabanPlayer
                 case ADKAT_CommandType.PermabanPlayer:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         //Handle based on report ID if possible
@@ -1930,7 +1931,7 @@ namespace PRoConEvents
                 #endregion
                 #region PunishPlayer
                 case ADKAT_CommandType.PunishPlayer:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         //Handle based on report ID if possible
@@ -1959,7 +1960,7 @@ namespace PRoConEvents
                 #endregion
                 #region ForgivePlayer
                 case ADKAT_CommandType.ForgivePlayer:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         record.target_name = splitCommand[1];
@@ -1985,7 +1986,7 @@ namespace PRoConEvents
                 #endregion
                 #region MutePlayer
                 case ADKAT_CommandType.MutePlayer:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         //Handle based on report ID if possible
@@ -2014,7 +2015,7 @@ namespace PRoConEvents
                 #endregion
                 #region RoundWhitelistPlayer
                 case ADKAT_CommandType.RoundWhitelistPlayer:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         //Handle based on report ID if possible
@@ -2043,7 +2044,7 @@ namespace PRoConEvents
                 #endregion
                 #region ReportPlayer
                 case ADKAT_CommandType.ReportPlayer:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         record.target_name = splitCommand[1];
@@ -2069,7 +2070,7 @@ namespace PRoConEvents
                 #endregion
                 #region CallAdmin
                 case ADKAT_CommandType.CallAdmin:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         record.target_name = splitCommand[1];
@@ -2095,7 +2096,7 @@ namespace PRoConEvents
                 #endregion
                 #region EndLevel
                 case ADKAT_CommandType.EndLevel:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         record.record_message = "End Round";
@@ -2129,12 +2130,12 @@ namespace PRoConEvents
                 #endregion
                 #region NukeServer
                 case ADKAT_CommandType.NukeServer:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         record.record_message = "Server Nuke";
-                        String target = splitCommand[1];
-                        DebugWrite("target: " + target, 6);
+                        String targetTeam = splitCommand[1];
+                        DebugWrite("target: " + targetTeam, 6);
                         if (targetTeam.ToLower().Contains("us"))
                         {
                             record.target_name = "US Team";
@@ -2169,7 +2170,7 @@ namespace PRoConEvents
                 #endregion
                 #region KickAll
                 case ADKAT_CommandType.KickAll:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     record.target_name = "Server";
                     record.target_guid = "Server";
                     record.record_message = "Kick All Players";
@@ -2178,7 +2179,7 @@ namespace PRoConEvents
                 #endregion
                 #region RestartLevel
                 case ADKAT_CommandType.RestartLevel:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     record.target_name = "Server";
                     record.target_guid = "Server";
                     record.record_message = "Restart Round";
@@ -2187,7 +2188,7 @@ namespace PRoConEvents
                 #endregion
                 #region NextLevel
                 case ADKAT_CommandType.NextLevel:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     record.target_name = "Server";
                     record.target_guid = "Server";
                     record.record_message = "Run Next Map";
@@ -2196,7 +2197,7 @@ namespace PRoConEvents
                 #endregion
                 #region AdminSay
                 case ADKAT_CommandType.AdminSay:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     record.target_name = "Server";
                     record.target_guid = "Server";
                     try
@@ -2216,7 +2217,7 @@ namespace PRoConEvents
                 #endregion
                 #region PreSay
                 case ADKAT_CommandType.PreSay:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     record.target_name = "Server";
                     record.target_guid = "Server";
                     try
@@ -2256,7 +2257,7 @@ namespace PRoConEvents
                 #endregion
                 #region AdminYell
                 case ADKAT_CommandType.AdminYell:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     record.target_name = "Server";
                     record.target_guid = "Server";
                     try
@@ -2276,7 +2277,7 @@ namespace PRoConEvents
                 #endregion
                 #region PreYell
                 case ADKAT_CommandType.PreYell:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     record.target_name = "Server";
                     record.target_guid = "Server";
                     try
@@ -2316,7 +2317,7 @@ namespace PRoConEvents
                 #endregion
                 #region PlayerSay
                 case ADKAT_CommandType.PlayerSay:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         record.target_name = splitCommand[1];
@@ -2336,7 +2337,7 @@ namespace PRoConEvents
                 #endregion
                 #region PlayerYell
                 case ADKAT_CommandType.PlayerYell:
-                    this.actionAttemptList.Remove(speaker);
+                    this.actionAttemptList.Remove(record.source_name);
                     try
                     {
                         record.target_name = splitCommand[1];
@@ -2357,10 +2358,10 @@ namespace PRoConEvents
                 #region ConfirmCommand
                 case ADKAT_CommandType.ConfirmCommand:
                     ADKAT_Record recordAttempt = null;
-                    this.actionAttemptList.TryGetValue(speaker, out recordAttempt);
+                    this.actionAttemptList.TryGetValue(record.source_name, out recordAttempt);
                     if (recordAttempt != null)
                     {
-                        this.actionAttemptList.Remove(speaker);
+                        this.actionAttemptList.Remove(record.source_name);
                         this.processRecord(recordAttempt);
                     }
                     else
@@ -2371,13 +2372,7 @@ namespace PRoConEvents
                 #endregion
                 #region CancelCommand
                 case ADKAT_CommandType.CancelCommand:
-                    ADKAT_Record recordAttempt = null;
-                    this.actionAttemptList.TryGetValue(speaker, out recordAttempt);
-                    if (recordAttempt != null)
-                    {
-                        this.actionAttemptList.Remove(speaker);
-                    }
-                    else
+                    if (!this.actionAttemptList.Remove(record.source_name))
                     {
                         this.sendMessageToSource(record, "No command to cancel.");
                     }
@@ -2825,7 +2820,7 @@ namespace PRoConEvents
             {
                 if (!this.teamswapRoundWhitelist.ContainsKey(record.target_name))
                 {
-                    if (this.teamswapRoundWhitelist.Count < this.randomWhitelistCount+2)
+                    if (this.teamswapRoundWhitelist.Count < this.playersToAutoWhitelist+2)
                     {
                         this.teamswapRoundWhitelist.Add(record.target_name, false);
                         string command = this.m_strTeamswapCommand.TrimEnd("|log".ToCharArray());
@@ -2915,39 +2910,39 @@ namespace PRoConEvents
             return message;
         }
 
-        public string nukeTarget(ADKAT_Record record, string additionalMessage)
+        public string nukeTarget(ADKAT_Record record)
         {
             //Perform actions
             string message = "No Message";
-            foreach (CPlayerInfo player in this.currentPlayers)
+            foreach (CPlayerInfo player in this.playerList)
             {
-                if ((record.target_name == "US Team" && player.teamID == this.USTeamID) ||
-                    (record.target_name == "RU Team" && player.teamID == this.RUTeamID) ||
+                if ((record.target_name == "US Team" && player.TeamID == this.USTeamId) ||
+                    (record.target_name == "RU Team" && player.TeamID == this.RUTeamId) ||
                     (record.target_name == "Server"))
                 {
-                    ExecuteCommand("procon.protected.send", "admin.killPlayer", player.soldierName);
-                    this.playerSayMessage(record.target_name, "Killed by admin for: " + record.record_message + " " + additionalMessage);
+                    ExecuteCommand("procon.protected.send", "admin.killPlayer", player.SoldierName);
+                    this.playerSayMessage(record.target_name, "Killed by admin for: " + record.record_message);
                 }
             }
-            message = "You NUKED " + record.target_name + " for " + record.record_message + ". " + additionalMessage;
+            message = "You NUKED " + record.target_name + " for " + record.record_message + ".";
             this.playerSayMessage(record.source_name, message);
             return message;
         }
 
-        public string kickAllPlayers(ADKAT_Record record, string additionalMessage)
+        public string kickAllPlayers(ADKAT_Record record)
         {
             //Perform Actions
             string message = "No Message";
-            foreach (CPlayerInfo player in this.currentPlayers)
+            foreach (CPlayerInfo player in this.playerList)
             {
-                if (!(this.playerAccessCache.ContainsKey(player.soldierName) && this.playerAccessCache[player.soldierName] < 5))
+                if (!(this.playerAccessCache.ContainsKey(player.SoldierName) && this.playerAccessCache[player.SoldierName] < 5))
                 {
-                    ExecuteCommand("procon.protected.send", "admin.kickPlayer", player.soldierName, "(" + record.source_name + ") " + record.record_message + " " + additionalMessage);
+                    ExecuteCommand("procon.protected.send", "admin.kickPlayer", player.SoldierName, "(" + record.source_name + ") " + record.record_message);
                 }
             }
-            this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was KICKED by admin: " + record.record_message + " " + additionalMessage, "all");
+            this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was KICKED by admin: " + record.record_message, "all");
 
-            message = "You KICKED EVERYONE for " + record.record_message + ". " + additionalMessage;
+            message = "You KICKED EVERYONE for " + record.record_message + ". ";
             this.playerSayMessage(record.source_name, message);
             return message;
         }
@@ -3218,7 +3213,7 @@ namespace PRoConEvents
                             action = type;
                         }
                         //Set values
-                        command.Parameters.AddWithValue("@server_id", this.serverID);
+                        command.Parameters.AddWithValue("@server_id", this.server_id);
                         command.Parameters.AddWithValue("@server_ip", this.serverInfo.ExternalGameIpandPort);
                         command.Parameters.AddWithValue("@command_type", type);
                         command.Parameters.AddWithValue("@command_action", action);
@@ -3414,7 +3409,7 @@ namespace PRoConEvents
                         }
                         else
                         {
-                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`server_id` = '" + this.serverID + "' and `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 30 SECOND) > NOW() order by record_time desc limit 1";
+                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`server_id` = '" + this.server_id + "' and `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 30 SECOND) > NOW() order by record_time desc limit 1";
                         }
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
@@ -3449,7 +3444,7 @@ namespace PRoConEvents
                 {
                     using (MySqlCommand command = databaseConnection.CreateCommand())
                     {
-                        command.CommandText = "SELECT `record_id`, `server_id`, `server_ip`, `command_type`, `command_action`, `record_durationMinutes`, `target_guid`, `target_name`, `source_name`, `record_message`, `record_time` FROM `" + this.mySqlDatabaseName + "`.`adkat_records` WHERE `adkats_read` = 'N' AND `server_id` = '" + this.serverID + "'";
+                        command.CommandText = "SELECT `record_id`, `server_id`, `server_ip`, `command_type`, `command_action`, `record_durationMinutes`, `target_guid`, `target_name`, `source_name`, `record_message`, `record_time` FROM `" + this.mySqlDatabaseName + "`.`adkat_records` WHERE `adkats_read` = 'N' AND `server_id` = '" + this.server_id + "'";
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
                             Boolean actionsMade = false;
@@ -3527,7 +3522,7 @@ namespace PRoConEvents
                         }
                         else
                         {
-                            command.CommandText = "SELECT playername, playerguid, serverip, totalpoints FROM `" + this.mySqlDatabaseName + "`.`adkat_playerpoints` WHERE `playerguid` = '" + player_guid + "' AND `serverid` = " + this.serverID;
+                            command.CommandText = "SELECT playername, playerguid, serverip, totalpoints FROM `" + this.mySqlDatabaseName + "`.`adkat_playerpoints` WHERE `playerguid` = '" + player_guid + "' AND `serverid` = " + this.server_id;
                         }
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
@@ -3665,7 +3660,7 @@ namespace PRoConEvents
             {
                 //Update the access cache
                 this.adminAssistantCache = tempAssistantCache;
-                if (this.enableAfminAssistants)
+                if (this.enableAdminAssistants)
                 {
                     ConsoleWrite("Admin Assistant List Fetched from Database. Assistant Count: " + this.adminAssistantCache.Count);
                 }
@@ -3850,9 +3845,9 @@ namespace PRoConEvents
 
         #region Mailing Functions
 
-        private void PrepareEmail(string sender, string message)
+        /*private void PrepareEmail(string sender, string message)
         {
-            if (this.blNotifyEmail == enumBoolYesNo.Yes)
+            if (this.blNotifyEmail == true)
             {
                 string subject = String.Empty;
                 string body = String.Empty;
@@ -3961,11 +3956,11 @@ namespace PRoConEvents
                 email.BodyEncoding = UTF8Encoding.UTF8;
 
                 SmtpClient smtp = new SmtpClient(this.strSMTPServer, this.iSMTPPort);
-                if (this.blUseSSL == enumBoolYesNo.Yes)
+                if (this.blUseSSL == true)
                 {
                     smtp.EnableSsl = true;
                 }
-                else if (this.blUseSSL == enumBoolYesNo.No)
+                else if (this.blUseSSL == false)
                 {
                     smtp.EnableSsl = false;
                 }
@@ -4007,11 +4002,11 @@ namespace PRoConEvents
                 email.IsBodyHtml = true;
                 email.BodyEncoding = UTF8Encoding.UTF8;
                 SmtpClient smtp = new SmtpClient(this.strSMTPServer, this.iSMTPPort);
-                if (this.blUseSSL == enumBoolYesNo.Yes)
+                if (this.blUseSSL == true)
                 {
                     smtp.EnableSsl = true;
                 }
-                else if (this.blUseSSL == enumBoolYesNo.No)
+                else if (this.blUseSSL == false)
                 {
                     smtp.EnableSsl = false;
                 }
@@ -4027,6 +4022,7 @@ namespace PRoConEvents
                 this.ConsoleWrite("[Mailer]", "Error while sending mails: " + e.ToString());
             }
         }
+        */
         #endregion
 
         #region Player Name Suggestion
@@ -4140,7 +4136,7 @@ namespace PRoConEvents
             }
             catch (Exception e)
             {
-                this.ConsoleException(e);
+                this.ConsoleException(e.ToString());
             }
             return null;
         }
@@ -4233,7 +4229,7 @@ namespace PRoConEvents
         public class ADKAT_Record
         {
             public long record_id = -1;
-            public int serverID = -1;
+            public int server_id = -1;
             public string server_ip = "0.0.0.0:0000";
             public string target_guid = null;
             public string target_name = null;
