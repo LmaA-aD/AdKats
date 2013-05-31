@@ -282,12 +282,12 @@ especially when you have to hold 40+ admins accountable, and has not caused any 
 	</tr>
 	<tr>
 		<td><b>Pre-Say</b></td>
-		<td>[message ID]</td>
+		<td>[messageID]</td>
 		<td>The in-game command used for sending a pre-defined message as an Admin Say.</td>
 	</tr>
 	<tr>
 		<td><b>Pre-Yell</b></td>
-		<td>[message ID]</td>
+		<td>[messageID]</td>
 		<td>The in-game command used for sending a pre-defined message as an Admin Yell.</td>
 	</tr>
 	<tr>
