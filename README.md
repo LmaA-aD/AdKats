@@ -1,4 +1,5 @@
 <h3>This doc is for version 0.2.5.0, your version is listed above (Procon Only).</h3>
+New in version 0.2.5.0 at the bottom of this document.
 <h1>AdKats</h1>
 <p>
 A MySQL reflected admin toolset that includes editable in-game commands, an out-of-game controller, database 
@@ -17,38 +18,6 @@ Download the latest plugin (version 0.2.0.0) here:
 <p>
 This tool was designed for use by groups with high traffic servers and many admins, but will function just as well 
 for small servers.
-</p>
-<h3>New in Version 0.2.5.0</h3>
-<p>
-<ul>
-  <li><b>Editable admin list through procon.</b> You can now edit who the admins are, and what level of access they 
-  have from within AdKats settings, no need to access the database manually. All instances of the plugin on your database 
-  will reflect the admins you enter.</li>
-  <li><b>Admins now have multiple levels of access.</b> They range from full admin (0) to normal player (6). List of commands for each 
-  level is given below. Admins can issue commands at or below their level. Admins of higher level can use commands on 
-  lower level admins</li>
-  <li><b>HTTP Server Online.</b> Commands can now be sent to AdKats using procon's internal HTTP server, or through the database. 
-  Info given below on security of this system.</li>
-  <li><b>Player name suggestion system improved.</b> System now considers player names starting with what was typed more correct than those 
-  with it just somewhere in their name. System will also perform a "fuzzy" player-name search if the text admins entered is not valid for any players.</li>
-  <li><b>Ghost Commands Fixed</b> Commands admins send but don't confirm will be auto-canceled if they move on to other things. This stops 
-  unwanted commands from being acted on after the fact.</li>
-  <li><b>TeamSwap can now auto-whitelist X random players in the server each round.</b> The random list is changed each 
-  round. Use this to generate hype for players to get full access to teamswap. Players are told the first time they 
-  spawn that they have access. Players who already have access are not added to the auto-whitelist.</li>
-  <li><b>Player report logging improved.</b> Whether a report was used by an admin is now logged.</li>
-  <li><b>"Admin Assistant" position added.</b> Players who consistently send useful player reports get a small bonus. 
-  Details below. This can be disabled.</li>
-  <li><b>Server IDs can be different now, yet still have punishments increase across servers.</b></li>
-  <li><b>Added new commands.</b> Kick all Players, and Nuke Server. Details below.</li>
-  <li><b>Commands can now operate in shortened hidden mode.</b> When commands are issued in hidden mode they normally 
-  require an extra character. e.g. /@kill target reason. They now work with just the slash. e.g. /kill target reason. 
-  </li>
-  <li><b>Actions against yourself nolonger require a reason.</b></li>
-  <li><b>Additional ban message option added.</b> e.g. Optionally add "appeal at www.yoursite.com" to the end of bans.</li>
-  <li><b>30 seconds now hardcoded as punishment timeout.</b> Setting was only editable for testing purposes.</li>
-  <li><b>Optimizations in code, database, and settings handling.</b></li>
-</ul>
 </p>
 <h3>Punishment/Forgiveness System</h3>
 <p>
@@ -224,151 +193,136 @@ especially when you have to hold 40+ admins accountable, and has not caused any 
 	<tr>
 		<td><b>Command</b></td>
 		<td><b>Params</b></td>
-		<td><b>Access</b></td>
 		<td><b>Description</b></td>
 	</tr>
 	<tr>
 		<td><b>Kill Player</b></td>
 		<td>[player][reason]<br/>OR<br/>[reportID]</td>
-		<td>Admin</td>
 		<td>The in-game command used for killing players.</td>
 	</tr>
 	<tr>
 		<td><b>Kick Player</b></td>
 		<td>[player][reason]<br/>OR<br/>[reportID]</td>
-		<td>Admin</td>
 		<td>The in-game command used for kicking players.</td>
 	</tr>
 	<tr>
 		<td><b>Temp-Ban Player</b></td>
 		<td>[minutes][player][reason]<br/>OR<br/>[minutes][reportID]</td>
-		<td>Admin</td>
 		<td>The in-game command used temp-banning players.</td>
 	</tr>
 	<tr>
 		<td><b>Perma-Ban Player</b></td>
 		<td>[player][reason]<br/>OR<br/>[reportID]</td>
-		<td>Admin</td>
 		<td>The in-game command used for perma-banning players.</td>
 	</tr>
 	<tr>
 		<td><b>Punish Player</b></td>
 		<td>[player][reason]<br/>OR<br/>[reportID]</td>
-		<td>Admin</td>
 		<td>The in-game command used for punishing players. Will add a Punish record to the database, increasing a player's total points by 1. When a reportID is used as input, details of the report are given and confirmation (@yes) needs to be given before the punish is sent.</td>
 	</tr>
 	<tr>
 		<td><b>Forgive Player</b></td>
 		<td>[player][reason]</td>
-		<td>Admin</td>
 		<td>The in-game command used for forgiving players. Will add a Forgive record to the database, decreasing a player's total points by 1.</td>
 	</tr>
 	<tr>
 		<td><b>Mute Player</b></td>
 		<td>[player][reason]<br/>OR<br/>[reportID]</td>
-		<td>Admin</td>
 		<td>The in-game command used for muting players. Players will be muted till the end of the round, 5 kills then kick if they keep talking. Admins cannot be muted.</td>
 	</tr>
 	<tr>
 		<td><b>Move Player<br/>OR<br/>[reportID]</b></td>
 		<td>[player]</td>
-		<td>Admin</td>
 		<td>The in-game command used for moving players between teams. Will add players to a death move list, when they die they will be sent to TeamSwap.</td>
 	</tr>
 	<tr>
 		<td><b>Force-Move Player<br/>OR<br/>[reportID]</b></td>
 		<td>[player]</td>
-		<td>Admin</td>
 		<td>The in-game command used for force-moving players between teams. Will immediately send the given player to TeamSwap.</td>
 	</tr>
 	<tr>
 		<td><b>TeamSwap Self</b></td>
 		<td>None</td>
-		<td>Admin and TeamSwap Whitelist</td>
 		<td>The in-game command used for moving yourself between teams. Will immediately send the speaker to TeamSwap.</td>
 	</tr>
 	<tr>
 		<td><b>Round Whitelist Player</b></td>
 		<td>[player][reason]</td>
-		<td>Admin</td>
 		<td>The in-game command used for round-whitelisting players. 2 players may be whitelisted per round. Once whitelisted they can use teamswap.</td>
 	</tr>
 	<tr>
 		<td><b>Report Player</b></td>
 		<td>[player][reason]</td>
-		<td>All Players</td>
 		<td>The in-game command used for reporting players. Must have a reason, and will inform a player otherwise when using. Will log a Report in the database(External GCP pulls from there for external admin notifications), and notify all in-game admins. Informs the reporter and admins of the report ID, which the punish system can use.</td>
 	</tr>
 	<tr>
 		<td><b>Call Admin</b></td>
 		<td>[player][reason]</td>
-		<td>All Players</td>
 		<td>The in-game command used for calling admin attention to a player. Same deal as report, but used for a different reason. Informs the reporter and admins of the report ID, which the punish system can use.</td>
 	</tr>
 	<tr>
 		<td><b>Admin Say</b></td>
 		<td>[message]</td>
-		<td>Admin</td>
 		<td>The in-game command used to send a message through admin chat to the whole server.</td>
 	</tr>
 	<tr>
 		<td><b>Admin Yell</b></td>
 		<td>[message]</td>
-		<td>Admin</td>
 		<td>The in-game command used for to send a message through admin yell to the whole server.</td>
 	</tr>
 	<tr>
 		<td><b>Player Say</b></td>
 		<td>[player][message]</td>
-		<td>Admin</td>
 		<td>The in-game command used for sending a message through admin chat to only a specific player.</td>
 	</tr>
 	<tr>
 		<td><b>Player Yell</b></td>
 		<td>[player][message]</td>
-		<td>Admin</td>
 		<td>The in-game command used for sending a message through admin yell to only a specific player.</td>
 	</tr>
 	<tr>
 		<td><b>Pre-Say</b></td>
 		<td>[message ID]</td>
-		<td>Admin</td>
 		<td>The in-game command used for sending a pre-defined message as an Admin Say.</td>
 	</tr>
 	<tr>
 		<td><b>Pre-Yell</b></td>
 		<td>[message ID]</td>
-		<td>Admin</td>
 		<td>The in-game command used for sending a pre-defined message as an Admin Yell.</td>
 	</tr>
 	<tr>
 		<td><b>Restart Level</b></td>
 		<td>None</td>
-		<td>Admin</td>
 		<td>The in-game command used for restarting the round.</td>
 	</tr>
 	<tr>
 		<td><b>Run Next Level</b></td>
 		<td>None</td>
-		<td>Admin</td>
 		<td>The in-game command used for running the next map in current rotation, but keep all points and KDRs from this round.</td>
 	</tr>
 	<tr>
 		<td><b>End Level</b></td>
 		<td>[US/RU]</td>
-		<td>Admin</td>
 		<td>The in-game command used for ending the current round with a winning team. Either US or RU.</td>
+	</tr>
+	<tr>
+		<td><b>Nuke Server</b></td>
+		<td>[US/RU/ALL]</td>
+		<td>The in-game command used for killing all players on a team. US, RU, or ALL will work.</td>
+	</tr>
+	<tr>
+		<td><b>Kick All Players</b></td>
+		<td>[none]</td>
+		<td>The in-game command used for kicking all players except admins.</td>
 	</tr>
 	<tr>
 		<td><b>Confirm Command</b></td>
 		<td>None</td>
-		<td>All Players</td>
 		<td>The in-game command used for confirming other commands when needed.</td>
 	</tr>
 	<tr>
 		<td><b>Cancel Command</b></td>
 		<td>None</td>
-		<td>All Players</td>
 		<td>The in-game command used to cancel other commands when needed.</td>
 	</tr>
 </table>
@@ -673,3 +627,35 @@ Valid 'command_type's that can be acted on include the following:<br/>
   <li><b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step. Don't edit unless you really wanna be spammed with console logs, it will also slow down the plugin when turned up.</li>
   <li><b>'Command Entry'</b> - Enter commands here just like in game, mainly for debug purposes. Don't let more than one person use this at any time.</li>
 </ul>
+<h2>New in Version 0.2.5.0</h3>
+<p>
+<ul>
+  <li><b>Editable admin list through procon.</b> You can now edit who the admins are, and what level of access they 
+  have from within AdKats settings, no need to access the database manually. All instances of the plugin on your database 
+  will reflect the admins you enter.</li>
+  <li><b>Admins now have multiple levels of access.</b> They range from full admin (0) to normal player (6). List of commands for each 
+  level is given below. Admins can issue commands at or below their level. Admins of higher level can use commands on 
+  lower level admins</li>
+  <li><b>HTTP Server Online.</b> Commands can now be sent to AdKats using procon's internal HTTP server, or through the database. 
+  Info given below on security of this system.</li>
+  <li><b>Player name suggestion system improved.</b> System now considers player names starting with what was typed more correct than those 
+  with it just somewhere in their name. System will also perform a "fuzzy" player-name search if the text admins entered is not valid for any players.</li>
+  <li><b>Ghost Commands Fixed</b> Commands admins send but don't confirm will be auto-canceled if they move on to other things. This stops 
+  unwanted commands from being acted on after the fact.</li>
+  <li><b>TeamSwap can now auto-whitelist X random players in the server each round.</b> The random list is changed each 
+  round. Use this to generate hype for players to get full access to teamswap. Players are told the first time they 
+  spawn that they have access. Players who already have access are not added to the auto-whitelist.</li>
+  <li><b>Player report logging improved.</b> Whether a report was used by an admin is now logged.</li>
+  <li><b>"Admin Assistant" position added.</b> Players who consistently send useful player reports get a small bonus. 
+  Details below. This can be disabled.</li>
+  <li><b>Server IDs can be different now, yet still have punishments increase across servers.</b></li>
+  <li><b>Added new commands.</b> Kick all Players, and Nuke Server. Details below.</li>
+  <li><b>Commands can now operate in shortened hidden mode.</b> When commands are issued in hidden mode they normally 
+  require an extra character. e.g. /@kill target reason. They now work with just the slash. e.g. /kill target reason. 
+  </li>
+  <li><b>Actions against yourself nolonger require a reason.</b></li>
+  <li><b>Additional ban message option added.</b> e.g. Optionally add "appeal at www.yoursite.com" to the end of bans.</li>
+  <li><b>30 seconds now hardcoded as punishment timeout.</b> Setting was only editable for testing purposes.</li>
+  <li><b>Optimizations in code, database, and settings handling.</b></li>
+</ul>
+</p>
