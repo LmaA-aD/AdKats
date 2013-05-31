@@ -373,9 +373,11 @@ especially when you have to hold 40+ admins accountable, and has not caused any 
 </p>
 <h3>Command Access Levels</h3>
 <p>
-Players need to be at or above certain access levels to perform commands. Players on the admin list can have their 
-powers disabled (without removing them from the admin list) by lowering their access level. The default is level 6 for 
-regular players who have no special access, level 1 is a full admin.
+Players need to be at or above certain access levels to perform commands. Players on the access list can have their 
+powers disabled (without removing them from the access list) by lowering their access level. Players can be added to
+or removed from the access from plugin settings using the "Add Access" and "Remove Access" text fields. The access 
+level of a player can be changed once they are on the access list by modifying the number to the right of their name. 
+All players are defaulted to level 6 in the system, and have no special access, level 0 is a full admin.
 <br/>
 <table>
 	<tr>
@@ -383,19 +385,27 @@ regular players who have no special access, level 1 is a full admin.
 		<td><b>Access Level</b></td>
 	</tr>
 	<tr>
-		<td><b>Permaban Player</b></td>
-		<td>1</td>
-	</tr>
-	<tr>
 		<td><b>Restart Level</b></td>
-		<td>1</td>
+		<td>0</td>
 	</tr>
 	<tr>
 		<td><b>Next Level</b></td>
-		<td>1</td>
+		<td>0</td>
 	</tr>
 	<tr>
 		<td><b>End Level</b></td>
+		<td>0</td>
+	</tr>
+	<tr>
+		<td><b>Nuke Server</b></td>
+		<td>0</td>
+	</tr>
+	<tr>
+		<td><b>Kick All</b></td>
+		<td>0</td>
+	</tr>
+	<tr>
+		<td><b>Permaban Player</b></td>
 		<td>1</td>
 	</tr>
 	<tr>
@@ -492,10 +502,10 @@ record_durationMinutes=[Used for Temp-Bans, duration of time in minutes]<br/><br
 http://293.182.39.230:27360/173.199.91.187:25210/plugins/AdKats/?command_type=TempBan&source_name=ColonsEnemy&<br/>
 target_name=ColColonCleaner&record_message=Testing&record_durationMinutes=60&access_key=MyPassword<br/><br/>
 
-<b>SECURITY NOTE. As some will notice this works through GET commands, which are insecure, if you issue commands and 
+<b>SECURITY NOTE: As some will notice this works through GET commands, which are insecure, if you issue commands and 
 someone outside gets the command URL you entered they will have full access to issue commands on your instance of this 
 plugin. It is only insecure if you use this method though, as internally the key is randomized. I am working on securing 
-this system, as it is ultimately better than option 2.</b>
+this system, as it is ultimately better than option 2.</b></b>
 
 <h4>2. Adding Database Records</h4>
 Have your external system add a row to the record table with a new record to be acted on. All information is needed 
@@ -577,10 +587,17 @@ Valid 'command_type's that can be acted on include the following:<br/>
 		<td><b>End Level</b></td>
 		<td>EndLevel</td>
 	</tr>
+	<tr>
+		<td><b>Nuke Server</b></td>
+		<td>Nuke</td>
+	</tr>
+	<tr>
+		<td><b>Kick All Players</b></td>
+		<td>KickAll</td>
+	</tr>
 </table>
 </p>
 <h2>Settings</h2>
-<p>
 <h3>1. Server Settings:</h3>
 <ul>
   <li><b>'Server ID'</b> - Value used to identify this server in the database. Must be different from all other servers you run.</li>
@@ -654,4 +671,3 @@ Valid 'command_type's that can be acted on include the following:<br/>
   <li><b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step. Don't edit unless you really wanna be spammed with console logs, it will also slow down the plugin when turned up.</li>
   <li><b>'Command Entry'</b> - Enter commands here just like in game, mainly for debug purposes. Don't let more than one person use this at any time.</li>
 </ul>
-</p>
