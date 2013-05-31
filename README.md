@@ -651,6 +651,9 @@ Valid 'command_type's that can be acted on include the following:<br/>
   <li><b>Player report logging improved.</b> Whether a report was used by an admin is now logged.</li>
   <li><b>"Admin Assistant" position added.</b> Players who consistently send useful player reports get a small bonus. 
   Details below. This can be disabled.</li>
+  <li><b>Round Report Handling Improved.</b> Handling changed so admins can enter new reasons that override the report 
+  reason. The new reason entered will be used instead, but only if it is greater length than the "minimum required 
+  reason length" defined in settings.</li>
   <li><b>Server IDs can be different now, yet still have punishments increase across servers.</b> Now the origin of 
   reports wont show as coming from the same server, since same server ID was required before for global punishments.</li>
   <li><b>Added new commands.</b> Kick all Players, and Nuke Server. Details below.</li>
