@@ -636,6 +636,8 @@ Valid 'command_type's that can be acted on include the following:<br/>
   <li><b>Admins now have multiple levels of access.</b> They range from full admin (0) to normal player (6). List of commands for each 
   level is given below. Admins can issue commands at or below their level. Admins of higher level can use commands on 
   lower level admins</li>
+  <li><b>Commands now have levels of access.</b> Admins need to be at or above certain levels of access to use certain 
+  commands.</li>
   <li><b>HTTP Server Online.</b> Commands can now be sent to AdKats using procon's internal HTTP server, or through the database. 
   Info given below on security of this system.</li>
   <li><b>Player name suggestion system improved.</b> System now considers player names starting with what was typed more correct than those 
