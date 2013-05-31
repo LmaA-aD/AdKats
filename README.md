@@ -1,5 +1,5 @@
 <h3>Version 0.2.5.0 released! Your version is listed above (Procon Only).</h3>
-New in version 0.2.5.0 at the bottom of this document, download link available.
+New in version 0.2.5.0 at the bottom of this document. Download link available.
 <h1>AdKats</h1>
 <p>
 A MySQL reflected admin toolset that includes editable in-game commands, an out-of-game controller, database 
