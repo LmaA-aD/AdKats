@@ -22,23 +22,25 @@ for small servers.
 <p>
 <ul>
   <li><b>Editable admin list through procon.</b> You can now edit who the admins are, and what level of access they 
-  have from within AdKats settings, no need to access the database manually.</li>
-  <li><b>Admins now have multiple levels of access.</b> They range from full admin (1) to normal player (6). List of commands for each 
+  have from within AdKats settings, no need to access the database manually. All instances of the plugin on your database 
+  will reflect the admins you enter.</li>
+  <li><b>Admins now have multiple levels of access.</b> They range from full admin (0) to normal player (6). List of commands for each 
   level is given below. Admins can issue commands at or below their level. Admins of higher level can use commands on 
   lower level admins</li>
   <li><b>HTTP Server Online.</b> Commands can now be sent to AdKats using procon's internal HTTP server, or through the database. 
   Info given below on security of this system.</li>
   <li><b>Player name suggestion system improved.</b> System now considers player names starting with what was typed more correct than those 
-  with it just somewhere in their name.</li>
+  with it just somewhere in their name. System will also perform a "fuzzy" player-name search if the text admins entered is not valid for any players.</li>
   <li><b>Ghost Commands Fixed</b> Commands admins send but don't confirm will be auto-canceled if they move on to other things. This stops 
   unwanted commands from being acted on after the fact.</li>
   <li><b>TeamSwap can now auto-whitelist X random players in the server each round.</b> The random list is changed each 
   round. Use this to generate hype for players to get full access to teamswap. Players are told the first time they 
   spawn that they have access. Players who already have access are not added to the auto-whitelist.</li>
+  <li><b>Player report logging improved.</b> Whether a report was used by an admin is now logged.</li>
   <li><b>"Admin Assistant" position added.</b> Players who consistently send useful player reports get a small bonus. 
   Details below. This can be disabled.</li>
   <li><b>Server IDs can be different now, yet still have punishments increase across servers.</b></li>
-  <li><b>Added several commands.</b> Kick all Players, and Nuke Server. Details below.</li>
+  <li><b>Added new commands.</b> Kick all Players, and Nuke Server. Details below.</li>
   <li><b>Commands can now operate in shortened hidden mode.</b> When commands are issued in hidden mode they normally 
   require an extra character. e.g. /@kill target reason. They now work with just the slash. e.g. /kill target reason. 
   </li>
