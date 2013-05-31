@@ -9,9 +9,10 @@
  * not there already.
  * 
  * Code Credit:
+ * Modded Levenshtein Distance algorithm from Micovery's InsaneLimits
+ * Planned Future Usage:
  * Email System from "Notify Me!" By MorpheusX(AUT)
  * Twitter Post System from Micovery's InsaneLimits
- * Modded Player-Name Suggestion System from Micovery's InsaneLimits
  * 
  * AdKats.cs
  */
@@ -58,11 +59,12 @@ namespace PRoConEvents
 
         // Enumerations
         //Messaging
-        public enum MessageTypeEnum { 
-            Warning, 
-            Error, 
-            Exception, 
-            Normal 
+        public enum MessageTypeEnum
+        {
+            Warning,
+            Error,
+            Exception,
+            Normal
         };
 
         //Possible Admin Commands
@@ -223,7 +225,7 @@ namespace PRoConEvents
         private string externalCommandAccessKey = "NoPasswordSet";
 
         //When a player partially completes a name, this dictionary holds those actions until player confirms action
-        private Dictionary<string, ADKAT_Record> actionAttemptList = new Dictionary<string, ADKAT_Record>();
+        private Dictionary<string, ADKAT_Record> actionConfirmList = new Dictionary<string, ADKAT_Record>();
         //Whether to combine server punishments
         private Boolean combineServerPunishments = false;
         //Default hierarchy of punishments
@@ -346,7 +348,7 @@ namespace PRoConEvents
             this.ADKAT_RecordTypes.Add(ADKAT_CommandType.NextLevel, "NextLevel");
             this.ADKAT_RecordTypes.Add(ADKAT_CommandType.EndLevel, "EndLevel");
 
-            this.ADKAT_RecordTypes.Add(ADKAT_CommandType.NukeServer, "NukeServer");
+            this.ADKAT_RecordTypes.Add(ADKAT_CommandType.NukeServer, "Nuke");
             this.ADKAT_RecordTypes.Add(ADKAT_CommandType.KickAll, "KickAll");
 
             //Fill DB Inverse record types for incoming database commands
@@ -376,16 +378,17 @@ namespace PRoConEvents
             this.ADKAT_RecordTypesInv.Add("NextLevel", ADKAT_CommandType.NextLevel);
             this.ADKAT_RecordTypesInv.Add("EndLevel", ADKAT_CommandType.EndLevel);
 
-            this.ADKAT_RecordTypesInv.Add("NukeServer", ADKAT_CommandType.NukeServer);
+            this.ADKAT_RecordTypesInv.Add("Nuke", ADKAT_CommandType.NukeServer);
             this.ADKAT_RecordTypesInv.Add("KickAll", ADKAT_CommandType.KickAll);
 
             //Fill all command access ranks
+            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.RestartLevel, 0);
+            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.NextLevel, 0);
+            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.EndLevel, 0);
+            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.NukeServer, 0);
+            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.KickAll, 0);
+
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.PermabanPlayer, 1);
-            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.RestartLevel, 1);
-            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.NextLevel, 1);
-            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.EndLevel, 1);
-            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.NukeServer, 1);
-            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.KickAll, 1);
 
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.TempBanPlayer, 2);
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.RoundWhitelistPlayer, 2);
@@ -543,7 +546,7 @@ namespace PRoConEvents
 
                 //Player Report Settings
                 lstReturn.Add(new CPluginVariable("6. Email Settings|Send Emails", typeof(string), "Disabled Until Implemented"));//, typeof(enumBoolYesNo), this.sendmail));
-                if (this.sendmail == false)
+                if (this.sendmail == true)
                 {
                     lstReturn.Add(new CPluginVariable("6. Email Settings|Email: Use SSL?", typeof(Boolean), this.blUseSSL));
                     lstReturn.Add(new CPluginVariable("6. Email Settings|SMTP-Server address", typeof(string), this.strSMTPServer));
@@ -556,7 +559,10 @@ namespace PRoConEvents
 
                 //TeamSwap Settings
                 lstReturn.Add(new CPluginVariable("7. TeamSwap Settings|Require Whitelist for Access", typeof(Boolean), this.requireTeamswapWhitelist));
-                lstReturn.Add(new CPluginVariable("7. TeamSwap Settings|Random Whitelist Count", typeof(string), this.playersToAutoWhitelist + " (Testing Mode. Setting Locked.)"));
+                if (this.requireTeamswapWhitelist)
+                {
+                    lstReturn.Add(new CPluginVariable("7. TeamSwap Settings|Auto-Whitelist Count", typeof(string), this.playersToAutoWhitelist));
+                }
                 lstReturn.Add(new CPluginVariable("7. TeamSwap Settings|Ticket Window High", typeof(int), this.teamSwapTicketWindowHigh));
                 lstReturn.Add(new CPluginVariable("7. TeamSwap Settings|Ticket Window Low", typeof(int), this.teamSwapTicketWindowLow));
 
@@ -587,7 +593,7 @@ namespace PRoConEvents
 
                 //External Command Settings
                 lstReturn.Add(new CPluginVariable("A12. HTTP Command Settings|External Access Key", typeof(string), this.externalCommandAccessKey));
-                
+
                 //Debug settings
                 lstReturn.Add(new CPluginVariable("A13. Debugging|Debug level", typeof(int), this.debugLevel));
                 lstReturn.Add(new CPluginVariable("A13. Debugging|Command Entry (Use like In-Game)", typeof(string), ""));
@@ -1075,7 +1081,7 @@ namespace PRoConEvents
             }
             #endregion
             #region email settings
-            else if (strVariable.CompareTo("Send Emails")==0)
+            else if (strVariable.CompareTo("Send Emails") == 0)
             {
                 this.sendmail = Boolean.Parse(strValue);
             }
@@ -1140,6 +1146,14 @@ namespace PRoConEvents
             else if (Regex.Match(strVariable, @"Require Whitelist for Access").Success)
             {
                 this.requireTeamswapWhitelist = Boolean.Parse(strValue);
+            }
+            else if (Regex.Match(strVariable, @"Auto-Whitelist Count").Success)
+            {
+                int tmp = 1;
+                int.TryParse(strValue, out tmp);
+                if (tmp < 1)
+                    tmp = 1;
+                this.playersToAutoWhitelist = tmp;
             }
             else if (Regex.Match(strVariable, @"Ticket Window High").Success)
             {
@@ -1546,7 +1560,7 @@ namespace PRoConEvents
                     return;
                 }
                 //Create the record
-                ADKAT_Record recordItem  = new ADKAT_Record();
+                ADKAT_Record recordItem = new ADKAT_Record();
                 recordItem.command_source = ADKAT_CommandSource.InGame;
                 recordItem.source_name = speaker;
                 this.completeRecord(recordItem, message);
@@ -1704,11 +1718,20 @@ namespace PRoConEvents
 
         #region Record Creation and Processing
 
-        //Record is created, and command_source/source_name
+        //Before calling this, the record is initialized, and command_source/source_name are filled
         public void completeRecord(ADKAT_Record record, String message)
         {
             //Initial split of command by whitespace
-            String[] splitCommand = message.Split(' ');
+            String[] splitMessage = message.Split(' ');
+            if (splitMessage.Length < 1)
+            {
+                this.DebugWrite("Completely blank command entered", 5);
+                this.sendMessageToSource(record, "You entered a completely blank command.");
+                return;
+            }
+            string command = splitMessage[0];
+            DebugWrite("Raw Command: " + command, 6);
+            String remainingMessage = message.TrimStart(commandString.ToCharArray()).Trim();
 
             //GATE 1: Add general data
             record.server_id = this.server_id;
@@ -1716,158 +1739,196 @@ namespace PRoConEvents
             record.record_time = DateTime.Now;
 
             //GATE 2: Add Command
-            string commandString = splitCommand[0].ToLower();
-            DebugWrite("Raw Command: " + commandString, 6);
             ADKAT_CommandType commandType = this.getCommand(commandString);
-            //If command not parsable, return without creating
             if (commandType == ADKAT_CommandType.Default)
             {
+                //If command not parsable, return without creating
                 DebugWrite("Command not parsable", 6);
                 return;
             }
-            message = message.TrimStart(splitCommand[0].ToCharArray()).Trim();
             record.command_type = commandType;
 
-            //GATE 3: Add source
+            //GATE 3: Check Access Rights
             //Check if player has the right to perform what he's asking, only perform for InGame actions
-            if (record.command_source==ADKAT_CommandSource.InGame && !this.hasAccess(record.source_name, record.command_type))
+            if (record.command_source == ADKAT_CommandSource.InGame && !this.hasAccess(record.source_name, record.command_type))
             {
                 DebugWrite("No rights to call command", 6);
-                this.sendMessageToSource(record, "No rights to use " + commandString + " command. Inquire about access with admins.");
+                this.sendMessageToSource(record, "Cannot use class " + this.ADKAT_CommandAccess[record.command_type] + " command, " + record.command_type + ". You are access class " + this.getAccessLevel(record.source_name) + ".");
                 //Return without creating if player doesn't have rights to do it
                 return;
             }
 
-            //GATE 4: Add specific data based on command type
-            //Make sure the specific data entered is valid and worth parsing
-            //Process the completed record
+            //GATE 4: Add specific data based on command type.
+            //Items that need filling before record processing:
+            //target_name
+            //target_guid
+            //record_message
             switch (record.command_type)
             {
-                //No command actions should be acted on here. This section prepares the record for upload. Only actions to be taken here are messaging to inform of invalid commands.
-                //Items that need filling before calling processRecord:
-                //target_name
-                //target_guid
-                //record_message
-
                 #region MovePlayer
                 case ADKAT_CommandType.MovePlayer:
-                    this.actionAttemptList.Remove(record.source_name);
-                    try
+                    //Remove previous commands awaiting confirmation
+                    this.actionConfirmList.Remove(record.source_name);
+
+                    //Parse parameters using max param count
+                    String[] parameters = this.parseParameters(remainingMessage, 1);
+                    if(parameters.Length >= 1)
                     {
                         //Handle based on report ID if possible
-                        if (this.handleRoundReport(record, splitCommand[1])) { return; }
+                        if (this.handleRoundReport(record, parameters)) { return; }
 
-                        record.target_name = splitCommand[1];
+                        record.target_name = parameters[0];
                         DebugWrite("target: " + record.target_name, 6);
                     }
-                    catch (Exception e)
+                    else
                     {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format or no reason given, unable to submit.");
+                        DebugWrite("No target given", 6);
+                        this.sendMessageToSource(record, "No target given, unable to submit.");
                         return;
                     }
                     record.record_message = "";
                     //Sets target_guid and completes target_name, then calls processRecord
-                    completeTargetName(record);
+                    completeTargetInformation(record);
                     break;
                 #endregion
                 #region ForceMovePlayer
                 case ADKAT_CommandType.ForceMovePlayer:
-                    this.actionAttemptList.Remove(record.source_name);
-                    try
+                    //Remove previous commands awaiting confirmation
+                    this.actionConfirmList.Remove(record.source_name);
+
+                    //Parse parameters using max param count
+                    String[] parameters = this.parseParameters(remainingMessage, 1);
+                    if (parameters.Length >= 1)
                     {
                         //Handle based on report ID if possible
-                        if (this.handleRoundReport(record, splitCommand[1])) { return; }
+                        if (this.handleRoundReport(record, parameters)) { return; }
 
-                        record.target_name = splitCommand[1];
+                        record.target_name = parameters[0];
                         DebugWrite("target: " + record.target_name, 6);
-                        record.record_message = "ForceMove";
                     }
-                    catch (Exception e)
+                    else
                     {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format, unable to submit.");
+                        DebugWrite("No target given", 6);
+                        this.sendMessageToSource(record, "No target given, unable to submit.");
                         return;
                     }
+                    record.record_message = "";
                     //Sets target_guid and completes target_name, then calls processRecord
-                    completeTargetName(record);
+                    completeTargetInformation(record);
                     break;
                 #endregion
                 #region Teamswap
                 case ADKAT_CommandType.Teamswap:
+                    //Remove previous commands awaiting confirmation
+                    this.actionConfirmList.Remove(record.source_name);
+
+                    //May only call this command from in-game
                     if (record.command_source != ADKAT_CommandSource.InGame)
                     {
                         this.sendMessageToSource(record, "You cannot use teamswap directly from outside the game. Use force move.");
                         return;
                     }
-                    this.actionAttemptList.Remove(record.source_name);
-                    record.target_name = record.source_name;
+
                     record.record_message = "TeamSwap";
+                    record.target_name = record.source_name;
+
                     //Sets target_guid and completes target_name, then calls processRecord
-                    completeTargetName(record);
+                    completeTargetInformation(record);
                     break;
                 #endregion
                 #region KillPlayer
                 case ADKAT_CommandType.KillPlayer:
-                    this.actionAttemptList.Remove(record.source_name);
-                    try
-                    {
-                        //Handle based on report ID if possible
-                        if (this.handleRoundReport(record, splitCommand[1])) { return; }
+                    //Remove previous commands awaiting confirmation
+                    this.actionConfirmList.Remove(record.source_name);
 
-                        record.target_name = splitCommand[1];
-                        message = message.TrimStart(record.target_name.ToCharArray()).Trim();
-                        DebugWrite("target: " + record.target_name, 6);
-                        record.record_message = message;
-                        DebugWrite("reason: " + record.record_message, 6);
-                    }
-                    catch (Exception e)
+                    //Parse parameters using max param count
+                    String[] parameters = this.parseParameters(remainingMessage, 2);
+                    switch (parameters.Length)
                     {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format.");
-                        return;
+                        case 0:
+                            record.target_name = record.source_name;
+                            record.record_message = "Self Inflicted";
+                            break;
+                        case 1:
+                            //Handle based on report ID as only option
+                            if (!this.handleRoundReport(record, parameters))
+                            {
+                                this.sendMessageToSource(record, "No reason given, unable to submit.");
+                            }
+                            return;
+                            break;
+                        case 2:
+                            //Handle based on report ID if possible
+                            if (this.handleRoundReport(record, parameters)) { return; }
+
+                            record.target_name = parameters[0];
+                            DebugWrite("target: " + record.target_name, 6);
+                            record.record_message = parameters[1];
+                            DebugWrite("reason: " + record.record_message, 6);
+                            if (record.record_message.Length < this.requiredReasonLength)
+                            {
+                                DebugWrite("reason too short", 6);
+                                this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                return;
+                            }
+                            break;
+                        default:
+                            this.DebugWrite("Unknown parameter error", 6);
+                            return;
+                            break;
                     }
-                    if ((record.target_name != record.source_name) && (record.record_message.Length < this.requiredReasonLength))
-                    {
-                        DebugWrite("reason too short", 6);
-                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                        return;
-                    }
-                    completeTargetName(record);
+                    //Sets target_guid and completes target_name, then calls processRecord
+                    completeTargetInformation(record);
                     break;
                 #endregion
                 #region KickPlayer
                 case ADKAT_CommandType.KickPlayer:
-                    this.actionAttemptList.Remove(record.source_name);
-                    try
-                    {
-                        //Handle based on report ID if possible
-                        if (this.handleRoundReport(record, splitCommand[1])) { return; }
+                    //Remove previous commands awaiting confirmation
+                    this.actionConfirmList.Remove(record.source_name);
 
-                        record.target_name = splitCommand[1];
-                        message = message.TrimStart(record.target_name.ToCharArray()).Trim();
-                        DebugWrite("target: " + record.target_name, 6);
-                        record.record_message = message;
-                        DebugWrite("reason: " + record.record_message, 6);
-                    }
-                    catch (Exception e)
+                    //Parse parameters using max param count
+                    String[] parameters = this.parseParameters(remainingMessage, 2);
+                    switch (parameters.Length)
                     {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format or no reason given, unable to submit.");
-                        return;
+                        case 0:
+                            record.target_name = record.source_name;
+                            record.record_message = "Self Inflicted";
+                            break;
+                        case 1:
+                            //Handle based on report ID as only option
+                            if (!this.handleRoundReport(record, parameters))
+                            {
+                                this.sendMessageToSource(record, "No reason given, unable to submit.");
+                            }
+                            return;
+                            break;
+                        case 2:
+                            //Handle based on report ID if possible
+                            if (this.handleRoundReport(record, parameters)) { return; }
+
+                            record.target_name = parameters[0];
+                            DebugWrite("target: " + record.target_name, 6);
+                            record.record_message = parameters[1];
+                            DebugWrite("reason: " + record.record_message, 6);
+                            if (record.record_message.Length < this.requiredReasonLength)
+                            {
+                                DebugWrite("reason too short", 6);
+                                this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                return;
+                            }
+                            break;
+                        default:
+                            this.DebugWrite("Unknown parameter error", 6);
+                            return;
+                            break;
                     }
-                    if (record.record_message.Length < this.requiredReasonLength)
-                    {
-                        DebugWrite("reason too short", 6);
-                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                        return;
-                    }
-                    completeTargetName(record);
+                    //Sets target_guid and completes target_name, then calls processRecord
+                    completeTargetInformation(record);
                     break;
                 #endregion
                 #region TempBanPlayer
                 case ADKAT_CommandType.TempBanPlayer:
-                    this.actionAttemptList.Remove(record.source_name);
+                    this.actionConfirmList.Remove(record.source_name);
                     try
                     {
                         int record_duration = 0;
@@ -1897,154 +1958,237 @@ namespace PRoConEvents
                         this.sendMessageToSource(record, "Reason too short, unable to submit.");
                         return;
                     }
-                    completeTargetName(record);
+                    completeTargetInformation(record);
                     break;
                 #endregion
                 #region PermabanPlayer
                 case ADKAT_CommandType.PermabanPlayer:
-                    this.actionAttemptList.Remove(record.source_name);
-                    try
-                    {
-                        //Handle based on report ID if possible
-                        if (this.handleRoundReport(record, splitCommand[1])) { return; }
+                    //Remove previous commands awaiting confirmation
+                    this.actionConfirmList.Remove(record.source_name);
 
-                        record.target_name = splitCommand[1];
-                        message = message.TrimStart(record.target_name.ToCharArray()).Trim();
-                        DebugWrite("target: " + record.target_name, 6);
-                        record.record_message = message;
-                        DebugWrite("reason: " + record.record_message, 6);
-                    }
-                    catch (Exception e)
+                    //Parse parameters using max param count
+                    String[] parameters = this.parseParameters(remainingMessage, 2);
+                    switch (parameters.Length)
                     {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format or no reason given, unable to submit.");
-                        return;
+                        case 0:
+                            record.target_name = record.source_name;
+                            record.record_message = "Self Inflicted";
+                            break;
+                        case 1:
+                            //Handle based on report ID as only option
+                            if (!this.handleRoundReport(record, parameters))
+                            {
+                                this.sendMessageToSource(record, "No reason given, unable to submit.");
+                            }
+                            return;
+                            break;
+                        case 2:
+                            //Handle based on report ID if possible
+                            if (this.handleRoundReport(record, parameters)) { return; }
+
+                            record.target_name = parameters[0];
+                            DebugWrite("target: " + record.target_name, 6);
+                            record.record_message = parameters[1];
+                            DebugWrite("reason: " + record.record_message, 6);
+                            if (record.record_message.Length < this.requiredReasonLength)
+                            {
+                                DebugWrite("reason too short", 6);
+                                this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                return;
+                            }
+                            break;
+                        default:
+                            this.DebugWrite("Unknown parameter error", 6);
+                            return;
+                            break;
                     }
-                    if (record.record_message.Length < this.requiredReasonLength)
-                    {
-                        DebugWrite("reason too short", 6);
-                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                        return;
-                    }
-                    completeTargetName(record);
+                    //Sets target_guid and completes target_name, then calls processRecord
+                    completeTargetInformation(record);
                     break;
                 #endregion
                 #region PunishPlayer
                 case ADKAT_CommandType.PunishPlayer:
-                    this.actionAttemptList.Remove(record.source_name);
-                    try
-                    {
-                        //Handle based on report ID if possible
-                        if (this.handleRoundReport(record, splitCommand[1])) { return; }
+                    //Remove previous commands awaiting confirmation
+                    this.actionConfirmList.Remove(record.source_name);
 
-                        record.target_name = splitCommand[1];
-                        message = message.TrimStart(record.target_name.ToCharArray()).Trim();
-                        DebugWrite("target: " + record.target_name, 6);
-                        record.record_message = message;
-                        DebugWrite("reason: " + record.record_message, 6);
-                    }
-                    catch (Exception e)
+                    //Parse parameters using max param count
+                    String[] parameters = this.parseParameters(remainingMessage, 2);
+                    switch (parameters.Length)
                     {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format or no reason given, unable to submit.");
-                        return;
+                        case 0:
+                            record.target_name = record.source_name;
+                            record.record_message = "Self Inflicted";
+                            break;
+                        case 1:
+                            //Handle based on report ID as only option
+                            if (!this.handleRoundReport(record, parameters))
+                            {
+                                this.sendMessageToSource(record, "No reason given, unable to submit.");
+                            }
+                            return;
+                            break;
+                        case 2:
+                            //Handle based on report ID if possible
+                            if (this.handleRoundReport(record, parameters)) { return; }
+
+                            record.target_name = parameters[0];
+                            DebugWrite("target: " + record.target_name, 6);
+                            record.record_message = parameters[1];
+                            DebugWrite("reason: " + record.record_message, 6);
+                            if (record.record_message.Length < this.requiredReasonLength)
+                            {
+                                DebugWrite("reason too short", 6);
+                                this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                return;
+                            }
+                            break;
+                        default:
+                            this.DebugWrite("Unknown parameter error", 6);
+                            return;
+                            break;
                     }
-                    if (record.record_message.Length < this.requiredReasonLength)
-                    {
-                        DebugWrite("reason too short", 6);
-                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                        return;
-                    }
-                    completeTargetName(record);
+                    //Sets target_guid and completes target_name, then calls processRecord
+                    completeTargetInformation(record);
                     break;
                 #endregion
                 #region ForgivePlayer
                 case ADKAT_CommandType.ForgivePlayer:
-                    this.actionAttemptList.Remove(record.source_name);
-                    try
+                    //Remove previous commands awaiting confirmation
+                    this.actionConfirmList.Remove(record.source_name);
+
+                    //Parse parameters using max param count
+                    String[] parameters = this.parseParameters(remainingMessage, 2);
+                    switch (parameters.Length)
                     {
-                        record.target_name = splitCommand[1];
-                        message = message.TrimStart(record.target_name.ToCharArray()).Trim();
-                        DebugWrite("target: " + record.target_name, 6);
-                        record.record_message = message;
-                        DebugWrite("reason: " + record.record_message, 6);
+                        case 0:
+                            record.target_name = record.source_name;
+                            record.record_message = "Self Inflicted";
+                            break;
+                        case 1:
+                            //Handle based on report ID as only option
+                            if (!this.handleRoundReport(record, parameters))
+                            {
+                                this.sendMessageToSource(record, "No reason given, unable to submit.");
+                            }
+                            return;
+                            break;
+                        case 2:
+                            //Handle based on report ID if possible
+                            if (this.handleRoundReport(record, parameters)) { return; }
+
+                            record.target_name = parameters[0];
+                            DebugWrite("target: " + record.target_name, 6);
+                            record.record_message = parameters[1];
+                            DebugWrite("reason: " + record.record_message, 6);
+                            if (record.record_message.Length < this.requiredReasonLength)
+                            {
+                                DebugWrite("reason too short", 6);
+                                this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                return;
+                            }
+                            break;
+                        default:
+                            this.DebugWrite("Unknown parameter error", 6);
+                            return;
+                            break;
                     }
-                    catch (Exception e)
-                    {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format or no reason given, unable to submit.");
-                        return;
-                    }
-                    if (record.record_message.Length < this.requiredReasonLength)
-                    {
-                        DebugWrite("reason too short", 6);
-                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                        return;
-                    }
-                    completeTargetName(record);
+                    //Sets target_guid and completes target_name, then calls processRecord
+                    completeTargetInformation(record);
                     break;
                 #endregion
                 #region MutePlayer
                 case ADKAT_CommandType.MutePlayer:
-                    this.actionAttemptList.Remove(record.source_name);
-                    try
-                    {
-                        //Handle based on report ID if possible
-                        if (this.handleRoundReport(record, splitCommand[1])) { return; }
+                    //Remove previous commands awaiting confirmation
+                    this.actionConfirmList.Remove(record.source_name);
 
-                        record.target_name = splitCommand[1];
-                        message = message.TrimStart(record.target_name.ToCharArray()).Trim();
-                        DebugWrite("target: " + record.target_name, 6);
-                        record.record_message = message;
-                        DebugWrite("reason: " + record.record_message, 6);
-                    }
-                    catch (Exception e)
+                    //Parse parameters using max param count
+                    String[] parameters = this.parseParameters(remainingMessage, 2);
+                    switch (parameters.Length)
                     {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format or no reason given, unable to submit.");
-                        return;
+                        case 0:
+                            record.target_name = record.source_name;
+                            record.record_message = "Self Inflicted";
+                            break;
+                        case 1:
+                            //Handle based on report ID as only option
+                            if (!this.handleRoundReport(record, parameters))
+                            {
+                                this.sendMessageToSource(record, "No reason given, unable to submit.");
+                            }
+                            return;
+                            break;
+                        case 2:
+                            //Handle based on report ID if possible
+                            if (this.handleRoundReport(record, parameters)) { return; }
+
+                            record.target_name = parameters[0];
+                            DebugWrite("target: " + record.target_name, 6);
+                            record.record_message = parameters[1];
+                            DebugWrite("reason: " + record.record_message, 6);
+                            if (record.record_message.Length < this.requiredReasonLength)
+                            {
+                                DebugWrite("reason too short", 6);
+                                this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                return;
+                            }
+                            break;
+                        default:
+                            this.DebugWrite("Unknown parameter error", 6);
+                            return;
+                            break;
                     }
-                    if (record.record_message.Length < this.requiredReasonLength)
-                    {
-                        DebugWrite("reason too short", 6);
-                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                        return;
-                    }
-                    completeTargetName(record);
+                    //Sets target_guid and completes target_name, then calls processRecord
+                    completeTargetInformation(record);
                     break;
                 #endregion
                 #region RoundWhitelistPlayer
                 case ADKAT_CommandType.RoundWhitelistPlayer:
-                    this.actionAttemptList.Remove(record.source_name);
-                    try
-                    {
-                        //Handle based on report ID if possible
-                        if (this.handleRoundReport(record, splitCommand[1])) { return; }
+                    //Remove previous commands awaiting confirmation
+                    this.actionConfirmList.Remove(record.source_name);
 
-                        record.target_name = splitCommand[1];
-                        message = message.TrimStart(record.target_name.ToCharArray()).Trim();
-                        DebugWrite("target: " + record.target_name, 6);
-                        record.record_message = message;
-                        DebugWrite("reason: " + record.record_message, 6);
-                    }
-                    catch (Exception e)
+                    //Parse parameters using max param count
+                    String[] parameters = this.parseParameters(remainingMessage, 2);
+                    switch (parameters.Length)
                     {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format or no reason given, unable to submit.");
-                        return;
+                        case 0:
+                            record.target_name = record.source_name;
+                            record.record_message = "Self Inflicted";
+                            break;
+                        case 1:
+                            //Handle based on report ID as only option
+                            if (!this.handleRoundReport(record, parameters))
+                            {
+                                this.sendMessageToSource(record, "No reason given, unable to submit.");
+                            }
+                            return;
+                            break;
+                        case 2:
+                            //Handle based on report ID if possible
+                            if (this.handleRoundReport(record, parameters)) { return; }
+
+                            record.target_name = parameters[0];
+                            DebugWrite("target: " + record.target_name, 6);
+                            record.record_message = parameters[1];
+                            DebugWrite("reason: " + record.record_message, 6);
+                            if (record.record_message.Length < this.requiredReasonLength)
+                            {
+                                DebugWrite("reason too short", 6);
+                                this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                return;
+                            }
+                            break;
+                        default:
+                            this.DebugWrite("Unknown parameter error", 6);
+                            return;
+                            break;
                     }
-                    if (record.record_message.Length < this.requiredReasonLength)
-                    {
-                        DebugWrite("reason too short", 6);
-                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                        return;
-                    }
-                    completeTargetName(record);
+                    //Sets target_guid and completes target_name, then calls processRecord
+                    completeTargetInformation(record);
                     break;
                 #endregion
                 #region ReportPlayer
                 case ADKAT_CommandType.ReportPlayer:
-                    this.actionAttemptList.Remove(record.source_name);
+                    this.actionConfirmList.Remove(record.source_name);
                     try
                     {
                         record.target_name = splitCommand[1];
@@ -2065,12 +2209,12 @@ namespace PRoConEvents
                         this.sendMessageToSource(record, "Reason too short, unable to submit.");
                         return;
                     }
-                    completeTargetName(record);
+                    completeTargetInformation(record);
                     break;
                 #endregion
                 #region CallAdmin
                 case ADKAT_CommandType.CallAdmin:
-                    this.actionAttemptList.Remove(record.source_name);
+                    this.actionConfirmList.Remove(record.source_name);
                     try
                     {
                         record.target_name = splitCommand[1];
@@ -2091,12 +2235,12 @@ namespace PRoConEvents
                         this.sendMessageToSource(record, "Reason too short, unable to submit.");
                         return;
                     }
-                    completeTargetName(record);
+                    completeTargetInformation(record);
                     break;
                 #endregion
                 #region EndLevel
                 case ADKAT_CommandType.EndLevel:
-                    this.actionAttemptList.Remove(record.source_name);
+                    this.actionConfirmList.Remove(record.source_name);
                     try
                     {
                         record.record_message = "End Round";
@@ -2130,7 +2274,7 @@ namespace PRoConEvents
                 #endregion
                 #region NukeServer
                 case ADKAT_CommandType.NukeServer:
-                    this.actionAttemptList.Remove(record.source_name);
+                    this.actionConfirmList.Remove(record.source_name);
                     try
                     {
                         record.record_message = "Server Nuke";
@@ -2170,7 +2314,7 @@ namespace PRoConEvents
                 #endregion
                 #region KickAll
                 case ADKAT_CommandType.KickAll:
-                    this.actionAttemptList.Remove(record.source_name);
+                    this.actionConfirmList.Remove(record.source_name);
                     record.target_name = "Server";
                     record.target_guid = "Server";
                     record.record_message = "Kick All Players";
@@ -2179,7 +2323,7 @@ namespace PRoConEvents
                 #endregion
                 #region RestartLevel
                 case ADKAT_CommandType.RestartLevel:
-                    this.actionAttemptList.Remove(record.source_name);
+                    this.actionConfirmList.Remove(record.source_name);
                     record.target_name = "Server";
                     record.target_guid = "Server";
                     record.record_message = "Restart Round";
@@ -2188,7 +2332,7 @@ namespace PRoConEvents
                 #endregion
                 #region NextLevel
                 case ADKAT_CommandType.NextLevel:
-                    this.actionAttemptList.Remove(record.source_name);
+                    this.actionConfirmList.Remove(record.source_name);
                     record.target_name = "Server";
                     record.target_guid = "Server";
                     record.record_message = "Run Next Map";
@@ -2197,7 +2341,7 @@ namespace PRoConEvents
                 #endregion
                 #region AdminSay
                 case ADKAT_CommandType.AdminSay:
-                    this.actionAttemptList.Remove(record.source_name);
+                    this.actionConfirmList.Remove(record.source_name);
                     record.target_name = "Server";
                     record.target_guid = "Server";
                     try
@@ -2217,7 +2361,7 @@ namespace PRoConEvents
                 #endregion
                 #region PreSay
                 case ADKAT_CommandType.PreSay:
-                    this.actionAttemptList.Remove(record.source_name);
+                    this.actionConfirmList.Remove(record.source_name);
                     record.target_name = "Server";
                     record.target_guid = "Server";
                     try
@@ -2257,7 +2401,7 @@ namespace PRoConEvents
                 #endregion
                 #region AdminYell
                 case ADKAT_CommandType.AdminYell:
-                    this.actionAttemptList.Remove(record.source_name);
+                    this.actionConfirmList.Remove(record.source_name);
                     record.target_name = "Server";
                     record.target_guid = "Server";
                     try
@@ -2277,7 +2421,7 @@ namespace PRoConEvents
                 #endregion
                 #region PreYell
                 case ADKAT_CommandType.PreYell:
-                    this.actionAttemptList.Remove(record.source_name);
+                    this.actionConfirmList.Remove(record.source_name);
                     record.target_name = "Server";
                     record.target_guid = "Server";
                     try
@@ -2317,7 +2461,7 @@ namespace PRoConEvents
                 #endregion
                 #region PlayerSay
                 case ADKAT_CommandType.PlayerSay:
-                    this.actionAttemptList.Remove(record.source_name);
+                    this.actionConfirmList.Remove(record.source_name);
                     try
                     {
                         record.target_name = splitCommand[1];
@@ -2332,12 +2476,12 @@ namespace PRoConEvents
                         this.sendMessageToSource(record, "Invalid command format or no message given, unable to submit.");
                         return;
                     }
-                    completeTargetName(record);
+                    completeTargetInformation(record);
                     break;
                 #endregion
                 #region PlayerYell
                 case ADKAT_CommandType.PlayerYell:
-                    this.actionAttemptList.Remove(record.source_name);
+                    this.actionConfirmList.Remove(record.source_name);
                     try
                     {
                         record.target_name = splitCommand[1];
@@ -2352,16 +2496,16 @@ namespace PRoConEvents
                         this.sendMessageToSource(record, "Invalid command format or no message given, unable to submit.");
                         return;
                     }
-                    completeTargetName(record);
+                    completeTargetInformation(record);
                     break;
                 #endregion
                 #region ConfirmCommand
                 case ADKAT_CommandType.ConfirmCommand:
                     ADKAT_Record recordAttempt = null;
-                    this.actionAttemptList.TryGetValue(record.source_name, out recordAttempt);
+                    this.actionConfirmList.TryGetValue(record.source_name, out recordAttempt);
                     if (recordAttempt != null)
                     {
-                        this.actionAttemptList.Remove(record.source_name);
+                        this.actionConfirmList.Remove(record.source_name);
                         this.processRecord(recordAttempt);
                     }
                     else
@@ -2372,7 +2516,7 @@ namespace PRoConEvents
                 #endregion
                 #region CancelCommand
                 case ADKAT_CommandType.CancelCommand:
-                    if (!this.actionAttemptList.Remove(record.source_name))
+                    if (!this.actionConfirmList.Remove(record.source_name))
                     {
                         this.sendMessageToSource(record, "No command to cancel.");
                     }
@@ -2382,6 +2526,24 @@ namespace PRoConEvents
                     return;
             }
             return;
+        }
+
+        //parses single word or number parameters out of a string until param count is reached
+        private String[] parseParameters(string message, int maxParamCount)
+        {
+            //create list for parameters
+            List<String> parameters = new List<String>();
+            //Add all single word/number parameters
+            String[] paramSplit = message.Split(' ');
+            int maxLoop = (paramSplit.Length<maxParamCount)?(paramSplit.Length):(maxParamCount);
+            for (int i = 0; i < maxLoop-1; i++)
+            {
+                parameters.Add(paramSplit[i]);
+                message = message.TrimStart(paramSplit[i].ToCharArray()).Trim();
+            }
+            //Add final multi-word parameter
+            parameters.Add(message);
+            return parameters.ToArray();
         }
 
         //Attempts to parse the command from a in-game string
@@ -2404,8 +2566,8 @@ namespace PRoConEvents
         {
             //Send record to attempt list
             this.sendMessageToSource(record, "Confirm " + record.command_type + "->" + record.target_name + ": " + record.record_message);
-            this.actionAttemptList.Remove(record.source_name);
-            this.actionAttemptList.Add(record.source_name, record);
+            this.actionConfirmList.Remove(record.source_name);
+            this.actionConfirmList.Add(record.source_name, record);
         }
 
         private string processRecord(ADKAT_Record record)
@@ -2597,22 +2759,31 @@ namespace PRoConEvents
             }
         }
 
-        public Boolean handleRoundReport(ADKAT_Record record, String reportID)
+        public Boolean handleRoundReport(ADKAT_Record record, String[] parameters)
         {
             Boolean acted = false;
-            if (this.round_reports.ContainsKey(reportID))
+            if (parameters.Length > 0)
             {
-                ADKAT_Record reportedRecord = this.round_reports[reportID];
-                reportedRecord.command_action = ADKAT_CommandType.ConfirmReport;
-                this.updateRecord(reportedRecord);
-                record.target_guid = reportedRecord.target_guid;
-                record.target_name = reportedRecord.target_name;
-                record.targetPlayerInfo = reportedRecord.targetPlayerInfo;
-                record.record_message = reportedRecord.record_message;
-                this.sendMessageToSource(record, "Your report has been acted on. Thank you.");
-                this.confirmAction(record);
-                this.round_reports.Remove(reportID);
-                acted = true;
+                string reportID = parameters[0];
+                string newReason = null;
+                if (parameters.Length > 1)
+                {
+                    newReason = parameters[1];
+                }
+                if (this.round_reports.ContainsKey(reportID))
+                {
+                    ADKAT_Record reportedRecord = this.round_reports[parameters[0]];
+                    reportedRecord.command_action = ADKAT_CommandType.ConfirmReport;
+                    this.updateRecord(reportedRecord);
+                    record.target_guid = reportedRecord.target_guid;
+                    record.target_name = reportedRecord.target_name;
+                    record.targetPlayerInfo = reportedRecord.targetPlayerInfo;
+                    record.record_message = (newReason != null && newReason.Length > this.minimumRequiredReasonLength) ? (newReason) : (reportedRecord.record_message);
+                    this.sendMessageToSource(record, "Your report has been acted on. Thank you.");
+                    this.confirmAction(record);
+                    this.round_reports.Remove(reportID);
+                    acted = true;
+                }
             }
             return acted;
         }
@@ -2820,7 +2991,7 @@ namespace PRoConEvents
             {
                 if (!this.teamswapRoundWhitelist.ContainsKey(record.target_name))
                 {
-                    if (this.teamswapRoundWhitelist.Count < this.playersToAutoWhitelist+2)
+                    if (this.teamswapRoundWhitelist.Count < this.playersToAutoWhitelist + 2)
                     {
                         this.teamswapRoundWhitelist.Add(record.target_name, false);
                         string command = this.m_strTeamswapCommand.TrimEnd("|log".ToCharArray());
@@ -2854,7 +3025,7 @@ namespace PRoConEvents
                 reportID = random.Next(100, 999);
             } while (round_reports.ContainsKey(reportID + ""));
             this.round_reports.Add(reportID + "", record);
-            string adminAssistantIdentifier = (this.adminAssistantCache.ContainsKey(record.source_name))?("[AA]"):("");
+            string adminAssistantIdentifier = (this.adminAssistantCache.ContainsKey(record.source_name)) ? ("[AA]") : ("");
             foreach (String admin_name in this.playerAccessCache.Keys)
             {
                 if (this.playerAccessCache[admin_name] <= 4)
@@ -2977,6 +3148,42 @@ namespace PRoConEvents
             this.ExecuteCommand("procon.protected.send", "admin.yell", record.record_message, this.m_strShowMessageLength, "player", record.target_name);
             message = record.target_name + " has been told '" + record.record_message + "'";
             return message;
+        }
+
+        #endregion
+
+        #region Access Checking
+
+        private int getAccessLevel(String player_name)
+        {
+            if (DateTime.Now > this.lastAccessListUpdate.AddMinutes(5))
+            {
+                this.fetchAccessList();
+            }
+            else
+            {
+                DebugWrite("Access List not Updated, " + DateTime.Now.Subtract(this.lastAccessListUpdate).Minutes + " minutes since last updated.", 4);
+            }
+            int access_level = 6;
+            //Get access level of player
+            if (this.playerAccessCache.ContainsKey(player_name))
+            {
+                access_level = this.playerAccessCache[player_name];
+            }
+            else if 
+                (!this.requireTeamswapWhitelist ||
+                this.teamswapRoundWhitelist.ContainsKey(player_name) ||
+                (this.enableAdminAssistants && this.adminAssistantCache.ContainsKey(player_name)))
+            {
+                access_level = this.ADKAT_CommandAccessRank[ADKAT_CommandType.Teamswap];
+            }
+            return access_level;
+        }
+
+        private Boolean hasAccess(String player_name, ADKAT_CommandType command)
+        {
+            //Check if the player can access the desired command
+            return (this.getAccessLevel(player_name) <= this.ADKAT_CommandAccessRank[command]);
         }
 
         #endregion
@@ -3675,39 +3882,6 @@ namespace PRoConEvents
 
         #endregion
 
-        #region Access Checking
-
-        private Boolean hasAccess(String player_name, ADKAT_CommandType command)
-        {
-            if (DateTime.Now > this.lastAccessListUpdate.AddMinutes(5))
-            {
-                this.fetchAccessList();
-            }
-            else
-            {
-                DebugWrite("Access List not Updated, " + DateTime.Now.Subtract(this.lastAccessListUpdate).Minutes + " minutes since last updated.", 6);
-            }
-            //set default access level
-            int playerAccessLevel = 6;
-            //Run special cases
-            if (!this.requireTeamswapWhitelist || 
-                this.teamswapRoundWhitelist.ContainsKey(player_name) || 
-                (this.enableAdminAssistants && this.adminAssistantCache.ContainsKey(player_name)))
-            {
-                playerAccessLevel = this.ADKAT_CommandAccessRank[ADKAT_CommandType.Teamswap];
-            }
-            //Get access level of player
-            if (this.playerAccessCache.ContainsKey(player_name))
-            {
-                playerAccessLevel = this.playerAccessCache[player_name];
-            }
-
-            //Check if the player can access the desired command
-            return playerAccessLevel <= this.ADKAT_CommandAccessRank[command];
-        }
-
-        #endregion
-
         #region HTTP Server Handling
 
         public override HttpWebServerResponseData OnHttpRequest(HttpWebServerRequestData data)
@@ -3778,7 +3952,7 @@ namespace PRoConEvents
                                 if (targetName != null && targetName.Length > 0)
                                 {
                                     record.target_name = targetName;
-                                    responseString += this.completeTargetName(record);
+                                    responseString += this.completeTargetInformation(record);
                                 }
                                 else
                                 {
@@ -4027,182 +4201,134 @@ namespace PRoConEvents
 
         #region Player Name Suggestion
 
-        //Used for player name suggestion
-        public string completeTargetName(ADKAT_Record record)
+        public void completeTargetInformation(ADKAT_Record record)
         {
-            Converter<String, List<CPlayerInfo>> ExactNameMatches = delegate(String sub)
+            string player = record.target_name;
+            try
             {
-                List<CPlayerInfo> matches = new List<CPlayerInfo>();
-
-                if (String.IsNullOrEmpty(sub)) return matches;
-
-                foreach (CPlayerInfo player in this.playerList)
+                //Check for an exact match
+                if (currentPlayers.ContainsKey(record.target_name))
                 {
-                    if (Regex.Match(player.SoldierName, sub, RegexOptions.IgnoreCase).Success)
-                    {
-                        matches.Add(player);
-                    }
+                    //Exact player match, call processing without confirmation
+                    record.target_guid = record.targetPlayerInfo.GUID;
+                    record.targetPlayerInfo = this.currentPlayers[record.target_name];
+                    //Process record right away
+                    this.processRecord(record);
                 }
-                return matches;
-            };
-            this.DebugWrite("finding matches for " + record.target_name, 6);
-            // Use the function to find all matches
-            List<CPlayerInfo> playerMatches = ExactNameMatches(record.target_name);
-            this.DebugWrite("Got name match list", 6);
+                //Get all substring matches
+                Converter<String, List<CPlayerInfo>> ExactNameMatches = delegate(String sub)
+                {
+                    List<CPlayerInfo> matches = new List<CPlayerInfo>();
+                    if (String.IsNullOrEmpty(sub)) return matches;
+                    foreach (CPlayerInfo player in this.playerList)
+                    {
+                        if (Regex.Match(player.SoldierName, sub, RegexOptions.IgnoreCase).Success)
+                        {
+                            matches.Add(player);
+                        }
+                    }
+                    return matches;
+                };
+                List<CPlayerInfo> substringMatches = ExactNameMatches(record.target_name);
+                if (substringMatches.Count == 1)
+                {
+                    //Only one substring match, call processing without confirmation
+                    record.target_name = substringMatches[0].SoldierName;
+                    record.target_guid = substringMatches[0].GUID;
+                    record.targetPlayerInfo = substringMatches[0];
+                    //Process record right away
+                    return this.processRecord(record);
+                }
+                else if (substringMatches.Count > 1)
+                {
+                    //Multiple players matched the query, choose correct one
+                    string msg = "'" + record.target_name + "' matches multiple players: ";
+                    bool first = true;
+                    CPlayerInfo suggestion = null;
+                    foreach (CPlayerInfo player in substringMatches)
+                    {
+                        if (first)
+                        {
+                            msg = msg + player.SoldierName;
+                            first = false;
+                        }
+                        else
+                        {
+                            msg = msg + ", " + player.SoldierName;
+                        }
+                        //Suggest player names that start with the text admins entered over others
+                        if (player.SoldierName.ToLower().StartsWith(record.target_name.ToLower()))
+                        {
+                            suggestion = player;
+                        }
+                    }
+                    if(suggestion == null)
+                    {
+                        //If no player name starts with what admins typed, suggest substring name with lowest Levenshtein distance
+                        int bestDistance = Int32.MaxValue;
+                        foreach (CPlayerInfo player in substringMatches)
+                        {
+                            int distance = LevenshteinDistance(record.target_name, player.SoldierName);
+                            if (distance < bestDistance)
+                            {
+                                bestDistance = distance;
+                                suggestion = player;
+                            }
+                        }
+                    }
+                    //If the suggestion is still null, something has failed
+                    if (suggestion == null) { this.DebugWrite("name suggestion system failed with substring matches", 5); };
 
-            //No matches case
-            if (playerMatches.Count == 0)
-            {
-                //Only run fuzzy check for names if literal name checks fail
-                this.DebugWrite("No literal matches, running fuzzy check.", 6);
-                string fuzzySuggestion = this.bestPlayerMatch(record.target_name, true);
-                record.target_name = fuzzySuggestion;
-                record.target_guid = this.currentPlayers[fuzzySuggestion].GUID;
-                //Send record to attempt list
-                this.actionAttemptList.Remove(record.source_name);
-                this.actionAttemptList.Add(record.source_name, record);
-                return this.sendMessageToSource(record, record.command_type + ": " + record.target_name + "? [Fuzzy]");
+                    //Inform admin of multiple players found
+                    this.sendMessageToSource(record, msg);
+
+                    //Use suggestion for target
+                    record.target_guid = suggestion.GUID;
+                    record.target_name = suggestion.SoldierName;
+                    record.targetPlayerInfo = suggestion;
+                    //Send record to attempt list for confirmation
+                    this.actionConfirmList.Remove(record.source_name);
+                    this.actionConfirmList.Add(record.source_name, record);
+                    //Tell the admin which player was suggested from the multiple matches
+                    return this.sendMessageToSource(record, record.command_type + ": " + record.target_name + "?");
+                }
+                else
+                {
+                    //There were no players found, run a fuzzy search using Levenshtein Distance on all players in server
+                    CPlayerInfo fuzzyMatch = null;
+                    int bestDistance = Int32.MaxValue;
+                    foreach (CPlayerInfo player in this.playerList)
+                    {
+                        int distance = LevenshteinDistance(record.target_name, player.SoldierName);
+                        if (distance < bestDistance)
+                        {
+                            bestDistance = distance;
+                            fuzzyMatch = player;
+                        }
+                    }
+                    //If the suggestion is still null, something has failed
+                    if (fuzzyMatch == null) { this.DebugWrite("name suggestion system failed fuzzy match", 5); };
+
+                    //Use suggestion for target
+                    record.target_guid = fuzzyMatch.GUID;
+                    record.target_name = fuzzyMatch.SoldierName;
+                    record.targetPlayerInfo = fuzzyMatch;
+                    //Send record to attempt list for confirmation
+                    this.actionConfirmList.Remove(record.source_name);
+                    this.actionConfirmList.Add(record.source_name, record);
+                    //Tell the admin which player was suggested from the multiple matches
+                    return this.sendMessageToSource(record, record.command_type + ": " + record.target_name + "? [Fuzzy]");
+
+                }
             }
-            //Multiple matches case
-            else if (playerMatches.Count > 1)
+            catch (Exception e)
             {
-                this.DebugWrite("multiple matches", 6);
-                //Inform speaker of multiple players found
-                string msg = "'" + record.target_name + "' matches multiple players: ";
-
-                bool first = true;
-                CPlayerInfo suggestion = null;
-                foreach (CPlayerInfo player in playerMatches)
-                {
-                    if (first)
-                    {
-                        msg = msg + player.SoldierName;
-                        first = false;
-                    }
-                    else
-                    {
-                        msg = msg + ", " + player.SoldierName;
-                    }
-                    //Suggest player names that start with the text admins entered over all others
-                    if (player.SoldierName.ToLower().StartsWith(record.target_name.ToLower()))
-                    {
-                        suggestion = player;
-                    }
-                }
-                //If no player name starts with what admins typed
-                if (suggestion == null)
-                {
-                    suggestion = playerMatches[0];
-                }
-
-                this.sendMessageToSource(record, msg);
-                //Possible player found, grab guid
-                record.target_guid = suggestion.GUID;
-                record.target_name = suggestion.SoldierName;
-                //Send record to attempt list
-                this.actionAttemptList.Remove(record.source_name);
-                this.actionAttemptList.Add(record.source_name, record);
-                return this.sendMessageToSource(record, record.command_type + ": " + record.target_name + "?");
-            }
-            // Otherwise just one exact match
-            else
-            {
-                record.target_name = playerMatches[0].SoldierName;
-                record.target_guid = playerMatches[0].GUID;
-                record.targetPlayerInfo = playerMatches[0];
-                //Process record right away
-                return this.processRecord(record);
+                this.ConsoleException(e.ToString());
+                return e.ToString();
             }
         }
 
         //Credit to Micovery and PapaCharlie9 for the below code
-        public string bestPlayerMatch(string player, bool fuzzy)
-        {
-            try
-            {
-                if (player == null)
-                    return null;
-                if (currentPlayers.ContainsKey(player))
-                    return player;
-                int edit_distance = 0;
-                String new_player = null;
-                if ((new_player = bestMatch(player, new List<string>(currentPlayers.Keys), out edit_distance, fuzzy)) == null)
-                {
-                    this.DebugWrite("could not find ^b" + player + "^n", 6);
-                    return null;
-                }
-                this.DebugWrite("could not find ^b" + player + "^n, but found ^b" + new_player + "^n, with edit distance of ^b" + edit_distance + "^n", 6);
-                return new_player;
-            }
-            catch (Exception e)
-            {
-                this.ConsoleException(e.ToString());
-            }
-            return null;
-        }
-
-        //find the best match for name in names
-        public string bestMatch(String name, List<String> names, out int best_distance, bool fuzzy)
-        {
-            best_distance = int.MaxValue;
-            try
-            {
-                //do the obvious check first
-                if (names.Contains(name))
-                {
-                    best_distance = 0;
-                    return name;
-                }
-                //name is not in the list, find the best match
-                String best_match = null;
-                // first try to see if any of the names contains target name as substring, so we can reduce the search
-                Dictionary<String, String> sub_names = new Dictionary<string, string>();
-                String name_lower = name.ToLower();
-                for (int i = 0; i < names.Count; i++)
-                {
-                    String cname = names[i].ToLower();
-                    if (cname.Equals(name_lower))
-                        return names[i];
-                    else if (cname.Contains(name_lower) && !sub_names.ContainsKey(cname))
-                        sub_names.Add(cname, names[i]);
-                }
-                if (sub_names.Count > 0)
-                    names = new List<string>(sub_names.Keys);
-                if (sub_names.Count == 1)
-                {
-                    // we can optimize, and exit early
-                    best_match = sub_names[names[0]];
-                    best_distance = Math.Abs(best_match.Length - name.Length);
-                    return best_match;
-                }
-                // if we are not doing a fuzzy search, and we have not found more than one sub-string, we can exit here
-                if (!fuzzy && sub_names.Count == 0)
-                    return null;
-                // find the best/fuzzy match using modified Leveshtein algorithm
-                foreach (String cname in names)
-                {
-                    int distance = LevenshteinDistance(name, cname);
-                    if (distance < best_distance)
-                    {
-                        best_distance = distance;
-                        best_match = cname;
-                    }
-                }
-                if (best_match == null)
-                    return null;
-                best_distance += Math.Abs(name.Length - best_match.Length);
-                // if we searched through sub-names, get the actual match
-                if (sub_names.Count > 0 && sub_names.ContainsKey(best_match))
-                    best_match = sub_names[best_match];
-                return best_match;
-            }
-            catch (Exception e)
-            {
-                this.ConsoleException(e.ToString());
-            }
-            return null;
-        }
-
         // modified algorithm to ignore insertions, and case
         public static int LevenshteinDistance(string s, string t)
         {
@@ -4222,6 +4348,7 @@ namespace PRoConEvents
                     d[i, j] = Math.Min(Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 0), d[i - 1, j - 1] + ((t[j - 1] == s[i - 1]) ? 0 : 1));
             return d[n, m];
         }
+
         #endregion
 
         #region Helper Classes
