@@ -129,7 +129,7 @@ assistant list is recalculated at the beginning of each round. They need to keep
 if they have less than the required amount they are automatically removed.<br/><br/>
 
 When an admin assistant sends a report, to the admins that report is prefixed with [AA] to note it as a (most likely) 
-reliable report.
+reliable report. Whether admin assistants get the teamswap perk can be disabled, but the prefixes admins see will remain.
 </p>
 <h3>Player Muting</h3>
 <p>
