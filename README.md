@@ -660,7 +660,9 @@ Valid 'command_type's that can be acted on include the following:<br/>
   <li><b>Commands can now operate in shortened hidden mode.</b> When commands are issued in hidden mode they normally 
   require an extra character. e.g. /@kill target reason. They now work with just the slash. e.g. /kill target reason. 
   </li>
-  <li><b>Actions against yourself nolonger require a reason.</b></li>
+  <li><b>Actions against yourself nolonger require a reason.</b> Most player interaction commands will now target the 
+  speaker when entered with no parameters. So "@kill" == "@kill SourcePlayerName Self-Inflicted". Report and call 
+  admin will not do this, in addition to commands meant for targeting multiple players.</li>
   <li><b>Additional ban message option added.</b> e.g. Optionally add "appeal at www.yoursite.com" to the end of bans.</li>
   <li><b>30 seconds now hardcoded as punishment timeout.</b> Setting was only editable for testing purposes.</li>
   <li><b>Optimizations in code, database, and settings handling.</b></li>
