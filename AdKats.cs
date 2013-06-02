@@ -405,12 +405,16 @@ namespace PRoConEvents
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.AdminYell, 4);
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.PlayerSay, 4);
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.PlayerYell, 4);
+            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.PreSay, 4);
+            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.PreYell, 4);
 
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.Teamswap, 5);
 
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.ReportPlayer, 6);
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.CallAdmin, 6);
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.ConfirmReport, 6);
+            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.ConfirmCommand, 6);
+            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.CancelCommand, 6);
 
             this.sendmail = false;
             this.blUseSSL = false;
@@ -1721,811 +1725,1001 @@ namespace PRoConEvents
         //Before calling this, the record is initialized, and command_source/source_name are filled
         public void completeRecord(ADKAT_Record record, String message)
         {
-            //Initial split of command by whitespace
-            String[] splitMessage = message.Split(' ');
-            if (splitMessage.Length < 1)
+            try
             {
-                this.DebugWrite("Completely blank command entered", 5);
-                this.sendMessageToSource(record, "You entered a completely blank command.");
-                return;
-            }
-            string command = splitMessage[0];
-            DebugWrite("Raw Command: " + command, 6);
-            String remainingMessage = message.TrimStart(commandString.ToCharArray()).Trim();
+                //Initial split of command by whitespace
+                String[] splitMessage = message.Split(' ');
+                if (splitMessage.Length < 1)
+                {
+                    this.DebugWrite("Completely blank command entered", 5);
+                    this.sendMessageToSource(record, "You entered a completely blank command.");
+                    return;
+                }
+                String commandString = splitMessage[0];
+                DebugWrite("Raw Command: " + commandString, 6);
+                String remainingMessage = message.TrimStart(commandString.ToCharArray()).Trim();
 
-            //GATE 1: Add general data
-            record.server_id = this.server_id;
-            record.server_ip = this.serverInfo.ExternalGameIpandPort;
-            record.record_time = DateTime.Now;
+                //GATE 1: Add general data
+                record.server_id = this.server_id;
+                record.server_ip = this.serverInfo.ExternalGameIpandPort;
+                record.record_time = DateTime.Now;
 
-            //GATE 2: Add Command
-            ADKAT_CommandType commandType = this.getCommand(commandString);
-            if (commandType == ADKAT_CommandType.Default)
-            {
-                //If command not parsable, return without creating
-                DebugWrite("Command not parsable", 6);
-                return;
-            }
-            record.command_type = commandType;
+                //GATE 2: Add Command
+                ADKAT_CommandType commandType = this.getCommand(commandString);
+                if (commandType == ADKAT_CommandType.Default)
+                {
+                    //If command not parsable, return without creating
+                    DebugWrite("Command not parsable", 6);
+                    return;
+                }
+                record.command_type = commandType;
+                DebugWrite("Command type: " + record.command_type, 6);
 
-            //GATE 3: Check Access Rights
-            //Check if player has the right to perform what he's asking, only perform for InGame actions
-            if (record.command_source == ADKAT_CommandSource.InGame && !this.hasAccess(record.source_name, record.command_type))
-            {
-                DebugWrite("No rights to call command", 6);
-                this.sendMessageToSource(record, "Cannot use class " + this.ADKAT_CommandAccess[record.command_type] + " command, " + record.command_type + ". You are access class " + this.getAccessLevel(record.source_name) + ".");
-                //Return without creating if player doesn't have rights to do it
-                return;
-            }
+                //GATE 3: Check Access Rights
+                //Check if player has the right to perform what he's asking, only perform for InGame actions
+                if (record.command_source == ADKAT_CommandSource.InGame && !this.hasAccess(record.source_name, record.command_type))
+                {
+                    DebugWrite("No rights to call command", 6);
+                    this.sendMessageToSource(record, "Cannot use class " + this.ADKAT_CommandAccessRank[record.command_type] + " command, " + record.command_type + ". You are access class " + this.getAccessLevel(record.source_name) + ".");
+                    //Return without creating if player doesn't have rights to do it
+                    return;
+                }
 
-            //GATE 4: Add specific data based on command type.
-            //Items that need filling before record processing:
-            //target_name
-            //target_guid
-            //record_message
-            switch (record.command_type)
-            {
-                #region MovePlayer
-                case ADKAT_CommandType.MovePlayer:
-                    //Remove previous commands awaiting confirmation
-                    this.actionConfirmList.Remove(record.source_name);
+                //GATE 4: Add specific data based on command type.
+                //Items that need filling before record processing:
+                //target_name
+                //target_guid
+                //record_message
+                switch (record.command_type)
+                {
+                    #region MovePlayer
+                    case ADKAT_CommandType.MovePlayer:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
 
-                    //Parse parameters using max param count
-                    String[] parameters = this.parseParameters(remainingMessage, 1);
-                    if(parameters.Length >= 1)
-                    {
-                        //Handle based on report ID if possible
-                        if (this.handleRoundReport(record, parameters)) { return; }
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 1);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    record.target_name = record.source_name;
+                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
+                                    record.record_message = "Self-Inflicted";
+                                    this.confirmAction(record);
+                                    return;
+                                case 1:
+                                    record.target_name = parameters[0];
+                                    //Handle based on report ID if possible
+                                    if (this.handleRoundReport(record)) { return; }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //Sets target_guid and completes target_name, then calls processRecord
+                            completeTargetInformation(record);
+                        }
+                        break;
+                    #endregion
+                    #region ForceMovePlayer
+                    case ADKAT_CommandType.ForceMovePlayer:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
 
-                        record.target_name = parameters[0];
-                        DebugWrite("target: " + record.target_name, 6);
-                    }
-                    else
-                    {
-                        DebugWrite("No target given", 6);
-                        this.sendMessageToSource(record, "No target given, unable to submit.");
-                        return;
-                    }
-                    record.record_message = "";
-                    //Sets target_guid and completes target_name, then calls processRecord
-                    completeTargetInformation(record);
-                    break;
-                #endregion
-                #region ForceMovePlayer
-                case ADKAT_CommandType.ForceMovePlayer:
-                    //Remove previous commands awaiting confirmation
-                    this.actionConfirmList.Remove(record.source_name);
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 1);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    record.target_name = record.source_name;
+                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
+                                    record.record_message = "Self-Inflicted";
+                                    this.confirmAction(record);
+                                    return;
+                                case 1:
+                                    record.target_name = parameters[0];
+                                    //Handle based on report ID if possible
+                                    if (this.handleRoundReport(record)) { return; }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                                    break;
+                            }
+                            //Sets target_guid and completes target_name, then calls processRecord
+                            completeTargetInformation(record);
+                        }
+                        break;
+                    #endregion
+                    #region Teamswap
+                    case ADKAT_CommandType.Teamswap:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
 
-                    //Parse parameters using max param count
-                    String[] parameters = this.parseParameters(remainingMessage, 1);
-                    if (parameters.Length >= 1)
-                    {
-                        //Handle based on report ID if possible
-                        if (this.handleRoundReport(record, parameters)) { return; }
+                            //May only call this command from in-game
+                            if (record.command_source != ADKAT_CommandSource.InGame)
+                            {
+                                this.sendMessageToSource(record, "You cannot use teamswap from outside the game. Use force move.");
+                                return;
+                            }
 
-                        record.target_name = parameters[0];
-                        DebugWrite("target: " + record.target_name, 6);
-                    }
-                    else
-                    {
-                        DebugWrite("No target given", 6);
-                        this.sendMessageToSource(record, "No target given, unable to submit.");
-                        return;
-                    }
-                    record.record_message = "";
-                    //Sets target_guid and completes target_name, then calls processRecord
-                    completeTargetInformation(record);
-                    break;
-                #endregion
-                #region Teamswap
-                case ADKAT_CommandType.Teamswap:
-                    //Remove previous commands awaiting confirmation
-                    this.actionConfirmList.Remove(record.source_name);
-
-                    //May only call this command from in-game
-                    if (record.command_source != ADKAT_CommandSource.InGame)
-                    {
-                        this.sendMessageToSource(record, "You cannot use teamswap directly from outside the game. Use force move.");
-                        return;
-                    }
-
-                    record.record_message = "TeamSwap";
-                    record.target_name = record.source_name;
-
-                    //Sets target_guid and completes target_name, then calls processRecord
-                    completeTargetInformation(record);
-                    break;
-                #endregion
-                #region KillPlayer
-                case ADKAT_CommandType.KillPlayer:
-                    //Remove previous commands awaiting confirmation
-                    this.actionConfirmList.Remove(record.source_name);
-
-                    //Parse parameters using max param count
-                    String[] parameters = this.parseParameters(remainingMessage, 2);
-                    switch (parameters.Length)
-                    {
-                        case 0:
+                            record.record_message = "TeamSwap";
                             record.target_name = record.source_name;
-                            record.record_message = "Self Inflicted";
-                            break;
-                        case 1:
-                            //Handle based on report ID as only option
-                            if (!this.handleRoundReport(record, parameters))
-                            {
-                                this.sendMessageToSource(record, "No reason given, unable to submit.");
-                            }
-                            return;
-                            break;
-                        case 2:
-                            //Handle based on report ID if possible
-                            if (this.handleRoundReport(record, parameters)) { return; }
 
-                            record.target_name = parameters[0];
-                            DebugWrite("target: " + record.target_name, 6);
-                            record.record_message = parameters[1];
-                            DebugWrite("reason: " + record.record_message, 6);
-                            if (record.record_message.Length < this.requiredReasonLength)
-                            {
-                                DebugWrite("reason too short", 6);
-                                this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                                return;
-                            }
-                            break;
-                        default:
-                            this.DebugWrite("Unknown parameter error", 6);
-                            return;
-                            break;
-                    }
-                    //Sets target_guid and completes target_name, then calls processRecord
-                    completeTargetInformation(record);
-                    break;
-                #endregion
-                #region KickPlayer
-                case ADKAT_CommandType.KickPlayer:
-                    //Remove previous commands awaiting confirmation
-                    this.actionConfirmList.Remove(record.source_name);
-
-                    //Parse parameters using max param count
-                    String[] parameters = this.parseParameters(remainingMessage, 2);
-                    switch (parameters.Length)
-                    {
-                        case 0:
-                            record.target_name = record.source_name;
-                            record.record_message = "Self Inflicted";
-                            break;
-                        case 1:
-                            //Handle based on report ID as only option
-                            if (!this.handleRoundReport(record, parameters))
-                            {
-                                this.sendMessageToSource(record, "No reason given, unable to submit.");
-                            }
-                            return;
-                            break;
-                        case 2:
-                            //Handle based on report ID if possible
-                            if (this.handleRoundReport(record, parameters)) { return; }
-
-                            record.target_name = parameters[0];
-                            DebugWrite("target: " + record.target_name, 6);
-                            record.record_message = parameters[1];
-                            DebugWrite("reason: " + record.record_message, 6);
-                            if (record.record_message.Length < this.requiredReasonLength)
-                            {
-                                DebugWrite("reason too short", 6);
-                                this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                                return;
-                            }
-                            break;
-                        default:
-                            this.DebugWrite("Unknown parameter error", 6);
-                            return;
-                            break;
-                    }
-                    //Sets target_guid and completes target_name, then calls processRecord
-                    completeTargetInformation(record);
-                    break;
-                #endregion
-                #region TempBanPlayer
-                case ADKAT_CommandType.TempBanPlayer:
-                    this.actionConfirmList.Remove(record.source_name);
-                    try
-                    {
-                        int record_duration = 0;
-                        DebugWrite("Raw Duration: " + splitCommand[1], 6);
-                        Boolean valid = Int32.TryParse(splitCommand[1], out record_duration);
-                        record.record_durationMinutes = record_duration;
-
-                        //Handle based on report ID if possible
-                        if (this.handleRoundReport(record, splitCommand[2])) { return; }
-
-                        message = message.TrimStart(splitCommand[1].ToCharArray()).Trim();
-                        record.target_name = splitCommand[2];
-                        DebugWrite("target: " + record.target_name, 6);
-                        message = message.TrimStart(record.target_name.ToCharArray()).Trim();
-                        record.record_message = message;
-                        DebugWrite("reason: " + record.record_message, 6);
-                    }
-                    catch (Exception e)
-                    {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format or no reason given, unable to submit.");
-                        return;
-                    }
-                    if (record.record_message.Length < this.requiredReasonLength)
-                    {
-                        DebugWrite("reason too short", 6);
-                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                        return;
-                    }
-                    completeTargetInformation(record);
-                    break;
-                #endregion
-                #region PermabanPlayer
-                case ADKAT_CommandType.PermabanPlayer:
-                    //Remove previous commands awaiting confirmation
-                    this.actionConfirmList.Remove(record.source_name);
-
-                    //Parse parameters using max param count
-                    String[] parameters = this.parseParameters(remainingMessage, 2);
-                    switch (parameters.Length)
-                    {
-                        case 0:
-                            record.target_name = record.source_name;
-                            record.record_message = "Self Inflicted";
-                            break;
-                        case 1:
-                            //Handle based on report ID as only option
-                            if (!this.handleRoundReport(record, parameters))
-                            {
-                                this.sendMessageToSource(record, "No reason given, unable to submit.");
-                            }
-                            return;
-                            break;
-                        case 2:
-                            //Handle based on report ID if possible
-                            if (this.handleRoundReport(record, parameters)) { return; }
-
-                            record.target_name = parameters[0];
-                            DebugWrite("target: " + record.target_name, 6);
-                            record.record_message = parameters[1];
-                            DebugWrite("reason: " + record.record_message, 6);
-                            if (record.record_message.Length < this.requiredReasonLength)
-                            {
-                                DebugWrite("reason too short", 6);
-                                this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                                return;
-                            }
-                            break;
-                        default:
-                            this.DebugWrite("Unknown parameter error", 6);
-                            return;
-                            break;
-                    }
-                    //Sets target_guid and completes target_name, then calls processRecord
-                    completeTargetInformation(record);
-                    break;
-                #endregion
-                #region PunishPlayer
-                case ADKAT_CommandType.PunishPlayer:
-                    //Remove previous commands awaiting confirmation
-                    this.actionConfirmList.Remove(record.source_name);
-
-                    //Parse parameters using max param count
-                    String[] parameters = this.parseParameters(remainingMessage, 2);
-                    switch (parameters.Length)
-                    {
-                        case 0:
-                            record.target_name = record.source_name;
-                            record.record_message = "Self Inflicted";
-                            break;
-                        case 1:
-                            //Handle based on report ID as only option
-                            if (!this.handleRoundReport(record, parameters))
-                            {
-                                this.sendMessageToSource(record, "No reason given, unable to submit.");
-                            }
-                            return;
-                            break;
-                        case 2:
-                            //Handle based on report ID if possible
-                            if (this.handleRoundReport(record, parameters)) { return; }
-
-                            record.target_name = parameters[0];
-                            DebugWrite("target: " + record.target_name, 6);
-                            record.record_message = parameters[1];
-                            DebugWrite("reason: " + record.record_message, 6);
-                            if (record.record_message.Length < this.requiredReasonLength)
-                            {
-                                DebugWrite("reason too short", 6);
-                                this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                                return;
-                            }
-                            break;
-                        default:
-                            this.DebugWrite("Unknown parameter error", 6);
-                            return;
-                            break;
-                    }
-                    //Sets target_guid and completes target_name, then calls processRecord
-                    completeTargetInformation(record);
-                    break;
-                #endregion
-                #region ForgivePlayer
-                case ADKAT_CommandType.ForgivePlayer:
-                    //Remove previous commands awaiting confirmation
-                    this.actionConfirmList.Remove(record.source_name);
-
-                    //Parse parameters using max param count
-                    String[] parameters = this.parseParameters(remainingMessage, 2);
-                    switch (parameters.Length)
-                    {
-                        case 0:
-                            record.target_name = record.source_name;
-                            record.record_message = "Self Inflicted";
-                            break;
-                        case 1:
-                            //Handle based on report ID as only option
-                            if (!this.handleRoundReport(record, parameters))
-                            {
-                                this.sendMessageToSource(record, "No reason given, unable to submit.");
-                            }
-                            return;
-                            break;
-                        case 2:
-                            //Handle based on report ID if possible
-                            if (this.handleRoundReport(record, parameters)) { return; }
-
-                            record.target_name = parameters[0];
-                            DebugWrite("target: " + record.target_name, 6);
-                            record.record_message = parameters[1];
-                            DebugWrite("reason: " + record.record_message, 6);
-                            if (record.record_message.Length < this.requiredReasonLength)
-                            {
-                                DebugWrite("reason too short", 6);
-                                this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                                return;
-                            }
-                            break;
-                        default:
-                            this.DebugWrite("Unknown parameter error", 6);
-                            return;
-                            break;
-                    }
-                    //Sets target_guid and completes target_name, then calls processRecord
-                    completeTargetInformation(record);
-                    break;
-                #endregion
-                #region MutePlayer
-                case ADKAT_CommandType.MutePlayer:
-                    //Remove previous commands awaiting confirmation
-                    this.actionConfirmList.Remove(record.source_name);
-
-                    //Parse parameters using max param count
-                    String[] parameters = this.parseParameters(remainingMessage, 2);
-                    switch (parameters.Length)
-                    {
-                        case 0:
-                            record.target_name = record.source_name;
-                            record.record_message = "Self Inflicted";
-                            break;
-                        case 1:
-                            //Handle based on report ID as only option
-                            if (!this.handleRoundReport(record, parameters))
-                            {
-                                this.sendMessageToSource(record, "No reason given, unable to submit.");
-                            }
-                            return;
-                            break;
-                        case 2:
-                            //Handle based on report ID if possible
-                            if (this.handleRoundReport(record, parameters)) { return; }
-
-                            record.target_name = parameters[0];
-                            DebugWrite("target: " + record.target_name, 6);
-                            record.record_message = parameters[1];
-                            DebugWrite("reason: " + record.record_message, 6);
-                            if (record.record_message.Length < this.requiredReasonLength)
-                            {
-                                DebugWrite("reason too short", 6);
-                                this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                                return;
-                            }
-                            break;
-                        default:
-                            this.DebugWrite("Unknown parameter error", 6);
-                            return;
-                            break;
-                    }
-                    //Sets target_guid and completes target_name, then calls processRecord
-                    completeTargetInformation(record);
-                    break;
-                #endregion
-                #region RoundWhitelistPlayer
-                case ADKAT_CommandType.RoundWhitelistPlayer:
-                    //Remove previous commands awaiting confirmation
-                    this.actionConfirmList.Remove(record.source_name);
-
-                    //Parse parameters using max param count
-                    String[] parameters = this.parseParameters(remainingMessage, 2);
-                    switch (parameters.Length)
-                    {
-                        case 0:
-                            record.target_name = record.source_name;
-                            record.record_message = "Self Inflicted";
-                            break;
-                        case 1:
-                            //Handle based on report ID as only option
-                            if (!this.handleRoundReport(record, parameters))
-                            {
-                                this.sendMessageToSource(record, "No reason given, unable to submit.");
-                            }
-                            return;
-                            break;
-                        case 2:
-                            //Handle based on report ID if possible
-                            if (this.handleRoundReport(record, parameters)) { return; }
-
-                            record.target_name = parameters[0];
-                            DebugWrite("target: " + record.target_name, 6);
-                            record.record_message = parameters[1];
-                            DebugWrite("reason: " + record.record_message, 6);
-                            if (record.record_message.Length < this.requiredReasonLength)
-                            {
-                                DebugWrite("reason too short", 6);
-                                this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                                return;
-                            }
-                            break;
-                        default:
-                            this.DebugWrite("Unknown parameter error", 6);
-                            return;
-                            break;
-                    }
-                    //Sets target_guid and completes target_name, then calls processRecord
-                    completeTargetInformation(record);
-                    break;
-                #endregion
-                #region ReportPlayer
-                case ADKAT_CommandType.ReportPlayer:
-                    this.actionConfirmList.Remove(record.source_name);
-                    try
-                    {
-                        record.target_name = splitCommand[1];
-                        message = message.TrimStart(record.target_name.ToCharArray()).Trim();
-                        DebugWrite("target: " + record.target_name, 6);
-                        record.record_message = message;
-                        DebugWrite("reason: " + record.record_message, 6);
-                    }
-                    catch (Exception e)
-                    {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format or no reason given, unable to submit.");
-                        return;
-                    }
-                    if (record.record_message.Length < this.requiredReasonLength)
-                    {
-                        DebugWrite("reason too short", 6);
-                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                        return;
-                    }
-                    completeTargetInformation(record);
-                    break;
-                #endregion
-                #region CallAdmin
-                case ADKAT_CommandType.CallAdmin:
-                    this.actionConfirmList.Remove(record.source_name);
-                    try
-                    {
-                        record.target_name = splitCommand[1];
-                        message = message.TrimStart(record.target_name.ToCharArray()).Trim();
-                        DebugWrite("target: " + record.target_name, 6);
-                        record.record_message = message;
-                        DebugWrite("reason: " + record.record_message, 6);
-                    }
-                    catch (Exception e)
-                    {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format or no reason given, unable to submit.");
-                        return;
-                    }
-                    if (record.record_message.Length < this.requiredReasonLength)
-                    {
-                        DebugWrite("reason too short", 6);
-                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                        return;
-                    }
-                    completeTargetInformation(record);
-                    break;
-                #endregion
-                #region EndLevel
-                case ADKAT_CommandType.EndLevel:
-                    this.actionConfirmList.Remove(record.source_name);
-                    try
-                    {
-                        record.record_message = "End Round";
-                        String targetTeam = splitCommand[1];
-                        DebugWrite("target team: " + targetTeam, 6);
-                        if (targetTeam.ToLower().Contains("us"))
-                        {
-                            record.target_name = "US Team";
-                            record.target_guid = "US Team";
-                            record.record_message += " (US Win)";
+                            //Sets target_guid and completes target_name, then calls processRecord
+                            completeTargetInformation(record);
                         }
-                        else if (targetTeam.ToLower().Contains("ru"))
+                        break;
+                    #endregion
+                    #region KillPlayer
+                    case ADKAT_CommandType.KillPlayer:
                         {
-                            record.target_name = "RU Team";
-                            record.target_guid = "RU Team";
-                            record.record_message += " (RU Win)";
-                        }
-                        else
-                        {
-                            this.sendMessageToSource(record, "Use 'US' or 'RU' as team names to end round");
-                        }
-                        confirmAction(record);
-                    }
-                    catch (Exception e)
-                    {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format, use 'RU' or 'US' to end round.");
-                        return;
-                    }
-                    break;
-                #endregion
-                #region NukeServer
-                case ADKAT_CommandType.NukeServer:
-                    this.actionConfirmList.Remove(record.source_name);
-                    try
-                    {
-                        record.record_message = "Server Nuke";
-                        String targetTeam = splitCommand[1];
-                        DebugWrite("target: " + targetTeam, 6);
-                        if (targetTeam.ToLower().Contains("us"))
-                        {
-                            record.target_name = "US Team";
-                            record.target_guid = "US Team";
-                            record.record_message += " (US Team)";
-                        }
-                        else if (targetTeam.ToLower().Contains("ru"))
-                        {
-                            record.target_name = "RU Team";
-                            record.target_guid = "RU Team";
-                            record.record_message += " (RU Team)";
-                        }
-                        else if (targetTeam.ToLower().Contains("all"))
-                        {
-                            record.target_name = "Server";
-                            record.target_guid = "Server";
-                            record.record_message += " (Everyone)";
-                        }
-                        else
-                        {
-                            this.sendMessageToSource(record, "Use 'US', 'RU', or 'ALL' as targets.");
-                        }
-                        confirmAction(record);
-                    }
-                    catch (Exception e)
-                    {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format, use 'RU', 'US', or 'ALL' as targets.");
-                        return;
-                    }
-                    break;
-                #endregion
-                #region KickAll
-                case ADKAT_CommandType.KickAll:
-                    this.actionConfirmList.Remove(record.source_name);
-                    record.target_name = "Server";
-                    record.target_guid = "Server";
-                    record.record_message = "Kick All Players";
-                    confirmAction(record);
-                    break;
-                #endregion
-                #region RestartLevel
-                case ADKAT_CommandType.RestartLevel:
-                    this.actionConfirmList.Remove(record.source_name);
-                    record.target_name = "Server";
-                    record.target_guid = "Server";
-                    record.record_message = "Restart Round";
-                    confirmAction(record);
-                    break;
-                #endregion
-                #region NextLevel
-                case ADKAT_CommandType.NextLevel:
-                    this.actionConfirmList.Remove(record.source_name);
-                    record.target_name = "Server";
-                    record.target_guid = "Server";
-                    record.record_message = "Run Next Map";
-                    confirmAction(record);
-                    break;
-                #endregion
-                #region AdminSay
-                case ADKAT_CommandType.AdminSay:
-                    this.actionConfirmList.Remove(record.source_name);
-                    record.target_name = "Server";
-                    record.target_guid = "Server";
-                    try
-                    {
-                        String adminMessage = message.TrimStart(record.target_name.ToCharArray()).Trim();
-                        DebugWrite("message: " + adminMessage, 6);
-                        record.record_message = adminMessage;
-                    }
-                    catch (Exception e)
-                    {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format, no message given.");
-                        return;
-                    }
-                    this.processRecord(record);
-                    break;
-                #endregion
-                #region PreSay
-                case ADKAT_CommandType.PreSay:
-                    this.actionConfirmList.Remove(record.source_name);
-                    record.target_name = "Server";
-                    record.target_guid = "Server";
-                    try
-                    {
-                        if (this.preMessageList.Count > 0)
-                        {
-                            int preSayID = 0;
-                            DebugWrite("Raw preSayID: " + splitCommand[1], 6);
-                            Boolean valid = Int32.TryParse(splitCommand[1], out preSayID);
-                            if (valid && (preSayID > 0) && (preSayID <= this.preMessageList.Count))
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
                             {
-                                record.record_message = this.preMessageList[preSayID - 1];
-                                record.command_type = ADKAT_CommandType.AdminSay;
+                                case 0:
+                                    record.target_name = record.source_name;
+                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
+                                    record.record_message = "Self-Inflicted";
+                                    this.confirmAction(record);
+                                    return;
+                                case 1:
+                                    record.target_name = parameters[0];
+                                    //Handle based on report ID as only option
+                                    if (!this.handleRoundReport(record))
+                                    {
+                                        this.sendMessageToSource(record, "No reason given, unable to submit.");
+                                    }
+                                    return;
+                                case 2:
+                                    record.target_name = parameters[0];
+                                    DebugWrite("target: " + record.target_name, 6);
+
+                                    record.record_message = parameters[1];
+                                    DebugWrite("reason: " + record.record_message, 6);
+                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    {
+                                        DebugWrite("reason too short", 6);
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        return;
+                                    }
+
+                                    //Handle based on report ID if possible
+                                    if (this.handleRoundReport(record)) { return; }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
                             }
-                            else
-                            {
-                                DebugWrite("invalid pre message id", 6);
-                                this.sendMessageToSource(record, "Invalid Pre-Message ID. Valid IDs 1-" + (this.preMessageList.Count));
-                                return;
-                            }
+                            //Sets target_guid and completes target_name, then calls processRecord
+                            completeTargetInformation(record);
                         }
-                        else
+                        break;
+                    #endregion
+                    #region KickPlayer
+                    case ADKAT_CommandType.KickPlayer:
                         {
-                            DebugWrite("no premessages stored", 6);
-                            this.sendMessageToSource(record, "No Pre-Messages stored");
-                            return;
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format, no pre-message ID given. Valid IDs 1-" + (this.preMessageList.Count));
-                        return;
-                    }
-                    confirmAction(record);
-                    break;
-                #endregion
-                #region AdminYell
-                case ADKAT_CommandType.AdminYell:
-                    this.actionConfirmList.Remove(record.source_name);
-                    record.target_name = "Server";
-                    record.target_guid = "Server";
-                    try
-                    {
-                        String adminMessage = message.TrimStart(record.target_name.ToCharArray()).Trim();
-                        DebugWrite("message: " + adminMessage, 6);
-                        record.record_message = adminMessage.ToUpper();
-                    }
-                    catch (Exception e)
-                    {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format, no message given.");
-                        return;
-                    }
-                    this.processRecord(record);
-                    break;
-                #endregion
-                #region PreYell
-                case ADKAT_CommandType.PreYell:
-                    this.actionConfirmList.Remove(record.source_name);
-                    record.target_name = "Server";
-                    record.target_guid = "Server";
-                    try
-                    {
-                        if (this.preMessageList.Count > 0)
-                        {
-                            int preYellID = 0;
-                            DebugWrite("Raw preYellID: " + splitCommand[1], 6);
-                            Boolean valid = Int32.TryParse(splitCommand[1], out preYellID);
-                            if (valid && (preYellID > 0) && (preYellID <= this.preMessageList.Count))
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
                             {
-                                record.record_message = this.preMessageList[preYellID - 1];
-                                record.command_type = ADKAT_CommandType.AdminYell;
+                                case 0:
+                                    record.target_name = record.source_name;
+                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
+                                    record.record_message = "Self-Inflicted";
+                                    this.confirmAction(record);
+                                    return;
+                                case 1:
+                                    record.target_name = parameters[0];
+                                    //Handle based on report ID as only option
+                                    if (!this.handleRoundReport(record))
+                                    {
+                                        this.sendMessageToSource(record, "No reason given, unable to submit.");
+                                    }
+                                    return;
+                                case 2:
+                                    record.target_name = parameters[0];
+                                    DebugWrite("target: " + record.target_name, 6);
+
+                                    record.record_message = parameters[1];
+                                    DebugWrite("reason: " + record.record_message, 6);
+                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    {
+                                        DebugWrite("reason too short", 6);
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        return;
+                                    }
+
+                                    //Handle based on report ID if possible
+                                    if (this.handleRoundReport(record)) { return; }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
                             }
-                            else
-                            {
-                                DebugWrite("invalid pre message id", 6);
-                                this.sendMessageToSource(record, "Invalid Pre-Message ID. Valid IDs 1-" + (this.preMessageList.Count));
-                                return;
-                            }
+                            //Sets target_guid and completes target_name, then calls processRecord
+                            completeTargetInformation(record);
                         }
-                        else
+                        break;
+                    #endregion
+                    #region TempBanPlayer
+                    case ADKAT_CommandType.TempBanPlayer:
                         {
-                            DebugWrite("no premessages stored", 6);
-                            this.sendMessageToSource(record, "No Pre-Messages stored");
-                            return;
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 3);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
+                                    return;
+                                case 1:
+                                    int record_duration = 0;
+                                    DebugWrite("Raw Duration: " + parameters[0], 6);
+                                    if (!Int32.TryParse(parameters[0], out record_duration))
+                                    {
+                                        this.sendMessageToSource(record, "Invalid time given, unable to submit.");
+                                        return;
+                                    }
+                                    record.record_durationMinutes = record_duration;
+                                    //Target is source
+                                    record.target_name = record.source_name;
+                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
+                                    record.record_message = "Self-Inflicted";
+                                    this.confirmAction(record);
+                                    return;
+                                case 2:
+                                    DebugWrite("Raw Duration: " + parameters[0], 6);
+                                    if (!Int32.TryParse(parameters[0], out record_duration))
+                                    {
+                                        this.sendMessageToSource(record, "Invalid time given, unable to submit.");
+                                        return;
+                                    }
+                                    record.record_durationMinutes = record_duration;
+
+                                    record.target_name = parameters[0];
+                                    DebugWrite("target: " + record.target_name, 6);
+
+                                    //Handle based on report ID as only option
+                                    if (!this.handleRoundReport(record))
+                                    {
+                                        this.sendMessageToSource(record, "No reason given, unable to submit.");
+                                    }
+                                    return;
+                                case 3:
+                                    DebugWrite("Raw Duration: " + parameters[0], 6);
+                                    if (!Int32.TryParse(parameters[0], out record_duration))
+                                    {
+                                        this.sendMessageToSource(record, "Invalid time given, unable to submit.");
+                                        return;
+                                    }
+                                    record.record_durationMinutes = record_duration;
+
+                                    record.target_name = parameters[1];
+                                    DebugWrite("target: " + record.target_name, 6);
+
+                                    record.record_message = parameters[2];
+                                    DebugWrite("reason: " + record.record_message, 6);
+                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    {
+                                        DebugWrite("reason too short", 6);
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        return;
+                                    }
+
+                                    //Handle based on report ID if possible
+                                    if (this.handleRoundReport(record)) { return; }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //Sets target_guid and completes target_name, then calls processRecord
+                            completeTargetInformation(record);
                         }
-                    }
-                    catch (Exception e)
-                    {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format, no Pre-Message ID given. Valid IDs 1-" + (this.preMessageList.Count));
-                        return;
-                    }
-                    confirmAction(record);
-                    break;
-                #endregion
-                #region PlayerSay
-                case ADKAT_CommandType.PlayerSay:
-                    this.actionConfirmList.Remove(record.source_name);
-                    try
-                    {
-                        record.target_name = splitCommand[1];
-                        String adminMessage = message.TrimStart(record.target_name.ToCharArray()).Trim();
-                        DebugWrite("target: " + record.target_name, 6);
-                        record.record_message = adminMessage;
-                        DebugWrite("message: " + record.record_message, 6);
-                    }
-                    catch (Exception e)
-                    {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format or no message given, unable to submit.");
-                        return;
-                    }
-                    completeTargetInformation(record);
-                    break;
-                #endregion
-                #region PlayerYell
-                case ADKAT_CommandType.PlayerYell:
-                    this.actionConfirmList.Remove(record.source_name);
-                    try
-                    {
-                        record.target_name = splitCommand[1];
-                        String adminMessage = message.TrimStart(record.target_name.ToCharArray()).Trim();
-                        DebugWrite("target: " + record.target_name, 6);
-                        record.record_message = adminMessage.ToUpper();
-                        DebugWrite("message: " + record.record_message, 6);
-                    }
-                    catch (Exception e)
-                    {
-                        DebugWrite("invalid format", 6);
-                        this.sendMessageToSource(record, "Invalid command format or no message given, unable to submit.");
-                        return;
-                    }
-                    completeTargetInformation(record);
-                    break;
-                #endregion
-                #region ConfirmCommand
-                case ADKAT_CommandType.ConfirmCommand:
-                    ADKAT_Record recordAttempt = null;
-                    this.actionConfirmList.TryGetValue(record.source_name, out recordAttempt);
-                    if (recordAttempt != null)
-                    {
+                        break;
+                    #endregion
+                    #region PermabanPlayer
+                    case ADKAT_CommandType.PermabanPlayer:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    record.target_name = record.source_name;
+                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
+                                    record.record_message = "Self-Inflicted";
+                                    this.confirmAction(record);
+                                    return;
+                                case 1:
+                                    record.target_name = parameters[0];
+                                    //Handle based on report ID as only option
+                                    if (!this.handleRoundReport(record))
+                                    {
+                                        this.sendMessageToSource(record, "No reason given, unable to submit.");
+                                    }
+                                    return;
+                                case 2:
+                                    record.target_name = parameters[0];
+                                    DebugWrite("target: " + record.target_name, 6);
+
+                                    record.record_message = parameters[1];
+                                    DebugWrite("reason: " + record.record_message, 6);
+                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    {
+                                        DebugWrite("reason too short", 6);
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        return;
+                                    }
+
+                                    //Handle based on report ID if possible
+                                    if (this.handleRoundReport(record)) { return; }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //Sets target_guid and completes target_name, then calls processRecord
+                            completeTargetInformation(record);
+                        }
+                        break;
+                    #endregion
+                    #region PunishPlayer
+                    case ADKAT_CommandType.PunishPlayer:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    record.target_name = record.source_name;
+                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
+                                    record.record_message = "Self-Inflicted";
+                                    this.confirmAction(record);
+                                    return;
+                                case 1:
+                                    record.target_name = parameters[0];
+                                    //Handle based on report ID as only option
+                                    if (!this.handleRoundReport(record))
+                                    {
+                                        this.sendMessageToSource(record, "No reason given, unable to submit.");
+                                    }
+                                    return;
+                                case 2:
+                                    record.target_name = parameters[0];
+                                    DebugWrite("target: " + record.target_name, 6);
+
+                                    record.record_message = parameters[1];
+                                    DebugWrite("reason: " + record.record_message, 6);
+                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    {
+                                        DebugWrite("reason too short", 6);
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        return;
+                                    }
+
+                                    //Handle based on report ID if possible
+                                    if (this.handleRoundReport(record)) { return; }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //Sets target_guid and completes target_name, then calls processRecord
+                            completeTargetInformation(record);
+                        }
+                        break;
+                    #endregion
+                    #region ForgivePlayer
+                    case ADKAT_CommandType.ForgivePlayer:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    record.target_name = record.source_name;
+                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
+                                    record.record_message = "Self-Inflicted";
+                                    this.confirmAction(record);
+                                    return;
+                                case 1:
+                                    record.target_name = parameters[0];
+                                    //Handle based on report ID as only option
+                                    if (!this.handleRoundReport(record))
+                                    {
+                                        this.sendMessageToSource(record, "No reason given, unable to submit.");
+                                    }
+                                    return;
+                                case 2:
+                                    record.target_name = parameters[0];
+                                    DebugWrite("target: " + record.target_name, 6);
+
+                                    record.record_message = parameters[1];
+                                    DebugWrite("reason: " + record.record_message, 6);
+                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    {
+                                        DebugWrite("reason too short", 6);
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        return;
+                                    }
+
+                                    //Handle based on report ID if possible
+                                    if (this.handleRoundReport(record)) { return; }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //Sets target_guid and completes target_name, then calls processRecord
+                            completeTargetInformation(record);
+                        }
+                        break;
+                    #endregion
+                    #region MutePlayer
+                    case ADKAT_CommandType.MutePlayer:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    record.target_name = record.source_name;
+                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
+                                    record.record_message = "Self-Inflicted";
+                                    this.confirmAction(record);
+                                    return;
+                                case 1:
+                                    record.target_name = parameters[0];
+                                    //Handle based on report ID as only option
+                                    if (!this.handleRoundReport(record))
+                                    {
+                                        this.sendMessageToSource(record, "No reason given, unable to submit.");
+                                    }
+                                    return;
+                                case 2:
+                                    record.target_name = parameters[0];
+                                    DebugWrite("target: " + record.target_name, 6);
+
+                                    record.record_message = parameters[1];
+                                    DebugWrite("reason: " + record.record_message, 6);
+                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    {
+                                        DebugWrite("reason too short", 6);
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        return;
+                                    }
+
+                                    //Handle based on report ID if possible
+                                    if (this.handleRoundReport(record)) { return; }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //Sets target_guid and completes target_name, then calls processRecord
+                            completeTargetInformation(record);
+                        }
+                        break;
+                    #endregion
+                    #region RoundWhitelistPlayer
+                    case ADKAT_CommandType.RoundWhitelistPlayer:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    record.target_name = record.source_name;
+                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
+                                    record.record_message = "Self-Inflicted";
+                                    this.confirmAction(record);
+                                    return;
+                                case 1:
+                                    record.target_name = parameters[0];
+                                    //Handle based on report ID as only option
+                                    if (!this.handleRoundReport(record))
+                                    {
+                                        this.sendMessageToSource(record, "No reason given, unable to submit.");
+                                    }
+                                    return;
+                                case 2:
+                                    record.target_name = parameters[0];
+                                    DebugWrite("target: " + record.target_name, 6);
+
+                                    record.record_message = parameters[1];
+                                    DebugWrite("reason: " + record.record_message, 6);
+                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    {
+                                        DebugWrite("reason too short", 6);
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        return;
+                                    }
+
+                                    //Handle based on report ID if possible
+                                    if (this.handleRoundReport(record)) { return; }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //Sets target_guid and completes target_name, then calls processRecord
+                            completeTargetInformation(record);
+                        }
+                        break;
+                    #endregion
+                    #region ReportPlayer
+                    case ADKAT_CommandType.ReportPlayer:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
+                                    return;
+                                case 1:
+                                    this.sendMessageToSource(record, "No reason given, unable to submit.");
+                                    return;
+                                case 2:
+                                    record.target_name = parameters[0];
+                                    DebugWrite("target: " + record.target_name, 6);
+
+                                    record.record_message = parameters[1];
+                                    DebugWrite("reason: " + record.record_message, 6);
+                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    {
+                                        DebugWrite("reason too short", 6);
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        return;
+                                    }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //Sets target_guid and completes target_name, then calls processRecord
+                            completeTargetInformation(record);
+                        }
+                        break;
+                    #endregion
+                    #region CallAdmin
+                    case ADKAT_CommandType.CallAdmin:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
+                                    return;
+                                case 1:
+                                    this.sendMessageToSource(record, "No reason given, unable to submit.");
+                                    return;
+                                case 2:
+                                    record.target_name = parameters[0];
+                                    DebugWrite("target: " + record.target_name, 6);
+
+                                    record.record_message = parameters[1];
+                                    DebugWrite("reason: " + record.record_message, 6);
+                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    {
+                                        DebugWrite("reason too short", 6);
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        return;
+                                    }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //Sets target_guid and completes target_name, then calls processRecord
+                            completeTargetInformation(record);
+                        }
+                        break;
+                    #endregion
+                    #region EndLevel
+                    case ADKAT_CommandType.EndLevel:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
+                                    return;
+                                case 1:
+                                    string targetTeam = parameters[0];
+                                    DebugWrite("target team: " + targetTeam, 6);
+                                    if (targetTeam.ToLower().Contains("us"))
+                                    {
+                                        record.target_name = "US Team";
+                                        record.target_guid = "US Team";
+                                        record.record_message += " (US Win)";
+                                    }
+                                    else if (targetTeam.ToLower().Contains("ru"))
+                                    {
+                                        record.target_name = "RU Team";
+                                        record.target_guid = "RU Team";
+                                        record.record_message += " (RU Win)";
+                                    }
+                                    else
+                                    {
+                                        this.sendMessageToSource(record, "Use 'US' or 'RU' as team names to end round");
+                                    }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //Have the admin confirm the action
+                            confirmAction(record);
+                        }
+                        break;
+                    #endregion
+                    #region NukeServer
+                    case ADKAT_CommandType.NukeServer:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
+                                    return;
+                                case 1:
+                                    string targetTeam = parameters[0];
+                                    DebugWrite("target: " + targetTeam, 6);
+                                    if (targetTeam.ToLower().Contains("us"))
+                                    {
+                                        record.target_name = "US Team";
+                                        record.target_guid = "US Team";
+                                        record.record_message += " (US Team)";
+                                    }
+                                    else if (targetTeam.ToLower().Contains("ru"))
+                                    {
+                                        record.target_name = "RU Team";
+                                        record.target_guid = "RU Team";
+                                        record.record_message += " (RU Team)";
+                                    }
+                                    else if (targetTeam.ToLower().Contains("all"))
+                                    {
+                                        record.target_name = "Server";
+                                        record.target_guid = "Server";
+                                        record.record_message += " (Everyone)";
+                                    }
+                                    else
+                                    {
+                                        this.sendMessageToSource(record, "Use 'US', 'RU', or 'ALL' as targets.");
+                                    }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //Have the admin confirm the action
+                            confirmAction(record);
+                        }
+                        break;
+                    #endregion
+                    #region KickAll
+                    case ADKAT_CommandType.KickAll:
                         this.actionConfirmList.Remove(record.source_name);
-                        this.processRecord(recordAttempt);
-                    }
-                    else
-                    {
-                        this.sendMessageToSource(record, "No command to confirm.");
-                    }
-                    return;
-                #endregion
-                #region CancelCommand
-                case ADKAT_CommandType.CancelCommand:
-                    if (!this.actionConfirmList.Remove(record.source_name))
-                    {
-                        this.sendMessageToSource(record, "No command to cancel.");
-                    }
-                    return;
-                #endregion
-                default:
-                    return;
+                        record.target_name = "Server";
+                        record.target_guid = "Server";
+                        record.record_message = "Kick All Players";
+                        confirmAction(record);
+                        break;
+                    #endregion
+                    #region RestartLevel
+                    case ADKAT_CommandType.RestartLevel:
+                        this.actionConfirmList.Remove(record.source_name);
+                        record.target_name = "Server";
+                        record.target_guid = "Server";
+                        record.record_message = "Restart Round";
+                        confirmAction(record);
+                        break;
+                    #endregion
+                    #region NextLevel
+                    case ADKAT_CommandType.NextLevel:
+                        this.actionConfirmList.Remove(record.source_name);
+                        record.target_name = "Server";
+                        record.target_guid = "Server";
+                        record.record_message = "Run Next Map";
+                        confirmAction(record);
+                        break;
+                    #endregion
+                    #region AdminSay
+                    case ADKAT_CommandType.AdminSay:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
+                                    return;
+                                case 1:
+                                    record.record_message = parameters[1];
+                                    DebugWrite("message: " + record.record_message, 6);
+                                    record.target_name = "Server";
+                                    record.target_guid = "Server";
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            this.processRecord(record);
+                        }
+                        break;
+                    #endregion
+                    #region PreSay
+                    case ADKAT_CommandType.PreSay:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
+                                    return;
+                                case 1:
+                                    record.target_name = "Server";
+                                    record.target_guid = "Server";
+                                    if (this.preMessageList.Count > 0)
+                                    {
+                                        int preSayID = 0;
+                                        DebugWrite("Raw preSayID: " + parameters[0], 6);
+                                        Boolean valid = Int32.TryParse(parameters[0], out preSayID);
+                                        if (valid && (preSayID > 0) && (preSayID <= this.preMessageList.Count))
+                                        {
+                                            record.record_message = this.preMessageList[preSayID - 1];
+                                            record.command_type = ADKAT_CommandType.AdminSay;
+                                        }
+                                        else
+                                        {
+                                            DebugWrite("invalid pre message id", 6);
+                                            this.sendMessageToSource(record, "Invalid Pre-Message ID. Valid IDs 1-" + (this.preMessageList.Count));
+                                            return;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        DebugWrite("no premessages stored", 6);
+                                        this.sendMessageToSource(record, "No Pre-Messages stored");
+                                        return;
+                                    }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            this.confirmAction(record);
+                        }
+                        break;
+                    #endregion
+                    #region AdminYell
+                    case ADKAT_CommandType.AdminYell:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
+                                    return;
+                                case 1:
+                                    record.record_message = parameters[1];
+                                    DebugWrite("message: " + record.record_message, 6);
+                                    record.target_name = "Server";
+                                    record.target_guid = "Server";
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            this.processRecord(record);
+                        }
+                        break;
+                    #endregion
+                    #region PreYell
+                    case ADKAT_CommandType.PreYell:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
+                                    return;
+                                case 1:
+                                    record.target_name = "Server";
+                                    record.target_guid = "Server";
+                                    if (this.preMessageList.Count > 0)
+                                    {
+                                        int preSayID = 0;
+                                        DebugWrite("Raw preSayID: " + parameters[0], 6);
+                                        Boolean valid = Int32.TryParse(parameters[0], out preSayID);
+                                        if (valid && (preSayID > 0) && (preSayID <= this.preMessageList.Count))
+                                        {
+                                            record.record_message = this.preMessageList[preSayID - 1];
+                                            record.command_type = ADKAT_CommandType.AdminYell;
+                                        }
+                                        else
+                                        {
+                                            DebugWrite("invalid pre message id", 6);
+                                            this.sendMessageToSource(record, "Invalid Pre-Message ID. Valid IDs 1-" + (this.preMessageList.Count));
+                                            return;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        DebugWrite("no premessages stored", 6);
+                                        this.sendMessageToSource(record, "No Pre-Messages stored");
+                                        return;
+                                    }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            this.confirmAction(record);
+                        }
+                        break;
+                    #endregion
+                    #region PlayerSay
+                    case ADKAT_CommandType.PlayerSay:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
+                                    return;
+                                case 1:
+                                    this.sendMessageToSource(record, "No message given, unable to submit.");
+                                    return;
+                                case 2:
+                                    record.target_name = parameters[0];
+                                    DebugWrite("target: " + record.target_name, 6);
+
+                                    record.record_message = parameters[1];
+                                    DebugWrite("message: " + record.record_message, 6);
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //Sets target_guid and completes target_name, then calls processRecord
+                            completeTargetInformation(record);
+                        }
+                        break;
+                    #endregion
+                    #region PlayerYell
+                    case ADKAT_CommandType.PlayerYell:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
+                                    return;
+                                case 1:
+                                    this.sendMessageToSource(record, "No message given, unable to submit.");
+                                    return;
+                                case 2:
+                                    record.target_name = parameters[0];
+                                    DebugWrite("target: " + record.target_name, 6);
+
+                                    record.record_message = parameters[1];
+                                    DebugWrite("message: " + record.record_message, 6);
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //Sets target_guid and completes target_name, then calls processRecord
+                            completeTargetInformation(record);
+                        }
+                        break;
+                    #endregion
+                    #region ConfirmCommand
+                    case ADKAT_CommandType.ConfirmCommand:
+                        this.DebugWrite("attempting to confirm command", 6);
+                        ADKAT_Record recordAttempt = null;
+                        this.actionConfirmList.TryGetValue(record.source_name, out recordAttempt);
+                        if (recordAttempt != null)
+                        {
+                            this.DebugWrite("command found, calling processing", 6);
+                            this.actionConfirmList.Remove(record.source_name);
+                            this.processRecord(recordAttempt);
+                        }
+                        else
+                        {
+                            this.DebugWrite("no command to confirm", 6);
+                            this.sendMessageToSource(record, "No command to confirm.");
+                        }
+                        break;
+                    #endregion
+                    #region CancelCommand
+                    case ADKAT_CommandType.CancelCommand:
+                        this.DebugWrite("attempting to cancel command", 6);
+                        if (!this.actionConfirmList.Remove(record.source_name))
+                        {
+                            this.DebugWrite("no command to cancel", 6);
+                            this.sendMessageToSource(record, "No command to cancel.");
+                        }
+                        break;
+                    #endregion
+                    default:
+                        break;
+                }
+                return;
             }
-            return;
+            catch (Exception e)
+            {
+                this.ConsoleException(e.ToString());
+            }
         }
 
         //parses single word or number parameters out of a string until param count is reached
@@ -2533,16 +2727,21 @@ namespace PRoConEvents
         {
             //create list for parameters
             List<String> parameters = new List<String>();
+            if (message.Length > 0)
+            {
             //Add all single word/number parameters
             String[] paramSplit = message.Split(' ');
             int maxLoop = (paramSplit.Length<maxParamCount)?(paramSplit.Length):(maxParamCount);
-            for (int i = 0; i < maxLoop-1; i++)
-            {
-                parameters.Add(paramSplit[i]);
-                message = message.TrimStart(paramSplit[i].ToCharArray()).Trim();
+                for (int i = 0; i < maxLoop - 1; i++)
+                {
+                    this.DebugWrite("Param " + i + ": " + paramSplit[i], 6);
+                    parameters.Add(paramSplit[i]);
+                    message = message.TrimStart(paramSplit[i].ToCharArray()).Trim();
+                }
+                //Add final multi-word parameter
+                parameters.Add(message);
             }
-            //Add final multi-word parameter
-            parameters.Add(message);
+            this.DebugWrite("Num params: " + parameters.Count, 6);
             return parameters.ToArray();
         }
 
@@ -2759,31 +2958,33 @@ namespace PRoConEvents
             }
         }
 
-        public Boolean handleRoundReport(ADKAT_Record record, String[] parameters)
+        public Boolean handleRoundReport(ADKAT_Record record)
         {
             Boolean acted = false;
-            if (parameters.Length > 0)
+            //report ID will be housed in target_name
+            if (this.round_reports.ContainsKey(record.target_name))
             {
-                string reportID = parameters[0];
-                string newReason = null;
-                if (parameters.Length > 1)
+                //Get the reported record
+                ADKAT_Record reportedRecord = this.round_reports[record.target_name];
+                //Remove it from the reports for this round
+                this.round_reports.Remove(record.target_name);
+                //Update it in the database
+                reportedRecord.command_action = ADKAT_CommandType.ConfirmReport;
+                this.updateRecord(reportedRecord);
+                //Get target information
+                record.target_guid = reportedRecord.target_guid;
+                record.target_name = reportedRecord.target_name;
+                record.targetPlayerInfo = reportedRecord.targetPlayerInfo;
+                //Update record message if needed
+                if (record.record_message == null || record.record_message.Length < this.requiredReasonLength)
                 {
-                    newReason = parameters[1];
+                    record.record_message = reportedRecord.record_message;
                 }
-                if (this.round_reports.ContainsKey(reportID))
-                {
-                    ADKAT_Record reportedRecord = this.round_reports[parameters[0]];
-                    reportedRecord.command_action = ADKAT_CommandType.ConfirmReport;
-                    this.updateRecord(reportedRecord);
-                    record.target_guid = reportedRecord.target_guid;
-                    record.target_name = reportedRecord.target_name;
-                    record.targetPlayerInfo = reportedRecord.targetPlayerInfo;
-                    record.record_message = (newReason != null && newReason.Length > this.minimumRequiredReasonLength) ? (newReason) : (reportedRecord.record_message);
-                    this.sendMessageToSource(record, "Your report has been acted on. Thank you.");
-                    this.confirmAction(record);
-                    this.round_reports.Remove(reportID);
-                    acted = true;
-                }
+                //Inform the reporter that they helped the admins
+                this.sendMessageToSource(record, "Your report has been acted on. Thank you.");
+                //Let the admin confirm the action before it is sent
+                this.confirmAction(record);
+                acted = true;
             }
             return acted;
         }
@@ -3038,7 +3239,6 @@ namespace PRoConEvents
 
         public string callAdminOnTarget(ADKAT_Record record)
         {
-            string message = "No Message";
             Random random = new Random();
             int reportID;
             do
@@ -3111,7 +3311,7 @@ namespace PRoConEvents
                     ExecuteCommand("procon.protected.send", "admin.kickPlayer", player.SoldierName, "(" + record.source_name + ") " + record.record_message);
                 }
             }
-            this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was KICKED by admin: " + record.record_message, "all");
+            this.ExecuteCommand("procon.protected.send", "admin.say", "All players with access class 5 or lower have been kicked.", "all");
 
             message = "You KICKED EVERYONE for " + record.record_message + ". ";
             this.playerSayMessage(record.source_name, message);
@@ -3406,7 +3606,7 @@ namespace PRoConEvents
                     using (MySqlCommand command = databaseConnection.CreateCommand())
                     {
                         //Set the insert command structure
-                        command.CommandText = "INSERT INTO `" + this.mySqlDatabaseName + "`.`adkat_records` (`server_id`, `server_ip`, `command_type`, `command_action`, `record_durationMinutes`,`target_guid`, `target_name`, `source_name`, `record_message`, `adkats_read`) VALUES (@server_ip, @command_type, @command_action, @record_durationMinutes, @target_guid, @target_name, @source_name, @record_message, @adkats_read)";
+                        command.CommandText = "INSERT INTO `" + this.mySqlDatabaseName + "`.`adkat_records` (`server_id`, `server_ip`, `command_type`, `command_action`, `record_durationMinutes`,`target_guid`, `target_name`, `source_name`, `record_message`, `adkats_read`) VALUES (@server_id, @server_ip, @command_type, @command_action, @record_durationMinutes, @target_guid, @target_name, @source_name, @record_message, @adkats_read)";
                         //Fill the command
                         //Convert enum to DB string
                         string type = this.ADKAT_RecordTypes[record.command_type];
@@ -3528,7 +3728,7 @@ namespace PRoConEvents
                 this.ConsoleError("Player doesn't have any access to remove.");
                 return;
             }
-            if (desiredAccessLevel < 1 || desiredAccessLevel > 6)
+            if (desiredAccessLevel < 0 || desiredAccessLevel > 6)
             {
                 this.ConsoleError("Desired Access Level for " + player_name + " was invalid.");
                 return;
@@ -4201,9 +4401,9 @@ namespace PRoConEvents
 
         #region Player Name Suggestion
 
-        public void completeTargetInformation(ADKAT_Record record)
+        public string completeTargetInformation(ADKAT_Record record)
         {
-            string player = record.target_name;
+            //string player = record.target_name;
             try
             {
                 //Check for an exact match
