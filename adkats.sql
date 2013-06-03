@@ -1,7 +1,9 @@
 -- AdKats Database Setup Script by ColColonCleaner
 
--- This is run automatically if AdKats does not find the main record table in your database.
--- If you don't want the plugin changing tables in your database, run this beforehand.
+-- This is run automatically if AdKats senses the database is not set up properly.
+-- If you don't want the plugin changing tables/views in your database, you must run this beforehand.
+-- If you run this manually, you will see errors, this is normal as some assumptions are made that may 
+-- not be true for your database, the script is still successful.
 
 -- If the tables needed are not in the database yet, the below two queries will be success
 CREATE TABLE `adkat_records` ( 
@@ -25,7 +27,7 @@ CREATE TABLE `adkat_accesslist` (
 `access_level` int(11) NOT NULL DEFAULT 6, 
 PRIMARY KEY (`player_name`), UNIQUE KEY `player_name_UNIQUE` (`player_name`));
 
--- If the tables are already there, but just need updating, the above will fail and below will be success
+-- If the tables already exist and just need updating, the above will fail and below will be success.
 ALTER TABLE `adkat_records` MODIFY `record_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE `adkat_records` MODIFY `server_id` int(11) NOT NULL DEFAULT -1, 
 ALTER TABLE `adkat_records` ADD `server_ip` varchar(45) NOT NULL DEFAULT "0.0.0.0:0000";
