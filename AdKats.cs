@@ -2370,48 +2370,6 @@ namespace PRoConEvents
                         }
                         break;
                     #endregion
-                    #region EndLevel
-                    case ADKAT_CommandType.EndLevel:
-                        {
-                            //Remove previous commands awaiting confirmation
-                            this.actionConfirmList.Remove(record.source_name);
-
-                            //Parse parameters using max param count
-                            String[] parameters = this.parseParameters(remainingMessage, 2);
-                            switch (parameters.Length)
-                            {
-                                case 0:
-                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
-                                    return;
-                                case 1:
-                                    string targetTeam = parameters[0];
-                                    DebugWrite("target team: " + targetTeam, 6);
-                                    if (targetTeam.ToLower().Contains("us"))
-                                    {
-                                        record.target_name = "US Team";
-                                        record.target_guid = "US Team";
-                                        record.record_message += " (US Win)";
-                                    }
-                                    else if (targetTeam.ToLower().Contains("ru"))
-                                    {
-                                        record.target_name = "RU Team";
-                                        record.target_guid = "RU Team";
-                                        record.record_message += " (RU Win)";
-                                    }
-                                    else
-                                    {
-                                        this.sendMessageToSource(record, "Use 'US' or 'RU' as team names to end round");
-                                    }
-                                    break;
-                                default:
-                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
-                                    return;
-                            }
-                            //Have the admin confirm the action
-                            confirmAction(record);
-                        }
-                        break;
-                    #endregion
                     #region NukeServer
                     case ADKAT_CommandType.NukeServer:
                         {
@@ -2443,8 +2401,8 @@ namespace PRoConEvents
                                     }
                                     else if (targetTeam.ToLower().Contains("all"))
                                     {
-                                        record.target_name = "Server";
-                                        record.target_guid = "Server";
+                                        record.target_name = "Everyone";
+                                        record.target_guid = "Everyone";
                                         record.record_message += " (Everyone)";
                                     }
                                     else
@@ -2464,10 +2422,53 @@ namespace PRoConEvents
                     #region KickAll
                     case ADKAT_CommandType.KickAll:
                         this.actionConfirmList.Remove(record.source_name);
-                        record.target_name = "Server";
-                        record.target_guid = "Server";
+                        record.target_name = "Non-Admins";
+                        record.target_guid = "Non-Admins";
                         record.record_message = "Kick All Players";
                         confirmAction(record);
+                        break;
+                    #endregion
+                    #region EndLevel
+                    case ADKAT_CommandType.EndLevel:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
+                                    return;
+                                case 1:
+                                    string targetTeam = parameters[0];
+                                    DebugWrite("target team: " + targetTeam, 6);
+                                    record.record_message = "End Round";
+                                    if (targetTeam.ToLower().Contains("us"))
+                                    {
+                                        record.target_name = "US Team";
+                                        record.target_guid = "US Team";
+                                        record.record_message += " (US Win)";
+                                    }
+                                    else if (targetTeam.ToLower().Contains("ru"))
+                                    {
+                                        record.target_name = "RU Team";
+                                        record.target_guid = "RU Team";
+                                        record.record_message += " (RU Win)";
+                                    }
+                                    else
+                                    {
+                                        this.sendMessageToSource(record, "Use 'US' or 'RU' as team names to end round");
+                                    }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //Have the admin confirm the action
+                            confirmAction(record);
+                        }
                         break;
                     #endregion
                     #region RestartLevel
