@@ -5,7 +5,7 @@
  * forgiveness, proper player report and admin call handling, player name completion, player muting, yell/say 
  * pre-recording, and internal implementation of TeamSwap.
  * 
- * Requires a MySQL Database connection. Will set up needed tables in the database if they are 
+ * Requires a MySQL Database connection for proper use. Will set up needed tables in the database if they are 
  * not there already.
  * 
  * Code Credit:
@@ -13,7 +13,6 @@
  * Planned Future Usage:
  * Email System from "Notify Me!" By MorpheusX(AUT)
  * Twitter Post System from Micovery's InsaneLimits
- * Multi-Threading examples from Micovery's InsaneLimits
  * 
  * AdKats.cs
  */
@@ -2794,7 +2793,7 @@ namespace PRoConEvents
             this.actionConfirmList.Remove(record.source_name);
             this.actionConfirmList.Add(record.source_name, record);
             //Send record to attempt list
-            return this.sendMessageToSource(record, record.command_type + "->" + record.target_name + " for " + record.record_message + "?");
+            return this.sendMessageToSource(record, record.command_type + "->" + record.target_name + " for '" + record.record_message + "'?");
         }
 
         private string processRecord(ADKAT_Record record)
