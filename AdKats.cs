@@ -614,11 +614,7 @@ namespace PRoConEvents
             #region debugging
             if (Regex.Match(strVariable, @"Command Entry (Use like In-Game)").Success)
             {
-                //Create the record
-                ADKAT_Record record = new ADKAT_Record();
-                record.command_source = ADKAT_CommandSource.Settings;
-                record.source_name = "SettingsAdmin";
-                this.completeRecord(record, strValue);
+                this.OnGlobalChat("SettingsAdmin", strValue);
             }
             else if (Regex.Match(strVariable, @"Debug level").Success)
             {
@@ -1563,11 +1559,17 @@ namespace PRoConEvents
                     //If the message does not cause either of the above clauses, then ignore it.
                     return;
                 }
-                //Create the record
-                ADKAT_Record recordItem = new ADKAT_Record();
-                recordItem.command_source = ADKAT_CommandSource.InGame;
-                recordItem.source_name = speaker;
-                this.completeRecord(recordItem, message);
+
+                //Create the record on thread
+                Thread RecordProcessor = new Thread(new ThreadStart(delegate()
+                {
+                    Thread.Sleep(100);
+                    ADKAT_Record recordItem = new ADKAT_Record();
+                    recordItem.command_source = ADKAT_CommandSource.InGame;
+                    recordItem.source_name = speaker;
+                    this.completeRecord(recordItem, message);
+                }));
+                RecordProcessor.Start();
             }
         }
         public override void OnTeamChat(string speaker, string message, int teamId) { this.OnGlobalChat(speaker, message); }
@@ -1769,6 +1771,7 @@ namespace PRoConEvents
                 //Items that need filling before record processing:
                 //target_name
                 //target_guid
+                //targetPlayerInfo
                 //record_message
                 switch (record.command_type)
                 {
@@ -1783,22 +1786,23 @@ namespace PRoConEvents
                             switch (parameters.Length)
                             {
                                 case 0:
-                                    record.target_name = record.source_name;
-                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
                                     record.record_message = "Self-Inflicted";
-                                    this.confirmAction(record);
-                                    return;
+                                    record.target_name = record.source_name;
+                                    this.completeTargetInformation(record, true);
+                                    break;
                                 case 1:
+                                    record.record_message = "MovePlayer";
                                     record.target_name = parameters[0];
                                     //Handle based on report ID if possible
-                                    if (this.handleRoundReport(record)) { return; }
+                                    if (!this.handleRoundReport(record))
+                                    {
+                                        this.completeTargetInformation(record, false);
+                                    }
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
                                     return;
                             }
-                            //Sets target_guid and completes target_name, then calls processRecord
-                            completeTargetInformation(record);
                         }
                         break;
                     #endregion
@@ -1813,23 +1817,23 @@ namespace PRoConEvents
                             switch (parameters.Length)
                             {
                                 case 0:
-                                    record.target_name = record.source_name;
-                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
                                     record.record_message = "Self-Inflicted";
-                                    this.confirmAction(record);
-                                    return;
+                                    record.target_name = record.source_name;
+                                    this.completeTargetInformation(record, true);
+                                    break;
                                 case 1:
+                                    record.record_message = "ForceMovePlayer";
                                     record.target_name = parameters[0];
                                     //Handle based on report ID if possible
-                                    if (this.handleRoundReport(record)) { return; }
+                                    if (!this.handleRoundReport(record))
+                                    {
+                                        this.completeTargetInformation(record, false);
+                                    }
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
                                     return;
-                                    break;
                             }
-                            //Sets target_guid and completes target_name, then calls processRecord
-                            completeTargetInformation(record);
                         }
                         break;
                     #endregion
@@ -1845,12 +1849,9 @@ namespace PRoConEvents
                                 this.sendMessageToSource(record, "You cannot use teamswap from outside the game. Use force move.");
                                 return;
                             }
-
                             record.record_message = "TeamSwap";
                             record.target_name = record.source_name;
-
-                            //Sets target_guid and completes target_name, then calls processRecord
-                            completeTargetInformation(record);
+                            this.completeTargetInformation(record, false);
                         }
                         break;
                     #endregion
@@ -1865,11 +1866,10 @@ namespace PRoConEvents
                             switch (parameters.Length)
                             {
                                 case 0:
-                                    record.target_name = record.source_name;
-                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
                                     record.record_message = "Self-Inflicted";
-                                    this.confirmAction(record);
-                                    return;
+                                    record.target_name = record.source_name;
+                                    this.completeTargetInformation(record, true);
+                                    break;
                                 case 1:
                                     record.target_name = parameters[0];
                                     //Handle based on report ID as only option
@@ -1877,29 +1877,27 @@ namespace PRoConEvents
                                     {
                                         this.sendMessageToSource(record, "No reason given, unable to submit.");
                                     }
-                                    return;
+                                    break;
                                 case 2:
                                     record.target_name = parameters[0];
-                                    DebugWrite("target: " + record.target_name, 6);
-
                                     record.record_message = parameters[1];
-                                    DebugWrite("reason: " + record.record_message, 6);
-                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    if (record.record_message.Length >= this.requiredReasonLength)
                                     {
-                                        DebugWrite("reason too short", 6);
-                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                                        return;
+                                        //Handle based on report ID if possible
+                                        if (!this.handleRoundReport(record))
+                                        {
+                                            this.completeTargetInformation(record, false);
+                                        }
                                     }
-
-                                    //Handle based on report ID if possible
-                                    if (this.handleRoundReport(record)) { return; }
+                                    else
+                                    {
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                    }
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
                                     return;
                             }
-                            //Sets target_guid and completes target_name, then calls processRecord
-                            completeTargetInformation(record);
                         }
                         break;
                     #endregion
@@ -1914,11 +1912,10 @@ namespace PRoConEvents
                             switch (parameters.Length)
                             {
                                 case 0:
-                                    record.target_name = record.source_name;
-                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
                                     record.record_message = "Self-Inflicted";
-                                    this.confirmAction(record);
-                                    return;
+                                    record.target_name = record.source_name;
+                                    this.completeTargetInformation(record, true);
+                                    break;
                                 case 1:
                                     record.target_name = parameters[0];
                                     //Handle based on report ID as only option
@@ -1926,29 +1923,27 @@ namespace PRoConEvents
                                     {
                                         this.sendMessageToSource(record, "No reason given, unable to submit.");
                                     }
-                                    return;
+                                    break;
                                 case 2:
                                     record.target_name = parameters[0];
-                                    DebugWrite("target: " + record.target_name, 6);
-
                                     record.record_message = parameters[1];
-                                    DebugWrite("reason: " + record.record_message, 6);
-                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    if (record.record_message.Length >= this.requiredReasonLength)
                                     {
-                                        DebugWrite("reason too short", 6);
-                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                                        return;
+                                        //Handle based on report ID if possible
+                                        if (!this.handleRoundReport(record))
+                                        {
+                                            this.completeTargetInformation(record, false);
+                                        }
                                     }
-
-                                    //Handle based on report ID if possible
-                                    if (this.handleRoundReport(record)) { return; }
+                                    else
+                                    {
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                    }
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
                                     return;
                             }
-                            //Sets target_guid and completes target_name, then calls processRecord
-                            completeTargetInformation(record);
                         }
                         break;
                     #endregion
@@ -1964,7 +1959,7 @@ namespace PRoConEvents
                             {
                                 case 0:
                                     this.sendMessageToSource(record, "No parameters given, unable to submit.");
-                                    return;
+                                    break;
                                 case 1:
                                     int record_duration = 0;
                                     DebugWrite("Raw Duration: " + parameters[0], 6);
@@ -1975,59 +1970,64 @@ namespace PRoConEvents
                                     }
                                     record.record_durationMinutes = record_duration;
                                     //Target is source
-                                    record.target_name = record.source_name;
-                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
                                     record.record_message = "Self-Inflicted";
-                                    this.confirmAction(record);
-                                    return;
+                                    record.target_name = record.source_name;
+                                    this.completeTargetInformation(record, true);
+                                    break;
                                 case 2:
                                     DebugWrite("Raw Duration: " + parameters[0], 6);
-                                    if (!Int32.TryParse(parameters[0], out record_duration))
+                                    if (Int32.TryParse(parameters[0], out record_duration))
+                                    {
+                                        record.record_durationMinutes = record_duration;
+
+                                        record.target_name = parameters[1];
+                                        DebugWrite("target: " + record.target_name, 6);
+
+                                        //Handle based on report ID as only option
+                                        if (!this.handleRoundReport(record))
+                                        {
+                                            this.sendMessageToSource(record, "No reason given, unable to submit.");
+                                        }
+                                    }
+                                    else
                                     {
                                         this.sendMessageToSource(record, "Invalid time given, unable to submit.");
-                                        return;
                                     }
-                                    record.record_durationMinutes = record_duration;
-
-                                    record.target_name = parameters[0];
-                                    DebugWrite("target: " + record.target_name, 6);
-
-                                    //Handle based on report ID as only option
-                                    if (!this.handleRoundReport(record))
-                                    {
-                                        this.sendMessageToSource(record, "No reason given, unable to submit.");
-                                    }
-                                    return;
+                                    break;
                                 case 3:
                                     DebugWrite("Raw Duration: " + parameters[0], 6);
-                                    if (!Int32.TryParse(parameters[0], out record_duration))
+                                    if (Int32.TryParse(parameters[0], out record_duration))
+                                    {
+                                        record.record_durationMinutes = record_duration;
+
+                                        record.target_name = parameters[1];
+                                        DebugWrite("target: " + record.target_name, 6);
+
+                                        record.record_message = parameters[2];
+                                        DebugWrite("reason: " + record.record_message, 6);
+                                        if (record.record_message.Length >= this.requiredReasonLength)
+                                        {
+                                            //Handle based on report ID if possible
+                                            if (!this.handleRoundReport(record))
+                                            {
+                                                this.completeTargetInformation(record, false);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            DebugWrite("reason too short", 6);
+                                            this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        }
+                                    }
+                                    else
                                     {
                                         this.sendMessageToSource(record, "Invalid time given, unable to submit.");
-                                        return;
                                     }
-                                    record.record_durationMinutes = record_duration;
-
-                                    record.target_name = parameters[1];
-                                    DebugWrite("target: " + record.target_name, 6);
-
-                                    record.record_message = parameters[2];
-                                    DebugWrite("reason: " + record.record_message, 6);
-                                    if (record.record_message.Length < this.requiredReasonLength)
-                                    {
-                                        DebugWrite("reason too short", 6);
-                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                                        return;
-                                    }
-
-                                    //Handle based on report ID if possible
-                                    if (this.handleRoundReport(record)) { return; }
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
                                     return;
                             }
-                            //Sets target_guid and completes target_name, then calls processRecord
-                            completeTargetInformation(record);
                         }
                         break;
                     #endregion
@@ -2042,11 +2042,10 @@ namespace PRoConEvents
                             switch (parameters.Length)
                             {
                                 case 0:
-                                    record.target_name = record.source_name;
-                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
                                     record.record_message = "Self-Inflicted";
-                                    this.confirmAction(record);
-                                    return;
+                                    record.target_name = record.source_name;
+                                    this.completeTargetInformation(record, true);
+                                    break;
                                 case 1:
                                     record.target_name = parameters[0];
                                     //Handle based on report ID as only option
@@ -2054,29 +2053,27 @@ namespace PRoConEvents
                                     {
                                         this.sendMessageToSource(record, "No reason given, unable to submit.");
                                     }
-                                    return;
+                                    break;
                                 case 2:
                                     record.target_name = parameters[0];
-                                    DebugWrite("target: " + record.target_name, 6);
-
                                     record.record_message = parameters[1];
-                                    DebugWrite("reason: " + record.record_message, 6);
-                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    if (record.record_message.Length >= this.requiredReasonLength)
                                     {
-                                        DebugWrite("reason too short", 6);
-                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                                        return;
+                                        //Handle based on report ID if possible
+                                        if (!this.handleRoundReport(record))
+                                        {
+                                            this.completeTargetInformation(record, false);
+                                        }
                                     }
-
-                                    //Handle based on report ID if possible
-                                    if (this.handleRoundReport(record)) { return; }
+                                    else
+                                    {
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                    }
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
                                     return;
                             }
-                            //Sets target_guid and completes target_name, then calls processRecord
-                            completeTargetInformation(record);
                         }
                         break;
                     #endregion
@@ -2091,11 +2088,10 @@ namespace PRoConEvents
                             switch (parameters.Length)
                             {
                                 case 0:
-                                    record.target_name = record.source_name;
-                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
                                     record.record_message = "Self-Inflicted";
-                                    this.confirmAction(record);
-                                    return;
+                                    record.target_name = record.source_name;
+                                    this.completeTargetInformation(record, true);
+                                    break;
                                 case 1:
                                     record.target_name = parameters[0];
                                     //Handle based on report ID as only option
@@ -2103,29 +2099,27 @@ namespace PRoConEvents
                                     {
                                         this.sendMessageToSource(record, "No reason given, unable to submit.");
                                     }
-                                    return;
+                                    break;
                                 case 2:
                                     record.target_name = parameters[0];
-                                    DebugWrite("target: " + record.target_name, 6);
-
                                     record.record_message = parameters[1];
-                                    DebugWrite("reason: " + record.record_message, 6);
-                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    if (record.record_message.Length >= this.requiredReasonLength)
                                     {
-                                        DebugWrite("reason too short", 6);
-                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                                        return;
+                                        //Handle based on report ID if possible
+                                        if (!this.handleRoundReport(record))
+                                        {
+                                            this.completeTargetInformation(record, false);
+                                        }
                                     }
-
-                                    //Handle based on report ID if possible
-                                    if (this.handleRoundReport(record)) { return; }
+                                    else
+                                    {
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                    }
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
                                     return;
                             }
-                            //Sets target_guid and completes target_name, then calls processRecord
-                            completeTargetInformation(record);
                         }
                         break;
                     #endregion
@@ -2140,11 +2134,10 @@ namespace PRoConEvents
                             switch (parameters.Length)
                             {
                                 case 0:
-                                    record.target_name = record.source_name;
-                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
                                     record.record_message = "Self-Inflicted";
-                                    this.confirmAction(record);
-                                    return;
+                                    record.target_name = record.source_name;
+                                    this.completeTargetInformation(record, true);
+                                    break;
                                 case 1:
                                     record.target_name = parameters[0];
                                     //Handle based on report ID as only option
@@ -2152,29 +2145,27 @@ namespace PRoConEvents
                                     {
                                         this.sendMessageToSource(record, "No reason given, unable to submit.");
                                     }
-                                    return;
+                                    break;
                                 case 2:
                                     record.target_name = parameters[0];
-                                    DebugWrite("target: " + record.target_name, 6);
-
                                     record.record_message = parameters[1];
-                                    DebugWrite("reason: " + record.record_message, 6);
-                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    if (record.record_message.Length >= this.requiredReasonLength)
                                     {
-                                        DebugWrite("reason too short", 6);
-                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                                        return;
+                                        //Handle based on report ID if possible
+                                        if (!this.handleRoundReport(record))
+                                        {
+                                            this.completeTargetInformation(record, false);
+                                        }
                                     }
-
-                                    //Handle based on report ID if possible
-                                    if (this.handleRoundReport(record)) { return; }
+                                    else
+                                    {
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                    }
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
                                     return;
                             }
-                            //Sets target_guid and completes target_name, then calls processRecord
-                            completeTargetInformation(record);
                         }
                         break;
                     #endregion
@@ -2189,11 +2180,10 @@ namespace PRoConEvents
                             switch (parameters.Length)
                             {
                                 case 0:
-                                    record.target_name = record.source_name;
-                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
                                     record.record_message = "Self-Inflicted";
-                                    this.confirmAction(record);
-                                    return;
+                                    record.target_name = record.source_name;
+                                    this.completeTargetInformation(record, true);
+                                    break;
                                 case 1:
                                     record.target_name = parameters[0];
                                     //Handle based on report ID as only option
@@ -2201,29 +2191,27 @@ namespace PRoConEvents
                                     {
                                         this.sendMessageToSource(record, "No reason given, unable to submit.");
                                     }
-                                    return;
+                                    break;
                                 case 2:
                                     record.target_name = parameters[0];
-                                    DebugWrite("target: " + record.target_name, 6);
-
                                     record.record_message = parameters[1];
-                                    DebugWrite("reason: " + record.record_message, 6);
-                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    if (record.record_message.Length >= this.requiredReasonLength)
                                     {
-                                        DebugWrite("reason too short", 6);
-                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                                        return;
+                                        //Handle based on report ID if possible
+                                        if (!this.handleRoundReport(record))
+                                        {
+                                            this.completeTargetInformation(record, false);
+                                        }
                                     }
-
-                                    //Handle based on report ID if possible
-                                    if (this.handleRoundReport(record)) { return; }
+                                    else
+                                    {
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                    }
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
                                     return;
                             }
-                            //Sets target_guid and completes target_name, then calls processRecord
-                            completeTargetInformation(record);
                         }
                         break;
                     #endregion
@@ -2238,11 +2226,10 @@ namespace PRoConEvents
                             switch (parameters.Length)
                             {
                                 case 0:
-                                    record.target_name = record.source_name;
-                                    record.target_guid = this.currentPlayers[record.source_name].GUID;
                                     record.record_message = "Self-Inflicted";
-                                    this.confirmAction(record);
-                                    return;
+                                    record.target_name = record.source_name;
+                                    this.completeTargetInformation(record, true);
+                                    break;
                                 case 1:
                                     record.target_name = parameters[0];
                                     //Handle based on report ID as only option
@@ -2250,29 +2237,27 @@ namespace PRoConEvents
                                     {
                                         this.sendMessageToSource(record, "No reason given, unable to submit.");
                                     }
-                                    return;
+                                    break;
                                 case 2:
                                     record.target_name = parameters[0];
-                                    DebugWrite("target: " + record.target_name, 6);
-
                                     record.record_message = parameters[1];
-                                    DebugWrite("reason: " + record.record_message, 6);
-                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    if (record.record_message.Length >= this.requiredReasonLength)
                                     {
-                                        DebugWrite("reason too short", 6);
-                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
-                                        return;
+                                        //Handle based on report ID if possible
+                                        if (!this.handleRoundReport(record))
+                                        {
+                                            this.completeTargetInformation(record, false);
+                                        }
                                     }
-
-                                    //Handle based on report ID if possible
-                                    if (this.handleRoundReport(record)) { return; }
+                                    else
+                                    {
+                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                    }
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
                                     return;
                             }
-                            //Sets target_guid and completes target_name, then calls processRecord
-                            completeTargetInformation(record);
                         }
                         break;
                     #endregion
@@ -2288,17 +2273,21 @@ namespace PRoConEvents
                             {
                                 case 0:
                                     this.sendMessageToSource(record, "No parameters given, unable to submit.");
-                                    return;
+                                    break;
                                 case 1:
                                     this.sendMessageToSource(record, "No reason given, unable to submit.");
-                                    return;
+                                    break;
                                 case 2:
                                     record.target_name = parameters[0];
                                     DebugWrite("target: " + record.target_name, 6);
 
                                     record.record_message = parameters[1];
                                     DebugWrite("reason: " + record.record_message, 6);
-                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    if (record.record_message.Length >= this.requiredReasonLength)
+                                    {
+                                        this.completeTargetInformation(record, false);
+                                    }
+                                    else
                                     {
                                         DebugWrite("reason too short", 6);
                                         this.sendMessageToSource(record, "Reason too short, unable to submit.");
@@ -2309,8 +2298,6 @@ namespace PRoConEvents
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
                                     return;
                             }
-                            //Sets target_guid and completes target_name, then calls processRecord
-                            completeTargetInformation(record);
                         }
                         break;
                     #endregion
@@ -2326,17 +2313,21 @@ namespace PRoConEvents
                             {
                                 case 0:
                                     this.sendMessageToSource(record, "No parameters given, unable to submit.");
-                                    return;
+                                    break;
                                 case 1:
                                     this.sendMessageToSource(record, "No reason given, unable to submit.");
-                                    return;
+                                    break;
                                 case 2:
                                     record.target_name = parameters[0];
                                     DebugWrite("target: " + record.target_name, 6);
 
                                     record.record_message = parameters[1];
                                     DebugWrite("reason: " + record.record_message, 6);
-                                    if (record.record_message.Length < this.requiredReasonLength)
+                                    if (record.record_message.Length >= this.requiredReasonLength)
+                                    {
+                                        this.completeTargetInformation(record, false);
+                                    }
+                                    else
                                     {
                                         DebugWrite("reason too short", 6);
                                         this.sendMessageToSource(record, "Reason too short, unable to submit.");
@@ -2347,8 +2338,6 @@ namespace PRoConEvents
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
                                     return;
                             }
-                            //Sets target_guid and completes target_name, then calls processRecord
-                            completeTargetInformation(record);
                         }
                         break;
                     #endregion
@@ -2406,9 +2395,10 @@ namespace PRoConEvents
                             {
                                 case 0:
                                     this.sendMessageToSource(record, "No parameters given, unable to submit.");
-                                    return;
+                                    break;
                                 case 1:
                                     string targetTeam = parameters[0];
+                                    record.record_message = "Nuke Server";
                                     DebugWrite("target: " + targetTeam, 6);
                                     if (targetTeam.ToLower().Contains("us"))
                                     {
@@ -2432,13 +2422,13 @@ namespace PRoConEvents
                                     {
                                         this.sendMessageToSource(record, "Use 'US', 'RU', or 'ALL' as targets.");
                                     }
+                                    //Have the admin confirm the action
+                                    confirmAction(record);
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
                                     return;
                             }
-                            //Have the admin confirm the action
-                            confirmAction(record);
                         }
                         break;
                     #endregion
@@ -2641,13 +2631,13 @@ namespace PRoConEvents
 
                                     record.record_message = parameters[1];
                                     DebugWrite("message: " + record.record_message, 6);
+
+                                    this.completeTargetInformation(record, false);
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
                                     return;
                             }
-                            //Sets target_guid and completes target_name, then calls processRecord
-                            completeTargetInformation(record);
                         }
                         break;
                     #endregion
@@ -2673,13 +2663,13 @@ namespace PRoConEvents
 
                                     record.record_message = parameters[1];
                                     DebugWrite("message: " + record.record_message, 6);
+
+                                    this.completeTargetInformation(record, false);
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
                                     return;
                             }
-                            //Sets target_guid and completes target_name, then calls processRecord
-                            completeTargetInformation(record);
                         }
                         break;
                     #endregion
@@ -2761,12 +2751,12 @@ namespace PRoConEvents
             return command;
         }
 
-        public void confirmAction(ADKAT_Record record)
+        public string confirmAction(ADKAT_Record record)
         {
-            //Send record to attempt list
-            this.sendMessageToSource(record, "Confirm " + record.command_type + "->" + record.target_name + ": " + record.record_message);
             this.actionConfirmList.Remove(record.source_name);
             this.actionConfirmList.Add(record.source_name, record);
+            //Send record to attempt list
+            return this.sendMessageToSource(record, record.command_type + "->" + record.target_name + " for " + record.record_message + "?");
         }
 
         private string processRecord(ADKAT_Record record)
@@ -3051,17 +3041,17 @@ namespace PRoConEvents
             switch (this.m_banMethod)
             {
                 case ADKAT_BanType.FrostbiteName:
-                    ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "seconds", seconds + "", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + " " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "seconds", seconds + "", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
                     ExecuteCommand("procon.protected.send", "banList.save");
                     ExecuteCommand("procon.protected.send", "banList.list");
                     break;
                 case ADKAT_BanType.FrostbiteEaGuid:
-                    ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "seconds", seconds + "", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + " " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "seconds", seconds + "", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
                     ExecuteCommand("procon.protected.send", "banList.save");
                     ExecuteCommand("procon.protected.send", "banList.list");
                     break;
                 case ADKAT_BanType.PunkbusterGuid:
-                    this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_kick \"{0}\" {1} \"{2}\"", record.target_name, record.record_durationMinutes.ToString(), "BC2! " + "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + " " + ((this.useBanAppend) ? (this.banAppend) : (""))));
+                    this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_kick \"{0}\" {1} \"{2}\"", record.target_name, record.record_durationMinutes.ToString(), "BC2! " + "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : (""))));
                     break;
                 default:
                     break;
@@ -3077,17 +3067,17 @@ namespace PRoConEvents
             switch (this.m_banMethod)
             {
                 case ADKAT_BanType.FrostbiteName:
-                    ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "perm", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + " " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "perm", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
                     ExecuteCommand("procon.protected.send", "banList.save");
                     ExecuteCommand("procon.protected.send", "banList.list");
                     break;
                 case ADKAT_BanType.FrostbiteEaGuid:
-                    ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "perm", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + " " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "perm", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
                     ExecuteCommand("procon.protected.send", "banList.save");
                     ExecuteCommand("procon.protected.send", "banList.list");
                     break;
                 case ADKAT_BanType.PunkbusterGuid:
-                    this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_ban \"{0}\" \"{1}\"", record.target_name, "BC2! " + "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + " " + ((this.useBanAppend) ? (this.banAppend) : (""))));
+                    this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_ban \"{0}\" \"{1}\"", record.target_name, "BC2! " + "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : (""))));
                     break;
                 default:
                     break;
@@ -3309,6 +3299,7 @@ namespace PRoConEvents
                 if (!(this.playerAccessCache.ContainsKey(player.SoldierName) && this.playerAccessCache[player.SoldierName] < 5))
                 {
                     ExecuteCommand("procon.protected.send", "admin.kickPlayer", player.SoldierName, "(" + record.source_name + ") " + record.record_message);
+                    this.playerSayMessage(record.target_name, "Killed by admin for: " + record.record_message);
                 }
             }
             this.ExecuteCommand("procon.protected.send", "admin.say", "All players with access class 5 or lower have been kicked.", "all");
@@ -3925,11 +3916,11 @@ namespace PRoConEvents
                     {
                         if (this.combineServerPunishments)
                         {
-                            command.CommandText = "SELECT playername, playerguid, serverip, totalpoints FROM `" + this.mySqlDatabaseName + "`.`adkat_playerpoints` WHERE `playerguid` = '" + player_guid + "'";
+                            command.CommandText = "SELECT playername, playerguid, totalpoints FROM `" + this.mySqlDatabaseName + "`.`adkat_playerpoints` WHERE `playerguid` = '" + player_guid + "'";
                         }
                         else
                         {
-                            command.CommandText = "SELECT playername, playerguid, serverip, totalpoints FROM `" + this.mySqlDatabaseName + "`.`adkat_playerpoints` WHERE `playerguid` = '" + player_guid + "' AND `serverid` = " + this.server_id;
+                            command.CommandText = "SELECT playername, playerguid, totalpoints FROM `" + this.mySqlDatabaseName + "`.`adkat_playerpoints` WHERE `playerguid` = '" + player_guid + "' AND `serverid` = " + this.server_id;
                         }
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
@@ -4152,7 +4143,7 @@ namespace PRoConEvents
                                 if (targetName != null && targetName.Length > 0)
                                 {
                                     record.target_name = targetName;
-                                    responseString += this.completeTargetInformation(record);
+                                    responseString += this.completeTargetInformation(record, false);
                                 }
                                 else
                                 {
@@ -4401,7 +4392,7 @@ namespace PRoConEvents
 
         #region Player Name Suggestion
 
-        public string completeTargetInformation(ADKAT_Record record)
+        public string completeTargetInformation(ADKAT_Record record, Boolean requireConfirm)
         {
             //string player = record.target_name;
             try
@@ -4410,10 +4401,17 @@ namespace PRoConEvents
                 if (currentPlayers.ContainsKey(record.target_name))
                 {
                     //Exact player match, call processing without confirmation
-                    record.target_guid = record.targetPlayerInfo.GUID;
                     record.targetPlayerInfo = this.currentPlayers[record.target_name];
-                    //Process record right away
-                    this.processRecord(record);
+                    record.target_guid = record.targetPlayerInfo.GUID;
+                    if (!requireConfirm)
+                    {
+                        //Process record right away
+                        return this.processRecord(record);
+                    }
+                    else
+                    {
+                        return this.confirmAction(record);
+                    }
                 }
                 //Get all substring matches
                 Converter<String, List<CPlayerInfo>> ExactNameMatches = delegate(String sub)
@@ -4436,8 +4434,15 @@ namespace PRoConEvents
                     record.target_name = substringMatches[0].SoldierName;
                     record.target_guid = substringMatches[0].GUID;
                     record.targetPlayerInfo = substringMatches[0];
-                    //Process record right away
-                    return this.processRecord(record);
+                    if (!requireConfirm)
+                    {
+                        //Process record right away
+                        return this.processRecord(record);
+                    }
+                    else
+                    {
+                        return this.confirmAction(record);
+                    }
                 }
                 else if (substringMatches.Count > 1)
                 {
@@ -4487,10 +4492,7 @@ namespace PRoConEvents
                     record.target_name = suggestion.SoldierName;
                     record.targetPlayerInfo = suggestion;
                     //Send record to attempt list for confirmation
-                    this.actionConfirmList.Remove(record.source_name);
-                    this.actionConfirmList.Add(record.source_name, record);
-                    //Tell the admin which player was suggested from the multiple matches
-                    return this.sendMessageToSource(record, record.command_type + ": " + record.target_name + "?");
+                    return this.confirmAction(record);
                 }
                 else
                 {
@@ -4507,18 +4509,14 @@ namespace PRoConEvents
                         }
                     }
                     //If the suggestion is still null, something has failed
-                    if (fuzzyMatch == null) { this.DebugWrite("name suggestion system failed fuzzy match", 5); };
+                    if (fuzzyMatch == null) { this.DebugWrite("name suggestion system failed fuzzy match", 5); return "ERROR"; };
 
                     //Use suggestion for target
                     record.target_guid = fuzzyMatch.GUID;
                     record.target_name = fuzzyMatch.SoldierName;
                     record.targetPlayerInfo = fuzzyMatch;
                     //Send record to attempt list for confirmation
-                    this.actionConfirmList.Remove(record.source_name);
-                    this.actionConfirmList.Add(record.source_name, record);
-                    //Tell the admin which player was suggested from the multiple matches
-                    return this.sendMessageToSource(record, record.command_type + ": " + record.target_name + "? [Fuzzy]");
-
+                    return this.confirmAction(record);
                 }
             }
             catch (Exception e)
@@ -4640,14 +4638,5 @@ namespace PRoConEvents
         }
 
         #endregion
-
-        #region other
-        /*Thread delayed = new Thread(new ThreadStart(delegate()
-        {
-            Thread.Sleep(delay * 1000);
-            //things
-        }));*/
-        #endregion
-
     } // end AdKats
 } // end namespace PRoConEvents
