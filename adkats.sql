@@ -3,7 +3,7 @@
 -- This is run automatically if AdKats does not find the main record table in your database.
 -- If you don't want the plugin changing tables in your database, run this beforehand.
 
-
+-- If the tables needed are not in the database yet, the below two queries will be success
 CREATE TABLE `adkat_records` ( 
 `record_id` int(11) NOT NULL AUTO_INCREMENT, 
 `server_id` int(11) NOT NULL DEFAULT -1, 
@@ -19,14 +19,25 @@ CREATE TABLE `adkat_records` (
 `adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
 PRIMARY KEY (`record_id`)
 );
-
-
 CREATE TABLE `adkat_accesslist` ( 
 `player_name` varchar(45) NOT NULL DEFAULT "NoPlayer", 
 `player_guid` varchar(100) NOT NULL DEFAULT 'WAITING ON USE FOR GUID', 
 `access_level` int(11) NOT NULL DEFAULT 6, 
 PRIMARY KEY (`player_name`), UNIQUE KEY `player_name_UNIQUE` (`player_name`));
 
+-- If the tables are already there, but just need updating, the above will fail and below will be success
+ALTER TABLE `adkat_records` MODIFY `record_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE `adkat_records` MODIFY `server_id` int(11) NOT NULL DEFAULT -1, 
+ALTER TABLE `adkat_records` ADD `server_ip` varchar(45) NOT NULL DEFAULT "0.0.0.0:0000";
+ALTER TABLE `adkat_records` MODIFY `command_type` varchar(45) NOT NULL DEFAULT "DefaultCommand"; 
+ALTER TABLE `adkat_records` ADD `command_action` varchar(45) NOT NULL DEFAULT "DefaultAction"; 
+ALTER TABLE `adkat_records` MODIFY `record_durationMinutes` int(11) NOT NULL DEFAULT 0; 
+ALTER TABLE `adkat_records` MODIFY `target_guid` varchar(100) NOT NULL DEFAULT "EA_NoGUID"; 
+ALTER TABLE `adkat_records` MODIFY `target_name` varchar(45) NOT NULL DEFAULT "NoTarget"; 
+ALTER TABLE `adkat_records` MODIFY `source_name` varchar(45) NOT NULL DEFAULT "NoNameAdmin"; 
+ALTER TABLE `adkat_records` MODIFY `record_message` varchar(100) NOT NULL DEFAULT "NoMessage"; 
+ALTER TABLE `adkat_records` MODIFY `adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N';
+DROP TABLE `adkat_teamswapwhitelist`;
 
 CREATE OR REPLACE VIEW `adkat_playerlist` AS
 SELECT `adkat_records`.`target_name` AS `player_name`,
