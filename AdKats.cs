@@ -5,7 +5,7 @@
  * forgiveness, proper player report and admin call handling, player name completion, player muting, yell/say 
  * pre-recording, and internal implementation of TeamSwap.
  * 
- * Requires a MySQL Database connection for proper use. Will set up needed tables in the database if they are 
+ * Requires a MySQL Database connection. Will set up needed tables in the database if they are 
  * not there already.
  * 
  * Code Credit:
@@ -13,6 +13,7 @@
  * Planned Future Usage:
  * Email System from "Notify Me!" By MorpheusX(AUT)
  * Twitter Post System from Micovery's InsaneLimits
+ * Multi-Threading examples from Micovery's InsaneLimits
  * 
  * AdKats.cs
  */
@@ -66,8 +67,7 @@ namespace PRoConEvents
             Exception,
             Normal
         };
-
-        //Possible Admin Commands
+        //Admin Commands
         public enum ADKAT_CommandType
         {
             //Case for use while parsing and handling errors
@@ -118,7 +118,6 @@ namespace PRoConEvents
             Database,
             HTTP
         }
-
         //Player ban types
         public enum ADKAT_BanType
         {
@@ -129,7 +128,7 @@ namespace PRoConEvents
 
         // General settings
         private int server_id = -1;
-        //Whether to get the release version of plugin description, or the dev version.
+        //Whether to get the release version of plugin description and setup scripts, or the dev version.
         //This setting is unchangeable by users, and will always be TRUE for released versions of the plugin.
         private bool isRelease = false;
         //Whether the plugin is enabled
@@ -147,13 +146,6 @@ namespace PRoConEvents
         // Player Lists
         Dictionary<string, CPlayerInfo> currentPlayers = new Dictionary<string, CPlayerInfo>();
         List<CPlayerInfo> playerList = new List<CPlayerInfo>();
-
-        //Delayed move list
-        private List<CPlayerInfo> onDeathMoveList = new List<CPlayerInfo>();
-        //The list of players on RU wishing to move to US (This list takes first priority)
-        private Queue<CPlayerInfo> USMoveQueue = new Queue<CPlayerInfo>();
-        //the list of players on US wishing to move to RU (This list takes secondary)
-        private Queue<CPlayerInfo> RUMoveQueue = new Queue<CPlayerInfo>();
         //player counts per team
         private int USPlayerCount = 0;
         private int RUPlayerCount = 0;
@@ -224,7 +216,7 @@ namespace PRoConEvents
         //Randomized on startup
         private string externalCommandAccessKey = "NoPasswordSet";
 
-        //When a player partially completes a name, this dictionary holds those actions until player confirms action
+        //When an action requires confirmation, this dictionary holds those actions until player confirms action
         private Dictionary<string, ADKAT_Record> actionConfirmList = new Dictionary<string, ADKAT_Record>();
         //Whether to combine server punishments
         private Boolean combineServerPunishments = false;
@@ -249,8 +241,12 @@ namespace PRoConEvents
         private int requiredReasonLength = 5;
 
         //TeamSwap Settings
-        //Last time list players was called
-        private DateTime lastListPlayersRequest = DateTime.Now;
+        //Delayed move list
+        private List<CPlayerInfo> onDeathMoveList = new List<CPlayerInfo>();
+        //The list of players on RU wishing to move to US (This list takes first priority)
+        private Queue<CPlayerInfo> USMoveQueue = new Queue<CPlayerInfo>();
+        //the list of players on US wishing to move to RU (This list takes secondary)
+        private Queue<CPlayerInfo> RUMoveQueue = new Queue<CPlayerInfo>();
         //whether to allow all players, or just players in the whitelist
         private Boolean requireTeamswapWhitelist = true;
         //the lowest ticket count of either team
@@ -271,7 +267,7 @@ namespace PRoConEvents
 
         //Player Muting
         private string mutedPlayerMuteMessage = "You have been muted by an admin, talking will cause punishment. You can speak again next round.";
-        private string mutedPlayerKillMessage = "Do not continue talking while muted. You can speak again next round.";
+        private string mutedPlayerKillMessage = "Do not talk while muted. You can speak again next round.";
         private string mutedPlayerKickMessage = "Talking excessively while muted. You can speak again next round.";
         private int mutedPlayerChances = 5;
         private Dictionary<string, int> round_mutedPlayers = new Dictionary<string, int>();
@@ -614,7 +610,10 @@ namespace PRoConEvents
             #region debugging
             if (Regex.Match(strVariable, @"Command Entry (Use like In-Game)").Success)
             {
-                this.OnGlobalChat("SettingsAdmin", strValue);
+                ADKAT_Record recordItem = new ADKAT_Record();
+                recordItem.command_source = ADKAT_CommandSource.Settings;
+                recordItem.source_name = "SettingsAdmin";
+                this.completeRecord(recordItem, message);
             }
             else if (Regex.Match(strVariable, @"Debug level").Success)
             {
@@ -673,6 +672,11 @@ namespace PRoConEvents
             {
                 if (strValue.Length > 0)
                 {
+                    //Confirm cannot be logged
+                    if (strValue.ToLower().EndsWith("|log"))
+                    {
+                        strValue = strValue.TrimEnd("|log".ToCharArray());
+                    }
                     this.m_strConfirmCommand = strValue;
                     rebindAllCommands();
                 }
@@ -685,6 +689,11 @@ namespace PRoConEvents
             {
                 if (strValue.Length > 0)
                 {
+                    //Cancel cannot be logged
+                    if (strValue.ToLower().EndsWith("|log"))
+                    {
+                        strValue = strValue.TrimEnd("|log".ToCharArray());
+                    }
                     this.m_strCancelCommand = strValue;
                     rebindAllCommands();
                 }
@@ -1560,16 +1569,10 @@ namespace PRoConEvents
                     return;
                 }
 
-                //Create the record on thread
-                Thread RecordProcessor = new Thread(new ThreadStart(delegate()
-                {
-                    Thread.Sleep(100);
-                    ADKAT_Record recordItem = new ADKAT_Record();
-                    recordItem.command_source = ADKAT_CommandSource.InGame;
-                    recordItem.source_name = speaker;
-                    this.completeRecord(recordItem, message);
-                }));
-                RecordProcessor.Start();
+                ADKAT_Record recordItem = new ADKAT_Record();
+                recordItem.command_source = ADKAT_CommandSource.InGame;
+                recordItem.source_name = speaker;
+                this.completeRecord(recordItem, message);
             }
         }
         public override void OnTeamChat(string speaker, string message, int teamId) { this.OnGlobalChat(speaker, message); }
@@ -1880,7 +1883,10 @@ namespace PRoConEvents
                                     break;
                                 case 2:
                                     record.target_name = parameters[0];
-                                    record.record_message = parameters[1];
+
+                                    //attempt to handle via pre-message ID
+                                    record.record_message = this.getPreMessage(parameters[1], false);
+
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
                                         //Handle based on report ID if possible
@@ -1926,7 +1932,10 @@ namespace PRoConEvents
                                     break;
                                 case 2:
                                     record.target_name = parameters[0];
-                                    record.record_message = parameters[1];
+
+                                    //attempt to handle via pre-message ID
+                                    record.record_message = this.getPreMessage(parameters[1], false);
+
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
                                         //Handle based on report ID if possible
@@ -2003,7 +2012,9 @@ namespace PRoConEvents
                                         record.target_name = parameters[1];
                                         DebugWrite("target: " + record.target_name, 6);
 
-                                        record.record_message = parameters[2];
+                                        //attempt to handle via pre-message ID
+                                        record.record_message = this.getPreMessage(parameters[2], false);
+
                                         DebugWrite("reason: " + record.record_message, 6);
                                         if (record.record_message.Length >= this.requiredReasonLength)
                                         {
@@ -2056,7 +2067,10 @@ namespace PRoConEvents
                                     break;
                                 case 2:
                                     record.target_name = parameters[0];
-                                    record.record_message = parameters[1];
+
+                                    //attempt to handle via pre-message ID
+                                    record.record_message = this.getPreMessage(parameters[1], false);
+
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
                                         //Handle based on report ID if possible
@@ -2102,7 +2116,10 @@ namespace PRoConEvents
                                     break;
                                 case 2:
                                     record.target_name = parameters[0];
-                                    record.record_message = parameters[1];
+
+                                    //attempt to handle via pre-message ID
+                                    record.record_message = this.getPreMessage(parameters[1], false);
+
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
                                         //Handle based on report ID if possible
@@ -2148,7 +2165,10 @@ namespace PRoConEvents
                                     break;
                                 case 2:
                                     record.target_name = parameters[0];
-                                    record.record_message = parameters[1];
+
+                                    //attempt to handle via pre-message ID
+                                    record.record_message = this.getPreMessage(parameters[1], false);
+
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
                                         //Handle based on report ID if possible
@@ -2194,7 +2214,10 @@ namespace PRoConEvents
                                     break;
                                 case 2:
                                     record.target_name = parameters[0];
-                                    record.record_message = parameters[1];
+
+                                    //attempt to handle via pre-message ID
+                                    record.record_message = this.getPreMessage(parameters[1], false);
+
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
                                         //Handle based on report ID if possible
@@ -2240,7 +2263,10 @@ namespace PRoConEvents
                                     break;
                                 case 2:
                                     record.target_name = parameters[0];
-                                    record.record_message = parameters[1];
+
+                                    //attempt to handle via pre-message ID
+                                    record.record_message = this.getPreMessage(parameters[1], false);
+
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
                                         //Handle based on report ID if possible
@@ -2281,7 +2307,9 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
                                     DebugWrite("target: " + record.target_name, 6);
 
-                                    record.record_message = parameters[1];
+                                    //attempt to handle via pre-message ID
+                                    record.record_message = this.getPreMessage(parameters[1], false);
+
                                     DebugWrite("reason: " + record.record_message, 6);
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2321,7 +2349,9 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
                                     DebugWrite("target: " + record.target_name, 6);
 
-                                    record.record_message = parameters[1];
+                                    //attempt to handle via pre-message ID
+                                    record.record_message = this.getPreMessage(parameters[1], false);
+
                                     DebugWrite("reason: " + record.record_message, 6);
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2504,15 +2534,9 @@ namespace PRoConEvents
                                     record.target_guid = "Server";
                                     if (this.preMessageList.Count > 0)
                                     {
-                                        int preSayID = 0;
-                                        DebugWrite("Raw preSayID: " + parameters[0], 6);
-                                        Boolean valid = Int32.TryParse(parameters[0], out preSayID);
-                                        if (valid && (preSayID > 0) && (preSayID <= this.preMessageList.Count))
-                                        {
-                                            record.record_message = this.preMessageList[preSayID - 1];
-                                            record.command_type = ADKAT_CommandType.AdminSay;
-                                        }
-                                        else
+                                        record.command_type = ADKAT_CommandType.AdminSay;
+                                        record.record_message = this.getPreMessage(parameters[0], true);
+                                        if(record.record_message == null)
                                         {
                                             DebugWrite("invalid pre message id", 6);
                                             this.sendMessageToSource(record, "Invalid Pre-Message ID. Valid IDs 1-" + (this.preMessageList.Count));
@@ -2579,15 +2603,9 @@ namespace PRoConEvents
                                     record.target_guid = "Server";
                                     if (this.preMessageList.Count > 0)
                                     {
-                                        int preSayID = 0;
-                                        DebugWrite("Raw preSayID: " + parameters[0], 6);
-                                        Boolean valid = Int32.TryParse(parameters[0], out preSayID);
-                                        if (valid && (preSayID > 0) && (preSayID <= this.preMessageList.Count))
-                                        {
-                                            record.record_message = this.preMessageList[preSayID - 1];
-                                            record.command_type = ADKAT_CommandType.AdminYell;
-                                        }
-                                        else
+                                        record.command_type = ADKAT_CommandType.AdminYell;
+                                        record.record_message = this.getPreMessage(parameters[0], true);
+                                        if (record.record_message == null)
                                         {
                                             DebugWrite("invalid pre message id", 6);
                                             this.sendMessageToSource(record, "Invalid Pre-Message ID. Valid IDs 1-" + (this.preMessageList.Count));
@@ -2719,9 +2737,9 @@ namespace PRoConEvents
             List<String> parameters = new List<String>();
             if (message.Length > 0)
             {
-            //Add all single word/number parameters
-            String[] paramSplit = message.Split(' ');
-            int maxLoop = (paramSplit.Length<maxParamCount)?(paramSplit.Length):(maxParamCount);
+                //Add all single word/number parameters
+                String[] paramSplit = message.Split(' ');
+                int maxLoop = (paramSplit.Length < maxParamCount) ? (paramSplit.Length) : (maxParamCount);
                 for (int i = 0; i < maxLoop - 1; i++)
                 {
                     this.DebugWrite("Param " + i + ": " + paramSplit[i], 6);
@@ -2739,7 +2757,7 @@ namespace PRoConEvents
         private ADKAT_CommandType getCommand(string commandString)
         {
             ADKAT_CommandType command = ADKAT_CommandType.Default;
-            this.ADKAT_CommandStrings.TryGetValue(commandString, out command);
+            this.ADKAT_CommandStrings.TryGetValue(commandString.ToLower(), out command);
             return command;
         }
 
@@ -2749,6 +2767,26 @@ namespace PRoConEvents
             ADKAT_CommandType command = ADKAT_CommandType.Default;
             this.ADKAT_RecordTypesInv.TryGetValue(commandString, out command);
             return command;
+        }
+
+        public string getPreMessage(string message, Boolean required)
+        {
+            if (message != null && message.Length > 0)
+            {
+                //Attempt to fill the message via pre-message ID
+                int preMessageID = 0;
+                DebugWrite("Raw preMessageID: " + strID, 6);
+                Boolean valid = Int32.TryParse(strID, out preMessageID);
+                if (valid && (preMessageID > 0) && (preMessageID <= this.preMessageList.Count))
+                {
+                    message = this.preMessageList[preMessageID - 1];
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            return message;
         }
 
         public string confirmAction(ADKAT_Record record)
@@ -2966,6 +3004,8 @@ namespace PRoConEvents
                 record.target_name = reportedRecord.target_name;
                 record.targetPlayerInfo = reportedRecord.targetPlayerInfo;
                 //Update record message if needed
+                //attempt to handle via pre-message ID
+                record.record_message = this.getPreMessage(record.record_message, false);
                 if (record.record_message == null || record.record_message.Length < this.requiredReasonLength)
                 {
                     record.record_message = reportedRecord.record_message;
@@ -3361,7 +3401,7 @@ namespace PRoConEvents
             {
                 access_level = this.playerAccessCache[player_name];
             }
-            else if 
+            else if
                 (!this.requireTeamswapWhitelist ||
                 this.teamswapRoundWhitelist.ContainsKey(player_name) ||
                 (this.enableAdminAssistants && this.adminAssistantCache.ContainsKey(player_name)))
@@ -3480,8 +3520,13 @@ namespace PRoConEvents
                 }
                 if (!this.confirmTable("adkat_accesslist"))
                 {
-                    ConsoleError("adkat_teamswapwhitelist not present in the database. AdKats will not function properly.");
-                    confirmed = false;
+                    ConsoleError("Access Table not present in the database.");
+                    this.runDBSetupScript();
+                    if (!this.confirmTable("adkat_accesslist"))
+                    {
+                        this.ConsoleError("After running setup script access table still not present.");
+                        confirmed = false;
+                    }
                 }
                 if (!this.confirmTable("adkat_playerlist"))
                 {
@@ -3495,7 +3540,7 @@ namespace PRoConEvents
                 }
                 if (confirmed)
                 {
-                    this.DebugWrite("Database confirmed functional for AdKats use.", 3);
+                    this.DebugWrite("SUCCESS. Database confirmed functional for AdKats use.", 3);
                 }
                 else
                 {
@@ -3514,7 +3559,7 @@ namespace PRoConEvents
         {
             try
             {
-                ConsoleWrite("Running database setup script.");
+                ConsoleWrite("Running database setup script. You will not lose any data.");
                 using (MySqlConnection databaseConnection = this.getDatabaseConnection())
                 {
                     using (MySqlCommand command = databaseConnection.CreateCommand())
@@ -3534,7 +3579,7 @@ namespace PRoConEvents
                             //Attempt to execute the query
                             if (command.ExecuteNonQuery() >= 0)
                             {
-                                ConsoleWrite("Creation script successful, your database is now setup for AdKats use.");
+                                ConsoleWrite("Setup script successful, your database is now prepared for use by AdKats " + this.getPluginVersion());
                             }
                         }
                         catch (Exception e)
@@ -4467,7 +4512,7 @@ namespace PRoConEvents
                             suggestion = player;
                         }
                     }
-                    if(suggestion == null)
+                    if (suggestion == null)
                     {
                         //If no player name starts with what admins typed, suggest substring name with lowest Levenshtein distance
                         int bestDistance = Int32.MaxValue;
