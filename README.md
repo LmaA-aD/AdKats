@@ -431,6 +431,8 @@ All players are defaulted to level 6 in the system, and have no special access, 
 </table>
 </p>
 <h3>Commanding AdKats from Outside the Game</h3>
+<h4>AdKats WebAdmin, a tool for controlling your servers, issuing commands, and viewing logs from the comfort of a 
+web browser is currently in production. It should be released along with version 3.0</h4>
 <p>
 If you have an external system (such as a web-based tool with access to bf3 server information), then there are two 
 ways to interact with AdKats externally.<br/>
