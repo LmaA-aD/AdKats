@@ -197,47 +197,47 @@ especially when you have to hold 40+ admins accountable, and has not caused any 
 	</tr>
 	<tr>
 		<td><b>Kill Player</b></td>
-		<td>[player][reason]<br/>OR<br/>[reportID]</td>
+		<td>[player][reason]<br/>OR<br/>[reportID]<br/>OR<br/>[reportID][reason]</td>
 		<td>The in-game command used for killing players.</td>
 	</tr>
 	<tr>
 		<td><b>Kick Player</b></td>
-		<td>[player][reason]<br/>OR<br/>[reportID]</td>
+		<td>[player][reason]<br/>OR<br/>[reportID]<br/>OR<br/>[reportID][reason]</td>
 		<td>The in-game command used for kicking players.</td>
 	</tr>
 	<tr>
 		<td><b>Temp-Ban Player</b></td>
-		<td>[minutes][player][reason]<br/>OR<br/>[minutes][reportID]</td>
+		<td>[minutes][player][reason]<br/>OR<br/>[minutes][reportID]<br/>OR<br/>[minutes][reportID][reason]</td>
 		<td>The in-game command used temp-banning players.</td>
 	</tr>
 	<tr>
 		<td><b>Perma-Ban Player</b></td>
-		<td>[player][reason]<br/>OR<br/>[reportID]</td>
+		<td>[player][reason]<br/>OR<br/>[reportID]<br/>OR<br/>[reportID][reason]</td>
 		<td>The in-game command used for perma-banning players.</td>
 	</tr>
 	<tr>
 		<td><b>Punish Player</b></td>
-		<td>[player][reason]<br/>OR<br/>[reportID]</td>
+		<td>[player][reason]<br/>OR<br/>[reportID]<br/>OR<br/>[reportID][reason]</td>
 		<td>The in-game command used for punishing players. Will add a Punish record to the database, increasing a player's total points by 1. When a reportID is used as input, details of the report are given and confirmation (@yes) needs to be given before the punish is sent.</td>
 	</tr>
 	<tr>
 		<td><b>Forgive Player</b></td>
-		<td>[player][reason]</td>
+		<td>[player][reason]<br/>OR<br/>[reportID]<br/>OR<br/>[reportID][reason]</td>
 		<td>The in-game command used for forgiving players. Will add a Forgive record to the database, decreasing a player's total points by 1.</td>
 	</tr>
 	<tr>
 		<td><b>Mute Player</b></td>
-		<td>[player][reason]<br/>OR<br/>[reportID]</td>
+		<td>[player][reason]<br/>OR<br/>[reportID]<br/>OR<br/>[reportID][reason]</td>
 		<td>The in-game command used for muting players. Players will be muted till the end of the round, 5 kills then kick if they keep talking. Admins cannot be muted.</td>
 	</tr>
 	<tr>
-		<td><b>Move Player<br/>OR<br/>[reportID]</b></td>
-		<td>[player]</td>
+		<td><b>Move Player</b></td>
+		<td>[player]<br/>OR<br/>[reportID]</td>
 		<td>The in-game command used for moving players between teams. Will add players to a death move list, when they die they will be sent to TeamSwap.</td>
 	</tr>
 	<tr>
-		<td><b>Force-Move Player<br/>OR<br/>[reportID]</b></td>
-		<td>[player]</td>
+		<td><b>Force-Move Player</b></td>
+		<td>[player]<br/>OR<br/>[reportID]</td>
 		<td>The in-game command used for force-moving players between teams. Will immediately send the given player to TeamSwap.</td>
 	</tr>
 	<tr>
@@ -247,7 +247,7 @@ especially when you have to hold 40+ admins accountable, and has not caused any 
 	</tr>
 	<tr>
 		<td><b>Round Whitelist Player</b></td>
-		<td>[player][reason]</td>
+		<td>[player][reason]<br/>OR<br/>[reportID]<br/>OR<br/>[reportID][reason]</td>
 		<td>The in-game command used for round-whitelisting players. 2 players may be whitelisted per round. Once whitelisted they can use teamswap.</td>
 	</tr>
 	<tr>
@@ -587,7 +587,7 @@ Valid 'command_type's that can be acted on include the following:<br/>
 </ul>
 <h3>6. Email Settings:</h3>
 <ul>
-  <li><b>'Send Emails'</b> - Whether to use the email system.</li>
+  <li><b>'Email and RSS handling coming soon.'</b></li>
 </ul>
 <h3>7. TeamSwap Settings:</h3>
 <ul>
@@ -660,7 +660,7 @@ Valid 'command_type's that can be acted on include the following:<br/>
   charlietheunicorn killed for Baseraping Enemy Spawn Area.</li>
   <li><b>Server IDs can be different now, yet still have punishments increase across servers.</b> Now the origin of 
   reports wont show as coming from the same server, since same server ID was required before for global punishments.</li>
-  <li><b>Added new commands.</b> Kick all Players, and Nuke Server. Details below.</li>
+  <li><b>Added new commands.</b> Kick all Players, and Nuke Server.</li>
   <li><b>Commands can now operate in shortened hidden mode.</b> When commands are issued in hidden mode they normally 
   require an extra character. e.g. /@kill target reason. They now work with just the slash. e.g. /kill target reason. 
   </li>
