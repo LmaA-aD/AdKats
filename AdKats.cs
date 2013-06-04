@@ -3137,7 +3137,7 @@ namespace PRoConEvents
             int points = this.fetchPoints(record.target_guid);
             //Get the proper action to take for player punishment
             string action = "noaction";
-            /*if (points > (this.punishmentHierarchy.Length - 1))
+            if (points > (this.punishmentHierarchy.Length - 1))
             {
                 action = this.punishmentHierarchy[this.punishmentHierarchy.Length - 1];
             }
@@ -3185,8 +3185,8 @@ namespace PRoConEvents
             //Punishment is the only time updating should be needed
             this.updateRecord(record);
 
-            return this.sendMessageToSource(record, message);*/
-            return "fjdjsjkd";
+            return this.sendMessageToSource(record, message);
+            //return "fjdjsjkd";
         }
 
         public string forgiveTarget(ADKAT_Record record)
