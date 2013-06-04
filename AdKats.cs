@@ -139,6 +139,8 @@ namespace PRoConEvents
         private int RUTeamId = 2;
         //Boolean used for archaic thread sync
         private Boolean updating = false;
+        //last time a manual call to listplayers was made
+        private DateTime lastListPlayersRequest = DateTime.Now;
         //All server info
         private CServerInfo serverInfo = null;
 
@@ -612,7 +614,7 @@ namespace PRoConEvents
                 ADKAT_Record recordItem = new ADKAT_Record();
                 recordItem.command_source = ADKAT_CommandSource.Settings;
                 recordItem.source_name = "SettingsAdmin";
-                this.completeRecord(recordItem, message);
+                this.completeRecord(recordItem, strValue);
             }
             else if (Regex.Match(strVariable, @"Debug level").Success)
             {
@@ -2775,13 +2777,13 @@ namespace PRoConEvents
             {
                 //Attempt to fill the message via pre-message ID
                 int preMessageID = 0;
-                DebugWrite("Raw preMessageID: " + strID, 6);
-                Boolean valid = Int32.TryParse(strID, out preMessageID);
+                DebugWrite("Raw preMessageID: " + message, 6);
+                Boolean valid = Int32.TryParse(message, out preMessageID);
                 if (valid && (preMessageID > 0) && (preMessageID <= this.preMessageList.Count))
                 {
                     message = this.preMessageList[preMessageID - 1];
                 }
-                else
+                else if(required)
                 {
                     return null;
                 }
@@ -3129,12 +3131,13 @@ namespace PRoConEvents
 
         public string punishTarget(ADKAT_Record record)
         {
-            string message = null;
+            this.DebugWrite("punishing target", 6);
+            string message = "ERROR";
             //Get number of points the player from server
             int points = this.fetchPoints(record.target_guid);
             //Get the proper action to take for player punishment
             string action = "noaction";
-            if (points > (this.punishmentHierarchy.Length - 1))
+            /*if (points > (this.punishmentHierarchy.Length - 1))
             {
                 action = this.punishmentHierarchy[this.punishmentHierarchy.Length - 1];
             }
@@ -3182,7 +3185,8 @@ namespace PRoConEvents
             //Punishment is the only time updating should be needed
             this.updateRecord(record);
 
-            return this.sendMessageToSource(record, message);
+            return this.sendMessageToSource(record, message);*/
+            return "fjdjsjkd";
         }
 
         public string forgiveTarget(ADKAT_Record record)
@@ -3579,7 +3583,7 @@ namespace PRoConEvents
                             //Attempt to execute the query
                             if (command.ExecuteNonQuery() >= 0)
                             {
-                                ConsoleWrite("Setup script successful, your database is now prepared for use by AdKats " + this.getPluginVersion());
+                                ConsoleWrite("Setup script successful, your database is now prepared for use by AdKats " + this.GetPluginVersion());
                             }
                         }
                         catch (Exception e)
