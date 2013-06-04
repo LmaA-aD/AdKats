@@ -163,7 +163,7 @@ no reason is given. Players (even the most atrocious in some cases) should know 
 </p>
 <h3>Performance</h3>
 <p>
-AdKats is getting a facelift in this department ASAP, it will cause minor procon lag on vary active servers which I 
+AdKats is getting a facelift in this department ASAP, it will cause minor procon lag on very active servers which I 
 consider a huge problem. Updates will be pushed for performance.
 </p>
 <h3>Database Usage</h3>
