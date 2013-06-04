@@ -163,12 +163,8 @@ no reason is given. Players (even the most atrocious in some cases) should know 
 </p>
 <h3>Performance</h3>
 <p>
-This plugin has been tested on a 64 player Operation Metro server that is full nearly 24/7 and does not cause any 
-noticable lag. AdKats is designed to be rather heavy when changing settings, but much lighter when in use. All 
-commands are stored in dictionaries so command meanings are parsed instantly when entered. During command parsing 
-there is a hierarchy of checks the command goes through (specific to each command), if any of them fail the process 
-ends immediately and informs the calling player of the error they made. Database connections are fast and do not cause 
-any noticable lag even when logging everything on a very active server.
+AdKats is getting a facelift in this department ASAP, it will cause minor procon lag on vary active servers which I 
+consider a huge problem. Updates will be pushed for performance.
 </p>
 <h3>Database Usage</h3>
 <p>
