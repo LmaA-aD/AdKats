@@ -6,7 +6,7 @@
 -- not be true for your database, the script is still successful.
 
 -- If the tables needed are not in the database yet, the below two queries will be success
-CREATE TABLE `adkat_records` ( 
+CREATE TABLE IF NOT EXISTS `adkat_records` ( 
 `record_id` int(11) NOT NULL AUTO_INCREMENT, 
 `server_id` int(11) NOT NULL DEFAULT -1, 
 `server_ip` varchar(45) NOT NULL DEFAULT "0.0.0.0:0000", 
@@ -21,7 +21,7 @@ CREATE TABLE `adkat_records` (
 `adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
 PRIMARY KEY (`record_id`)
 );
-CREATE TABLE `adkat_accesslist` ( 
+CREATE TABLE IF NOT EXISTS `adkat_accesslist` ( 
 `player_name` varchar(45) NOT NULL DEFAULT "NoPlayer", 
 `player_guid` varchar(100) NOT NULL DEFAULT 'WAITING ON USE FOR GUID', 
 `access_level` int(11) NOT NULL DEFAULT 6, 
