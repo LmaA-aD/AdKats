@@ -2498,14 +2498,14 @@ namespace PRoConEvents
                             this.actionConfirmList.Remove(record.source_name);
 
                             //Parse parameters using max param count
-                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            String[] parameters = this.parseParameters(remainingMessage, 1);
                             switch (parameters.Length)
                             {
                                 case 0:
                                     this.sendMessageToSource(record, "No parameters given, unable to submit.");
                                     return;
                                 case 1:
-                                    record.record_message = parameters[1];
+                                    record.record_message = parameters[0];
                                     DebugWrite("message: " + record.record_message, 6);
                                     record.target_name = "Server";
                                     record.target_guid = "Server";
@@ -2525,7 +2525,7 @@ namespace PRoConEvents
                             this.actionConfirmList.Remove(record.source_name);
 
                             //Parse parameters using max param count
-                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            String[] parameters = this.parseParameters(remainingMessage, 1);
                             switch (parameters.Length)
                             {
                                 case 0:
@@ -2538,7 +2538,7 @@ namespace PRoConEvents
                                     {
                                         record.command_type = ADKAT_CommandType.AdminSay;
                                         record.record_message = this.getPreMessage(parameters[0], true);
-                                        if(record.record_message == null)
+                                        if (record.record_message == null)
                                         {
                                             DebugWrite("invalid pre message id", 6);
                                             this.sendMessageToSource(record, "Invalid Pre-Message ID. Valid IDs 1-" + (this.preMessageList.Count));
@@ -2567,14 +2567,14 @@ namespace PRoConEvents
                             this.actionConfirmList.Remove(record.source_name);
 
                             //Parse parameters using max param count
-                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            String[] parameters = this.parseParameters(remainingMessage, 1);
                             switch (parameters.Length)
                             {
                                 case 0:
                                     this.sendMessageToSource(record, "No parameters given, unable to submit.");
                                     return;
                                 case 1:
-                                    record.record_message = parameters[1];
+                                    record.record_message = parameters[0];
                                     DebugWrite("message: " + record.record_message, 6);
                                     record.target_name = "Server";
                                     record.target_guid = "Server";
@@ -2594,7 +2594,7 @@ namespace PRoConEvents
                             this.actionConfirmList.Remove(record.source_name);
 
                             //Parse parameters using max param count
-                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            String[] parameters = this.parseParameters(remainingMessage, 1);
                             switch (parameters.Length)
                             {
                                 case 0:
@@ -2636,7 +2636,7 @@ namespace PRoConEvents
                             this.actionConfirmList.Remove(record.source_name);
 
                             //Parse parameters using max param count
-                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            String[] parameters = this.parseParameters(remainingMessage, 1);
                             switch (parameters.Length)
                             {
                                 case 0:
@@ -2668,7 +2668,7 @@ namespace PRoConEvents
                             this.actionConfirmList.Remove(record.source_name);
 
                             //Parse parameters using max param count
-                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            String[] parameters = this.parseParameters(remainingMessage, 1);
                             switch (parameters.Length)
                             {
                                 case 0:
@@ -2783,7 +2783,7 @@ namespace PRoConEvents
                 {
                     message = this.preMessageList[preMessageID - 1];
                 }
-                else if(required)
+                else if (required)
                 {
                     return null;
                 }
@@ -3063,7 +3063,7 @@ namespace PRoConEvents
         public string killTarget(ADKAT_Record record, string additionalMessage)
         {
             //Perform actions
-            ExecuteCommand("procon.protected.send", "admin.killPlayer", record.target_name);
+            this.ExecuteCommand("procon.protected.send", "admin.killPlayer", record.target_name);
             this.playerSayMessage(record.target_name, "Killed by admin for: " + record.record_message + " " + additionalMessage);
             return this.sendMessageToSource(record, "You KILLED " + record.target_name + " for " + record.record_message + ". " + additionalMessage);
         }
@@ -3071,7 +3071,7 @@ namespace PRoConEvents
         public string kickTarget(ADKAT_Record record, string additionalMessage)
         {
             //Perform Actions
-            ExecuteCommand("procon.protected.send", "admin.kickPlayer", record.target_name, "(" + record.source_name + ") " + record.record_message + " " + additionalMessage);
+            this.ExecuteCommand("procon.protected.send", "admin.kickPlayer", record.target_name, "(" + record.source_name + ") " + record.record_message + " " + additionalMessage);
             this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was KICKED by admin: " + record.record_message + " " + additionalMessage, "all");
             return this.sendMessageToSource(record, "You KICKED " + record.target_name + " for " + record.record_message + ". " + additionalMessage);
         }
@@ -3083,14 +3083,14 @@ namespace PRoConEvents
             switch (this.m_banMethod)
             {
                 case ADKAT_BanType.FrostbiteName:
-                    ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "seconds", seconds + "", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
-                    ExecuteCommand("procon.protected.send", "banList.save");
-                    ExecuteCommand("procon.protected.send", "banList.list");
+                    this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "seconds", seconds + "", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    this.ExecuteCommand("procon.protected.send", "banList.save");
+                    this.ExecuteCommand("procon.protected.send", "banList.list");
                     break;
                 case ADKAT_BanType.FrostbiteEaGuid:
-                    ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "seconds", seconds + "", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
-                    ExecuteCommand("procon.protected.send", "banList.save");
-                    ExecuteCommand("procon.protected.send", "banList.list");
+                    this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "seconds", seconds + "", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    this.ExecuteCommand("procon.protected.send", "banList.save");
+                    this.ExecuteCommand("procon.protected.send", "banList.list");
                     break;
                 case ADKAT_BanType.PunkbusterGuid:
                     this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_kick \"{0}\" {1} \"{2}\"", record.target_name, record.record_durationMinutes.ToString(), "BC2! " + "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : (""))));
@@ -3109,14 +3109,14 @@ namespace PRoConEvents
             switch (this.m_banMethod)
             {
                 case ADKAT_BanType.FrostbiteName:
-                    ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "perm", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
-                    ExecuteCommand("procon.protected.send", "banList.save");
-                    ExecuteCommand("procon.protected.send", "banList.list");
+                    this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "perm", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    this.ExecuteCommand("procon.protected.send", "banList.save");
+                    this.ExecuteCommand("procon.protected.send", "banList.list");
                     break;
                 case ADKAT_BanType.FrostbiteEaGuid:
-                    ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "perm", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
-                    ExecuteCommand("procon.protected.send", "banList.save");
-                    ExecuteCommand("procon.protected.send", "banList.list");
+                    this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "perm", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    this.ExecuteCommand("procon.protected.send", "banList.save");
+                    this.ExecuteCommand("procon.protected.send", "banList.list");
                     break;
                 case ADKAT_BanType.PunkbusterGuid:
                     this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_ban \"{0}\" \"{1}\"", record.target_name, "BC2! " + "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : (""))));
@@ -3131,62 +3131,69 @@ namespace PRoConEvents
 
         public string punishTarget(ADKAT_Record record)
         {
-            this.DebugWrite("punishing target", 6);
-            string message = "ERROR";
-            //Get number of points the player from server
-            int points = this.fetchPoints(record.target_guid);
-            //Get the proper action to take for player punishment
-            string action = "noaction";
-            if (points > (this.punishmentHierarchy.Length - 1))
+            try
             {
-                action = this.punishmentHierarchy[this.punishmentHierarchy.Length - 1];
-            }
-            else if (points > 0)
-            {
-                action = this.punishmentHierarchy[points - 1];
-            }
-            //Set additional message
-            string additionalMessage = "(" + points + " infraction points)";
+                this.DebugWrite("punishing target", 6);
+                string message = "ERROR";
+                //Get number of points the player from server
+                int points = this.fetchPoints(record.target_guid);
+                //Get the proper action to take for player punishment
+                string action = "noaction";
+                if (points > (this.punishmentHierarchy.Length - 1))
+                {
+                    action = this.punishmentHierarchy[this.punishmentHierarchy.Length - 1];
+                }
+                else if (points > 0)
+                {
+                    action = this.punishmentHierarchy[points - 1];
+                }
+                //Set additional message
+                string additionalMessage = "(" + points + " infraction points)";
 
-            //Call correct action
-            if (action.Equals("kill") || (this.onlyKillOnLowPop && this.playerList.Count < this.lowPopPlayerCount))
-            {
-                record.command_action = ADKAT_CommandType.KillPlayer;
-                message = this.killTarget(record, additionalMessage);
-            }
-            else if (action.Equals("kick"))
-            {
-                record.command_action = ADKAT_CommandType.KickPlayer;
-                message = this.kickTarget(record, additionalMessage);
-            }
-            else if (action.Equals("tban60"))
-            {
-                record.record_durationMinutes = 60;
-                record.command_action = ADKAT_CommandType.TempBanPlayer;
-                message = this.tempBanTarget(record, additionalMessage);
-            }
-            else if (action.Equals("tbanweek"))
-            {
-                record.record_durationMinutes = 10080;
-                record.command_action = ADKAT_CommandType.TempBanPlayer;
-                message = this.tempBanTarget(record, additionalMessage);
-            }
-            else if (action.Equals("ban"))
-            {
-                record.command_action = ADKAT_CommandType.PermabanPlayer;
-                message = this.permaBanTarget(record, additionalMessage);
-            }
-            else
-            {
-                record.command_action = ADKAT_CommandType.KillPlayer;
-                this.killTarget(record, additionalMessage);
-                message = "Punish options are set incorrectly. Inform plugin setting manager.";
-            }
-            //Punishment is the only time updating should be needed
-            this.updateRecord(record);
+                //Call correct action
+                if (action.Equals("kill") || (this.onlyKillOnLowPop && this.playerList.Count < this.lowPopPlayerCount))
+                {
+                    record.command_action = ADKAT_CommandType.KillPlayer;
+                    message = this.killTarget(record, additionalMessage);
+                }
+                else if (action.Equals("kick"))
+                {
+                    record.command_action = ADKAT_CommandType.KickPlayer;
+                    message = this.kickTarget(record, additionalMessage);
+                }
+                else if (action.Equals("tban60"))
+                {
+                    record.record_durationMinutes = 60;
+                    record.command_action = ADKAT_CommandType.TempBanPlayer;
+                    message = this.tempBanTarget(record, additionalMessage);
+                }
+                else if (action.Equals("tbanweek"))
+                {
+                    record.record_durationMinutes = 10080;
+                    record.command_action = ADKAT_CommandType.TempBanPlayer;
+                    message = this.tempBanTarget(record, additionalMessage);
+                }
+                else if (action.Equals("ban"))
+                {
+                    record.command_action = ADKAT_CommandType.PermabanPlayer;
+                    message = this.permaBanTarget(record, additionalMessage);
+                }
+                else
+                {
+                    record.command_action = ADKAT_CommandType.KillPlayer;
+                    this.killTarget(record, additionalMessage);
+                    message = "Punish options are set incorrectly. Inform plugin setting manager.";
+                }
+                //Punishment is the only time updating should be needed
+                this.updateRecord(record);
 
-            return this.sendMessageToSource(record, message);
-            //return "fjdjsjkd";
+                return message;
+            }
+            catch (Exception e)
+            {
+                this.ConsoleException(e.ToString());
+            }
+            return "ERROR";
         }
 
         public string forgiveTarget(ADKAT_Record record)
@@ -3965,17 +3972,37 @@ namespace PRoConEvents
                     {
                         if (this.combineServerPunishments)
                         {
-                            command.CommandText = "SELECT playername, playerguid, totalpoints FROM `" + this.mySqlDatabaseName + "`.`adkat_playerpoints` WHERE `playerguid` = '" + player_guid + "'";
+                            command.CommandText = @"SELECT 
+                                                (SELECT count(`adkat_records`.`target_guid`) 
+	                                                FROM `adkat_records` 
+	                                                WHERE   `adkat_records`.`command_type` = 'Punish' 
+		                                                AND `adkat_records`.`target_guid` = @player_guid) - 
+                                                (SELECT count(`adkat_records`.`target_guid`)
+	                                                FROM `adkat_records`
+	                                                WHERE   `adkat_records`.`command_type` = 'Forgive'
+		                                                AND `adkat_records`.`target_guid` = @player_guid) as `totalpoints`";
+                            command.Parameters.AddWithValue("@player_guid", player_guid);
                         }
                         else
                         {
-                            command.CommandText = "SELECT playername, playerguid, totalpoints FROM `" + this.mySqlDatabaseName + "`.`adkat_playerpoints` WHERE `playerguid` = '" + player_guid + "' AND `serverid` = " + this.server_id;
+                            command.CommandText = @"SELECT 
+                                                (SELECT count(`adkat_records`.`target_guid`) 
+	                                                FROM `adkat_records` 
+	                                                WHERE   `adkat_records`.`command_type` = 'Punish' 
+		                                                AND `adkat_records`.`target_guid` = @player_guid 
+		                                                AND `adkat_records`.`server_id` = @server_id) - 
+                                                (SELECT count(`adkat_records`.`target_guid`)
+	                                                FROM `adkat_records`
+	                                                WHERE   `adkat_records`.`command_type` = 'Forgive'
+		                                                AND `adkat_records`.`target_guid` = @player_guid
+		                                                AND `adkat_records`.`server_id` = @server_id) as `totalpoints`";
+                            command.Parameters.AddWithValue("@player_guid", player_guid);
+                            command.Parameters.AddWithValue("@server_id", this.server_id);
                         }
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
                             if (reader.Read())
                             {
-                                DebugWrite("getPoints found records for player " + reader.GetString("playername") + "!", 5);
                                 returnVal = reader.GetInt32("totalpoints");
                             }
                         }
