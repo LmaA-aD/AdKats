@@ -534,7 +534,7 @@ namespace PRoConEvents
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Next Level", typeof(string), m_strNextLevelCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|End Level", typeof(string), m_strEndLevelCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Nuke Server", typeof(string), m_strNukeCommand));
-                lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Kick All (Except Admins)", typeof(string), m_strKickAllCommand));
+                lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Kick All NonAdmins", typeof(string), m_strKickAllCommand));
 
                 //Punishment Settings
                 lstReturn.Add(new CPluginVariable("5. Punishment Settings|Punishment Hierarchy", typeof(string[]), this.punishmentHierarchy));
@@ -597,7 +597,7 @@ namespace PRoConEvents
 
                 //Debug settings
                 lstReturn.Add(new CPluginVariable("A13. Debugging|Debug level", typeof(int), this.debugLevel));
-                lstReturn.Add(new CPluginVariable("A13. Debugging|Command Entry (Use like In-Game)", typeof(string), ""));
+                lstReturn.Add(new CPluginVariable("A13. Debugging|Command Entry", typeof(string), ""));
             }
             catch (Exception e)
             {
@@ -609,7 +609,7 @@ namespace PRoConEvents
         public void SetPluginVariable(string strVariable, string strValue)
         {
             #region debugging
-            if (Regex.Match(strVariable, @"Command Entry (Use like In-Game)").Success)
+            if (Regex.Match(strVariable, @"Command Entry").Success)
             {
                 ADKAT_Record recordItem = new ADKAT_Record();
                 recordItem.command_source = ADKAT_CommandSource.Settings;
@@ -965,7 +965,7 @@ namespace PRoConEvents
                     this.m_strNukeCommand = ADKAT_CommandType.NukeServer + " COMMAND BLANK";
                 }
             }
-            else if (Regex.Match(strVariable, @"Kick All (Except Admins)").Success)
+            else if (Regex.Match(strVariable, @"Kick All NonAdmins").Success)
             {
                 if (strValue.Length > 0)
                 {
@@ -1139,11 +1139,11 @@ namespace PRoConEvents
             }
             else if (Regex.Match(strVariable, @"On-Player-Killed Message").Success)
             {
-                this.mutedPlayerMuteMessage = strValue;
+                this.mutedPlayerKillMessage = strValue;
             }
-            else if (Regex.Match(strVariable, @"On-Player-Muted Message").Success)
+            else if (Regex.Match(strVariable, @"On-Player-Kicked Message").Success)
             {
-                this.mutedPlayerMuteMessage = strValue;
+                this.mutedPlayerKickMessage = strValue;
             }
             if (Regex.Match(strVariable, @"# Chances to give player before kicking").Success)
             {
@@ -2912,7 +2912,7 @@ namespace PRoConEvents
                     }
                     else
                     {
-                        response = record.target_name + " already punished in the last 30 seconds.";
+                        response = record.target_name + " already punished in the last 20 seconds.";
                         this.sendMessageToSource(record, response);
                     }
                     break;
@@ -3013,7 +3013,7 @@ namespace PRoConEvents
                     record.record_message = reportedRecord.record_message;
                 }
                 //Inform the reporter that they helped the admins
-                this.sendMessageToSource(record, "Your report has been acted on. Thank you.");
+                this.sendMessageToSource(reportedRecord, "Your report has been acted on. Thank you.");
                 //Let the admin confirm the action before it is sent
                 this.confirmAction(record);
                 acted = true;
@@ -3079,54 +3079,56 @@ namespace PRoConEvents
         public string tempBanTarget(ADKAT_Record record, string additionalMessage)
         {
             Int32 seconds = record.record_durationMinutes * 60;
+            additionalMessage = (additionalMessage!=null && additionalMessage.Length>0)?(" " + additionalMessage):("");
             //Perform Actions
             switch (this.m_banMethod)
             {
                 case ADKAT_BanType.FrostbiteName:
-                    this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "seconds", seconds + "", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "seconds", seconds + "", "(" + record.source_name + ") " + record.record_message + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
                     this.ExecuteCommand("procon.protected.send", "banList.save");
                     this.ExecuteCommand("procon.protected.send", "banList.list");
                     break;
                 case ADKAT_BanType.FrostbiteEaGuid:
-                    this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "seconds", seconds + "", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "seconds", seconds + "", "(" + record.source_name + ") " + record.record_message + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
                     this.ExecuteCommand("procon.protected.send", "banList.save");
                     this.ExecuteCommand("procon.protected.send", "banList.list");
                     break;
                 case ADKAT_BanType.PunkbusterGuid:
-                    this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_kick \"{0}\" {1} \"{2}\"", record.target_name, record.record_durationMinutes.ToString(), "BC2! " + "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : (""))));
-                    break;
-                default:
-                    break;
-            }
-            this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was TEMP BANNED by admin for " + record.record_message + " " + additionalMessage, "all");
-
-            return this.sendMessageToSource(record, "You TEMP BANNED " + record.target_name + " for " + record.record_durationMinutes + " minutes. " + additionalMessage);
-        }
-
-        public string permaBanTarget(ADKAT_Record record, string additionalMessage)
-        {
-            //Perform Actions
-            switch (this.m_banMethod)
-            {
-                case ADKAT_BanType.FrostbiteName:
-                    this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "perm", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
-                    this.ExecuteCommand("procon.protected.send", "banList.save");
-                    this.ExecuteCommand("procon.protected.send", "banList.list");
-                    break;
-                case ADKAT_BanType.FrostbiteEaGuid:
-                    this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "perm", "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
-                    this.ExecuteCommand("procon.protected.send", "banList.save");
-                    this.ExecuteCommand("procon.protected.send", "banList.list");
-                    break;
-                case ADKAT_BanType.PunkbusterGuid:
-                    this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_ban \"{0}\" \"{1}\"", record.target_name, "BC2! " + "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : (""))));
+                    this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_kick \"{0}\" {1} \"{2}\"", record.target_name, record.record_durationMinutes.ToString(), "BC2! " + "(" + record.source_name + ") " + record.record_message + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : (""))));
                     break;
                 default:
                     break;
             }
             this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was BANNED by admin for " + record.record_message + " " + additionalMessage, "all");
 
-            return this.sendMessageToSource(record, "You PERMA BANNED " + record.target_name + "! Get a vet admin NOW! " + additionalMessage);
+            return this.sendMessageToSource(record, "You TEMP BANNED " + record.target_name + " for " + record.record_durationMinutes + " minutes. " + additionalMessage);
+        }
+
+        public string permaBanTarget(ADKAT_Record record, string additionalMessage)
+        {
+            additionalMessage = (additionalMessage != null && additionalMessage.Length > 0) ? (" " + additionalMessage) : ("");
+            //Perform Actions
+            switch (this.m_banMethod)
+            {
+                case ADKAT_BanType.FrostbiteName:
+                    this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "perm", "(" + record.source_name + ") " + record.record_message + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    this.ExecuteCommand("procon.protected.send", "banList.save");
+                    this.ExecuteCommand("procon.protected.send", "banList.list");
+                    break;
+                case ADKAT_BanType.FrostbiteEaGuid:
+                    this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "perm", "(" + record.source_name + ") " + record.record_message + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    this.ExecuteCommand("procon.protected.send", "banList.save");
+                    this.ExecuteCommand("procon.protected.send", "banList.list");
+                    break;
+                case ADKAT_BanType.PunkbusterGuid:
+                    this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_ban \"{0}\" \"{1}\"", record.target_name, "BC2! " + "(" + record.source_name + ") " + record.record_message + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : (""))));
+                    break;
+                default:
+                    break;
+            }
+            this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was BANNED by admin for " + record.record_message + additionalMessage, "all");
+
+            return this.sendMessageToSource(record, "You PERMA BANNED " + record.target_name + "! Get a vet admin NOW!" + additionalMessage);
         }
 
         public string punishTarget(ADKAT_Record record)
@@ -3859,11 +3861,11 @@ namespace PRoConEvents
                     {
                         if (this.combineServerPunishments)
                         {
-                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 30 SECOND) > NOW() order by record_time desc limit 1";
+                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 20 SECOND) > NOW() order by record_time desc limit 1";
                         }
                         else
                         {
-                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`server_id` = '" + this.server_id + "' and `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 30 SECOND) > NOW() order by record_time desc limit 1";
+                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`server_id` = '" + this.server_id + "' and `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 20 SECOND) > NOW() order by record_time desc limit 1";
                         }
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
@@ -4042,7 +4044,7 @@ namespace PRoConEvents
                                 string playerGuid = reader.GetString("player_guid");
                                 int accessLevel = reader.GetInt32("access_level");
                                 tempAccessCache.Add(playerName, accessLevel);
-                                if (playerGuid == "WAITING ON USE FOR GUID" && this.currentPlayers.ContainsKey(playerName))
+                                if (!Regex.Match(playerGuid, "EA_").Success && this.currentPlayers.ContainsKey(playerName))
                                 {
                                     namesToGUIDUpdate.Add(playerName);
                                 }
@@ -4058,7 +4060,7 @@ namespace PRoConEvents
                             foreach (string player_name in namesToGUIDUpdate)
                             {
                                 this.DebugWrite("Updating GUID for " + player_name, 6);
-                                command.CommandText += "UPDATE `" + this.mySqlDatabaseName + "`.`adkat_accesslist` SET `player_guid` = '" + this.currentPlayers[player_name] + "' WHERE `player_name` = '" + player_name + "'; ";
+                                command.CommandText += "UPDATE `" + this.mySqlDatabaseName + "`.`adkat_accesslist` SET `player_guid` = '" + this.currentPlayers[player_name].GUID + "' WHERE `player_name` = '" + player_name + "'; ";
                             }
                             //Attempt to execute the query
                             if (command.ExecuteNonQuery() > 0)
