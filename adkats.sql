@@ -25,20 +25,6 @@ CREATE TABLE IF NOT EXISTS `adkat_accesslist` (
 `access_level` int(11) NOT NULL DEFAULT 6, 
 PRIMARY KEY (`player_name`), UNIQUE KEY `player_name_UNIQUE` (`player_name`));
 
--- If the tables already exist and just need updating, the above will warn and below will be success.
-ALTER TABLE `adkat_records` MODIFY `record_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-ALTER TABLE `adkat_records` MODIFY `server_id` int(11) NOT NULL DEFAULT -1;
-ALTER TABLE `adkat_records` ADD `server_ip` varchar(45) NOT NULL DEFAULT "0.0.0.0:0000";
-ALTER TABLE `adkat_records` MODIFY `command_type` varchar(45) NOT NULL DEFAULT "DefaultCommand"; 
-ALTER TABLE `adkat_records` ADD `command_action` varchar(45) NOT NULL DEFAULT "DefaultAction"; 
-ALTER TABLE `adkat_records` MODIFY `record_durationMinutes` int(11) NOT NULL DEFAULT 0; 
-ALTER TABLE `adkat_records` MODIFY `target_guid` varchar(100) NOT NULL DEFAULT "EA_NoGUID"; 
-ALTER TABLE `adkat_records` MODIFY `target_name` varchar(45) NOT NULL DEFAULT "NoTarget"; 
-ALTER TABLE `adkat_records` MODIFY `source_name` varchar(45) NOT NULL DEFAULT "NoNameAdmin"; 
-ALTER TABLE `adkat_records` MODIFY `record_message` varchar(100) NOT NULL DEFAULT "NoMessage"; 
-ALTER TABLE `adkat_records` MODIFY `adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N';
-DROP TABLE `adkat_teamswapwhitelist`;
-
 CREATE OR REPLACE VIEW `adkat_playerlist` AS
 SELECT `adkat_records`.`target_name` AS `player_name`,
        `adkat_records`.`target_guid` AS `player_guid`,
@@ -102,8 +88,8 @@ SELECT count(`adkat_records`.`target_guid`)
          (SELECT count(`adkat_records`.`target_guid`)
           FROM `adkat_records`
           WHERE (    (`adkat_records`.`command_type` = 'Forgive')
-       		  AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-       		  AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`)
+                       AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
+              	  AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`)
               AND (`adkat_records`.`record_time` between date_sub(now(),INTERVAL 7 DAY) and now())))
        ) AS `totalpoints`
 FROM `adkat_playerlist`;
@@ -146,8 +132,7 @@ CREATE OR REPLACE VIEW `adkat_totalcmdissued` AS
 SELECT
   (SELECT COUNT(*)
    FROM adkat_records
-   WHERE adkat_records.command_type = 'Move'
-     OR adkat_records.command_type = 'ForceMove') AS 'Moves',
+   WHERE adkat_records.command_type = 'Move' OR adkat_records.command_type = 'ForceMove') AS 'Moves',
 
   (SELECT COUNT(*)
    FROM adkat_records
@@ -163,11 +148,11 @@ SELECT
 
   (SELECT COUNT(*)
    FROM adkat_records
-   WHERE adkat_records.command_type = 'TempBan') AS 'TempBans',
+   WHERE adkat_records.command_type = 'TempBan' OR adkat_records.command_action = 'TempBan') AS 'TempBans',
 
   (SELECT COUNT(*)
    FROM adkat_records
-   WHERE adkat_records.command_type = 'PermaBan') AS 'PermaBans',
+   WHERE adkat_records.command_type = 'PermaBan' OR adkat_records.command_action = 'PermaBan') AS 'PermaBans',
 
   (SELECT COUNT(*)
    FROM adkat_records
@@ -179,8 +164,7 @@ SELECT
 
   (SELECT COUNT(*)
    FROM adkat_records
-   WHERE adkat_records.command_type = 'Report'
-     OR adkat_records.command_type = 'CallAdmin') AS 'Reports',
+   WHERE adkat_records.command_type = 'Report' OR adkat_records.command_type = 'CallAdmin') AS 'Reports',
 
   (SELECT COUNT(*)
    FROM adkat_records
@@ -208,3 +192,38 @@ SELECT
 
   (SELECT COUNT(*)
    FROM adkat_records) AS 'TotalCommands';
+
+-- Run these last, if they fail it means it was a new DB, if it succeeds their previous data was saved.
+ALTER TABLE `adkat_records` MODIFY `record_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE `adkat_records` MODIFY `server_id` int(11) NOT NULL DEFAULT -1;
+ALTER TABLE `adkat_records` MODIFY `command_type` varchar(45) NOT NULL DEFAULT "DefaultCommand"; 
+ALTER TABLE `adkat_records` MODIFY `record_durationMinutes` int(11) NOT NULL DEFAULT 0; 
+ALTER TABLE `adkat_records` MODIFY `target_guid` varchar(100) NOT NULL DEFAULT "EA_NoGUID"; 
+ALTER TABLE `adkat_records` MODIFY `target_name` varchar(45) NOT NULL DEFAULT "NoTarget"; 
+ALTER TABLE `adkat_records` MODIFY `source_name` varchar(45) NOT NULL DEFAULT "NoNameAdmin"; 
+ALTER TABLE `adkat_records` MODIFY `record_message` varchar(100) NOT NULL DEFAULT "NoMessage"; 
+ALTER TABLE `adkat_records` MODIFY `adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N';
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS upgrade_database_2_0_to_2_5 $$
+CREATE PROCEDURE upgrade_database_2_0_to_2_5()
+BEGIN
+-- add server_ip and command_action columns safely
+IF NOT EXISTS( (SELECT * FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()
+	AND COLUMN_NAME='server_ip' AND TABLE_NAME='adkat_records') ) THEN
+		ALTER TABLE `adkat_records` ADD `server_ip` varchar(45) NOT NULL DEFAULT "0.0.0.0:0000"; 
+END IF; 
+-- add server_ip and command_action columns safely
+IF NOT EXISTS( (SELECT * FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()
+	AND COLUMN_NAME='command_action' AND TABLE_NAME='adkat_records') ) THEN 
+		ALTER TABLE `adkat_records` ADD `command_action` varchar(45) NOT NULL DEFAULT "DefaultAction"; 
+END IF; 
+
+END $$
+
+CALL upgrade_database_2_0_to_2_5() $$
+
+DELIMITER ;
+
+DROP TABLE IF EXISTS `adkat_teamswapwhitelist`;
