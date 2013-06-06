@@ -101,8 +101,7 @@ namespace PRoConEvents
             PlayerSay,
             AdminYell,
             PlayerYell,
-            PreYell,
-            PreSay,
+            WhatIs,
             //Power Corner
             NukeServer,
             KickAll
@@ -184,16 +183,18 @@ namespace PRoConEvents
         private string m_strTeamswapCommand = "moveme|log";
         private string m_strReportCommand = "report|log";
         private string m_strCallAdminCommand = "admin|log";
+
         //Admin messaging
         private string m_strSayCommand = "say|log";
         private string m_strPlayerSayCommand = "psay|log";
         private string m_strYellCommand = "yell|log";
         private string m_strPlayerYellCommand = "pyell|log";
-        private string m_strPreYellCommand = "preyell|log";
-        private string m_strPreSayCommand = "presay|log";
+        private string m_strWhatIsCommand = "whatis";
         private List<string> preMessageList = new List<string>();
+        private Boolean requirePreMessageUse = false;
         private int m_iShowMessageLength = 5;
         private string m_strShowMessageLength = "5";
+
         //Map control
         private string m_strRestartLevelCommand = "restart|log";
         private string m_strNextLevelCommand = "nextlevel|log";
@@ -227,11 +228,11 @@ namespace PRoConEvents
             "kill",
             "kill",
             "kick",
-            "kick",
             "tban60",
-            "tban60",
+            "tbanday",
             "tbanweek",
-            "tbanweek",
+            "tban2weeks",
+            "tbanmonth",
             "ban"
         };
         //When punishing, only kill players when server is in low population
@@ -402,8 +403,7 @@ namespace PRoConEvents
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.AdminYell, 4);
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.PlayerSay, 4);
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.PlayerYell, 4);
-            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.PreSay, 4);
-            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.PreYell, 4);
+            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.WhatIs, 4);
 
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.Teamswap, 5);
 
@@ -525,11 +525,10 @@ namespace PRoConEvents
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Report Player", typeof(string), m_strReportCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Call Admin on Player", typeof(string), m_strCallAdminCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Admin Say", typeof(string), m_strSayCommand));
-                lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Admin Pre-Say", typeof(string), m_strPreSayCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Player Say", typeof(string), m_strPlayerSayCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Admin Yell", typeof(string), m_strYellCommand));
-                lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Admin Pre-Yell", typeof(string), m_strPreYellCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Player Yell", typeof(string), m_strPlayerYellCommand));
+                lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|What Is", typeof(string), m_strWhatIsCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Restart Level", typeof(string), m_strRestartLevelCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Next Level", typeof(string), m_strNextLevelCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|End Level", typeof(string), m_strEndLevelCommand));
@@ -569,10 +568,7 @@ namespace PRoConEvents
 
                 //Admin Assistant Settings
                 lstReturn.Add(new CPluginVariable("8. Admin Assistant Settings|Enable Admin Assistant Perk", typeof(Boolean), this.enableAdminAssistants));
-                if (this.enableAdminAssistants)
-                {
-                    lstReturn.Add(new CPluginVariable("8. Admin Assistant Settings|Minimum Confirmed Reports Per Week", typeof(int), this.minimumRequiredWeeklyReports));
-                }
+                lstReturn.Add(new CPluginVariable("8. Admin Assistant Settings|Minimum Confirmed Reports Per Week", typeof(int), this.minimumRequiredWeeklyReports));
 
                 //Muting Settings
                 lstReturn.Add(new CPluginVariable("9. Player Mute Settings|On-Player-Muted Message", typeof(string), this.mutedPlayerMuteMessage));
@@ -583,6 +579,7 @@ namespace PRoConEvents
                 //Pre-Message Settings
                 lstReturn.Add(new CPluginVariable("A10. Messaging Settings|Yell display time seconds", typeof(int), this.m_iShowMessageLength));
                 lstReturn.Add(new CPluginVariable("A10. Messaging Settings|Pre-Message List", typeof(string[]), this.preMessageList.ToArray()));
+                lstReturn.Add(new CPluginVariable("A10. Messaging Settings|Require Use of Pre-Messages", typeof(Boolean), this.requirePreMessageUse));
 
                 //Ban Settings
                 lstReturn.Add(new CPluginVariable("A11. Banning Settings|Ban Type", "enum.AdKats_BanType(Frostbite - Name|Frostbite - EA GUID|Punkbuster - GUID)", this.m_strBanTypeOption));
@@ -611,6 +608,24 @@ namespace PRoConEvents
             #region debugging
             if (Regex.Match(strVariable, @"Command Entry").Success)
             {
+                //Check if the message is a command
+                if (strValue.StartsWith("@") || strValue.StartsWith("!"))
+                {
+                    strValue = strValue.Substring(1);
+                }
+                else if (strValue.StartsWith("/@") || strValue.StartsWith("/!"))
+                {
+                    strValue = strValue.Substring(2);
+                }
+                else if (strValue.StartsWith("/"))
+                {
+                    strValue = strValue.Substring(1);
+                }
+                else
+                {
+                    //If the message does not cause either of the above clauses, then ignore it.
+                    return;
+                }
                 ADKAT_Record recordItem = new ADKAT_Record();
                 recordItem.command_source = ADKAT_CommandSource.Settings;
                 recordItem.source_name = "SettingsAdmin";
@@ -677,6 +692,7 @@ namespace PRoConEvents
                     if (strValue.ToLower().EndsWith("|log"))
                     {
                         strValue = strValue.TrimEnd("|log".ToCharArray());
+                        this.ConsoleWrite("Cannot log Confirm Command");
                     }
                     this.m_strConfirmCommand = strValue;
                     rebindAllCommands();
@@ -694,6 +710,7 @@ namespace PRoConEvents
                     if (strValue.ToLower().EndsWith("|log"))
                     {
                         strValue = strValue.TrimEnd("|log".ToCharArray());
+                        this.ConsoleWrite("Cannot log Cancel Command");
                     }
                     this.m_strCancelCommand = strValue;
                     rebindAllCommands();
@@ -915,6 +932,24 @@ namespace PRoConEvents
                 else
                 {
                     this.m_strPlayerYellCommand = ADKAT_CommandType.PlayerYell + " COMMAND BLANK";
+                }
+            }
+            else if (Regex.Match(strVariable, @"What Is").Success)
+            {
+                if (strValue.Length > 0)
+                {
+                    //Confirm cannot be logged
+                    if (strValue.ToLower().EndsWith("|log"))
+                    {
+                        strValue = strValue.TrimEnd("|log".ToCharArray());
+                        this.ConsoleWrite("Cannot log WhatIs Command");
+                    }
+                    this.m_strWhatIsCommand = strValue;
+                    rebindAllCommands();
+                }
+                else
+                {
+                    this.m_strWhatIsCommand = ADKAT_CommandType.WhatIs + " COMMAND BLANK";
                 }
             }
             else if (Regex.Match(strVariable, @"Restart Level").Success)
@@ -1198,6 +1233,10 @@ namespace PRoConEvents
             {
                 this.preMessageList = new List<string>(CPluginVariable.DecodeStringArray(strValue));
             }
+            else if (Regex.Match(strVariable, @"Require Use of Pre-Messages").Success)
+            {
+                this.requirePreMessageUse = Boolean.Parse(strValue);
+            }
             #endregion
         }
 
@@ -1233,8 +1272,7 @@ namespace PRoConEvents
             this.m_strPlayerSayCommand = this.parseAddCommand(tempDictionary, this.m_strPlayerSayCommand, ADKAT_CommandType.PlayerSay);
             this.m_strYellCommand = this.parseAddCommand(tempDictionary, this.m_strYellCommand, ADKAT_CommandType.AdminYell);
             this.m_strPlayerYellCommand = this.parseAddCommand(tempDictionary, this.m_strPlayerYellCommand, ADKAT_CommandType.PlayerYell);
-            this.m_strPreYellCommand = this.parseAddCommand(tempDictionary, this.m_strPreYellCommand, ADKAT_CommandType.PreYell);
-            this.m_strPreSayCommand = this.parseAddCommand(tempDictionary, this.m_strPreSayCommand, ADKAT_CommandType.PreSay);
+            this.m_strWhatIsCommand = this.parseAddCommand(tempDictionary, this.m_strWhatIsCommand, ADKAT_CommandType.WhatIs);
 
             //Update level controls
             this.m_strRestartLevelCommand = this.parseAddCommand(tempDictionary, this.m_strRestartLevelCommand, ADKAT_CommandType.RestartLevel);
@@ -1886,7 +1924,7 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
 
                                     //attempt to handle via pre-message ID
-                                    record.record_message = this.getPreMessage(parameters[1], false);
+                                    record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -1935,7 +1973,7 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
 
                                     //attempt to handle via pre-message ID
-                                    record.record_message = this.getPreMessage(parameters[1], false);
+                                    record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2014,7 +2052,7 @@ namespace PRoConEvents
                                         DebugWrite("target: " + record.target_name, 6);
 
                                         //attempt to handle via pre-message ID
-                                        record.record_message = this.getPreMessage(parameters[2], false);
+                                        record.record_message = this.getPreMessage(parameters[2], this.requirePreMessageUse);
 
                                         DebugWrite("reason: " + record.record_message, 6);
                                         if (record.record_message.Length >= this.requiredReasonLength)
@@ -2070,7 +2108,7 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
 
                                     //attempt to handle via pre-message ID
-                                    record.record_message = this.getPreMessage(parameters[1], false);
+                                    record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2119,7 +2157,7 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
 
                                     //attempt to handle via pre-message ID
-                                    record.record_message = this.getPreMessage(parameters[1], false);
+                                    record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2168,7 +2206,7 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
 
                                     //attempt to handle via pre-message ID
-                                    record.record_message = this.getPreMessage(parameters[1], false);
+                                    record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2217,7 +2255,7 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
 
                                     //attempt to handle via pre-message ID
-                                    record.record_message = this.getPreMessage(parameters[1], false);
+                                    record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2491,6 +2529,38 @@ namespace PRoConEvents
                         confirmAction(record);
                         break;
                     #endregion
+                    #region WhatIs
+                    case ADKAT_CommandType.WhatIs:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmList.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 1);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
+                                    return;
+                                case 1:
+                                    record.record_message = this.getPreMessage(parameters[0], true);
+                                    if (record.record_message == null)
+                                    {
+                                        this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                    }
+                                    else
+                                    {
+                                        this.sendMessageToSource(record, record.record_message);
+                                    }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //This type is not processed
+                        }
+                        break;
+                    #endregion
                     #region AdminSay
                     case ADKAT_CommandType.AdminSay:
                         {
@@ -2505,7 +2575,7 @@ namespace PRoConEvents
                                     this.sendMessageToSource(record, "No parameters given, unable to submit.");
                                     return;
                                 case 1:
-                                    record.record_message = parameters[0];
+                                    record.record_message = this.getPreMessage(parameters[0], false);
                                     DebugWrite("message: " + record.record_message, 6);
                                     record.target_name = "Server";
                                     record.target_guid = "Server";
@@ -2515,48 +2585,6 @@ namespace PRoConEvents
                                     return;
                             }
                             this.processRecord(record);
-                        }
-                        break;
-                    #endregion
-                    #region PreSay
-                    case ADKAT_CommandType.PreSay:
-                        {
-                            //Remove previous commands awaiting confirmation
-                            this.actionConfirmList.Remove(record.source_name);
-
-                            //Parse parameters using max param count
-                            String[] parameters = this.parseParameters(remainingMessage, 1);
-                            switch (parameters.Length)
-                            {
-                                case 0:
-                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
-                                    return;
-                                case 1:
-                                    record.target_name = "Server";
-                                    record.target_guid = "Server";
-                                    if (this.preMessageList.Count > 0)
-                                    {
-                                        record.command_type = ADKAT_CommandType.AdminSay;
-                                        record.record_message = this.getPreMessage(parameters[0], true);
-                                        if (record.record_message == null)
-                                        {
-                                            DebugWrite("invalid pre message id", 6);
-                                            this.sendMessageToSource(record, "Invalid Pre-Message ID. Valid IDs 1-" + (this.preMessageList.Count));
-                                            return;
-                                        }
-                                    }
-                                    else
-                                    {
-                                        DebugWrite("no premessages stored", 6);
-                                        this.sendMessageToSource(record, "No Pre-Messages stored");
-                                        return;
-                                    }
-                                    break;
-                                default:
-                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
-                                    return;
-                            }
-                            this.confirmAction(record);
                         }
                         break;
                     #endregion
@@ -2574,7 +2602,7 @@ namespace PRoConEvents
                                     this.sendMessageToSource(record, "No parameters given, unable to submit.");
                                     return;
                                 case 1:
-                                    record.record_message = parameters[0];
+                                    record.record_message = this.getPreMessage(parameters[0], false);
                                     DebugWrite("message: " + record.record_message, 6);
                                     record.target_name = "Server";
                                     record.target_guid = "Server";
@@ -2584,48 +2612,6 @@ namespace PRoConEvents
                                     return;
                             }
                             this.processRecord(record);
-                        }
-                        break;
-                    #endregion
-                    #region PreYell
-                    case ADKAT_CommandType.PreYell:
-                        {
-                            //Remove previous commands awaiting confirmation
-                            this.actionConfirmList.Remove(record.source_name);
-
-                            //Parse parameters using max param count
-                            String[] parameters = this.parseParameters(remainingMessage, 1);
-                            switch (parameters.Length)
-                            {
-                                case 0:
-                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
-                                    return;
-                                case 1:
-                                    record.target_name = "Server";
-                                    record.target_guid = "Server";
-                                    if (this.preMessageList.Count > 0)
-                                    {
-                                        record.command_type = ADKAT_CommandType.AdminYell;
-                                        record.record_message = this.getPreMessage(parameters[0], true);
-                                        if (record.record_message == null)
-                                        {
-                                            DebugWrite("invalid pre message id", 6);
-                                            this.sendMessageToSource(record, "Invalid Pre-Message ID. Valid IDs 1-" + (this.preMessageList.Count));
-                                            return;
-                                        }
-                                    }
-                                    else
-                                    {
-                                        DebugWrite("no premessages stored", 6);
-                                        this.sendMessageToSource(record, "No Pre-Messages stored");
-                                        return;
-                                    }
-                                    break;
-                                default:
-                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
-                                    return;
-                            }
-                            this.confirmAction(record);
                         }
                         break;
                     #endregion
@@ -2649,7 +2635,7 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
                                     DebugWrite("target: " + record.target_name, 6);
 
-                                    record.record_message = parameters[1];
+                                    record.record_message = this.getPreMessage(parameters[1], false);
                                     DebugWrite("message: " + record.record_message, 6);
 
                                     this.completeTargetInformation(record, false);
@@ -2681,7 +2667,7 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
                                     DebugWrite("target: " + record.target_name, 6);
 
-                                    record.record_message = parameters[1];
+                                    record.record_message = this.getPreMessage(parameters[1], false);
                                     DebugWrite("message: " + record.record_message, 6);
 
                                     this.completeTargetInformation(record, false);
@@ -2709,6 +2695,7 @@ namespace PRoConEvents
                             this.DebugWrite("no command to confirm", 6);
                             this.sendMessageToSource(record, "No command to confirm.");
                         }
+                        //This type is not processed
                         break;
                     #endregion
                     #region CancelCommand
@@ -2719,6 +2706,7 @@ namespace PRoConEvents
                             this.DebugWrite("no command to cancel", 6);
                             this.sendMessageToSource(record, "No command to cancel.");
                         }
+                        //This type is not processed
                         break;
                     #endregion
                     default:
@@ -2904,16 +2892,30 @@ namespace PRoConEvents
             switch (record.command_type)
             {
                 case ADKAT_CommandType.PunishPlayer:
-                    //If the record is a punish, check if it can be uploaded
-                    if (this.canPunish(record))
+                    //Upload for punish is required
+
+                    //Check if the punish will be double counted
+                    if (this.isDoubleCounted(record))
                     {
-                        //Upload for punish is required
-                        this.uploadRecord(record);
+                        //Check if player is on timeout
+                        if (this.canPunish(record))
+                        {
+                            //IRO - Immediate Repeat Offence
+                            record.record_message += " [IRO]";
+                            //Upload record twice
+                            this.uploadRecord(record);
+                            this.uploadRecord(record);
+                        }
+                        else
+                        {
+                            response = record.target_name + " already punished in the last 20 seconds.";
+                            this.sendMessageToSource(record, response);
+                        }
                     }
                     else
                     {
-                        response = record.target_name + " already punished in the last 20 seconds.";
-                        this.sendMessageToSource(record, response);
+                        //Upload record once
+                        this.uploadRecord(record);
                     }
                     break;
                 case ADKAT_CommandType.ForgivePlayer:
@@ -3169,9 +3171,27 @@ namespace PRoConEvents
                     record.command_action = ADKAT_CommandType.TempBanPlayer;
                     message = this.tempBanTarget(record, additionalMessage);
                 }
+                else if (action.Equals("tbanday"))
+                {
+                    record.record_durationMinutes = 1440;
+                    record.command_action = ADKAT_CommandType.TempBanPlayer;
+                    message = this.tempBanTarget(record, additionalMessage);
+                }
                 else if (action.Equals("tbanweek"))
                 {
                     record.record_durationMinutes = 10080;
+                    record.command_action = ADKAT_CommandType.TempBanPlayer;
+                    message = this.tempBanTarget(record, additionalMessage);
+                }
+                else if (action.Equals("tban2weeks"))
+                {
+                    record.record_durationMinutes = 20160;
+                    record.command_action = ADKAT_CommandType.TempBanPlayer;
+                    message = this.tempBanTarget(record, additionalMessage);
+                }
+                else if (action.Equals("tbanmonth"))
+                {
+                    record.record_durationMinutes = 43200;
                     record.command_action = ADKAT_CommandType.TempBanPlayer;
                     message = this.tempBanTarget(record, additionalMessage);
                 }
@@ -3887,6 +3907,47 @@ namespace PRoConEvents
                 DebugWrite(e.ToString(), 3);
             }
             DebugWrite("ERROR in canPunish!", 6);
+            return false;
+        }
+
+        private Boolean isDoubleCounted(ADKAT_Record record)
+        {
+            DebugWrite("isDoubleCounted starting!", 6);
+
+            try
+            {
+                using (MySqlConnection databaseConnection = this.getDatabaseConnection())
+                {
+                    using (MySqlCommand command = databaseConnection.CreateCommand())
+                    {
+                        if (this.combineServerPunishments)
+                        {
+                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 5 MINUTE) > NOW() order by record_time desc limit 1";
+                        }
+                        else
+                        {
+                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`server_id` = '" + this.server_id + "' and `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 5 MINUTE) > NOW() order by record_time desc limit 1";
+                        }
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                this.DebugWrite("Is double counted", 6);
+                                return true;
+                            }
+                            else
+                            {
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                DebugWrite(e.ToString(), 3);
+            }
+            DebugWrite("ERROR in isDoubleCounted!", 6);
             return false;
         }
 
