@@ -1925,6 +1925,11 @@ namespace PRoConEvents
 
                                     //attempt to handle via pre-message ID
                                     record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
+                                    if (record.record_message == null)
+                                    {
+                                        this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                        break;
+                                    }
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -1974,6 +1979,11 @@ namespace PRoConEvents
 
                                     //attempt to handle via pre-message ID
                                     record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
+                                    if (record.record_message == null)
+                                    {
+                                        this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                        break;
+                                    }
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2053,6 +2063,11 @@ namespace PRoConEvents
 
                                         //attempt to handle via pre-message ID
                                         record.record_message = this.getPreMessage(parameters[2], this.requirePreMessageUse);
+                                        if (record.record_message == null)
+                                        {
+                                            this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                            break;
+                                        }
 
                                         DebugWrite("reason: " + record.record_message, 6);
                                         if (record.record_message.Length >= this.requiredReasonLength)
@@ -2109,6 +2124,11 @@ namespace PRoConEvents
 
                                     //attempt to handle via pre-message ID
                                     record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
+                                    if (record.record_message == null)
+                                    {
+                                        this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                        break;
+                                    }
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2158,6 +2178,11 @@ namespace PRoConEvents
 
                                     //attempt to handle via pre-message ID
                                     record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
+                                    if (record.record_message == null)
+                                    {
+                                        this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                        break;
+                                    }
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2207,6 +2232,11 @@ namespace PRoConEvents
 
                                     //attempt to handle via pre-message ID
                                     record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
+                                    if (record.record_message == null)
+                                    {
+                                        this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                        break;
+                                    }
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2256,6 +2286,11 @@ namespace PRoConEvents
 
                                     //attempt to handle via pre-message ID
                                     record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
+                                    if (record.record_message == null)
+                                    {
+                                        this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                        break;
+                                    }
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2602,7 +2637,7 @@ namespace PRoConEvents
                                     this.sendMessageToSource(record, "No parameters given, unable to submit.");
                                     return;
                                 case 1:
-                                    record.record_message = this.getPreMessage(parameters[0], false);
+                                    record.record_message = this.getPreMessage(parameters[0], false).ToUpper();
                                     DebugWrite("message: " + record.record_message, 6);
                                     record.target_name = "Server";
                                     record.target_guid = "Server";
@@ -2667,7 +2702,7 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
                                     DebugWrite("target: " + record.target_name, 6);
 
-                                    record.record_message = this.getPreMessage(parameters[1], false);
+                                    record.record_message = this.getPreMessage(parameters[1], false).ToUpper();
                                     DebugWrite("message: " + record.record_message, 6);
 
                                     this.completeTargetInformation(record, false);
@@ -3009,7 +3044,8 @@ namespace PRoConEvents
                 record.targetPlayerInfo = reportedRecord.targetPlayerInfo;
                 //Update record message if needed
                 //attempt to handle via pre-message ID
-                record.record_message = this.getPreMessage(record.record_message, false);
+                //record.record_message = this.getPreMessage(record.record_message, this.requirePreMessageUse);
+                this.DebugWrite("MESS: " + record.record_message, 5);
                 if (record.record_message == null || record.record_message.Length < this.requiredReasonLength)
                 {
                     record.record_message = reportedRecord.record_message;
@@ -3081,24 +3117,27 @@ namespace PRoConEvents
         public string tempBanTarget(ADKAT_Record record, string additionalMessage)
         {
             Int32 seconds = record.record_durationMinutes * 60;
-            additionalMessage = (additionalMessage!=null && additionalMessage.Length>0)?(" " + additionalMessage):("");
+            additionalMessage = (additionalMessage != null && additionalMessage.Length > 0) ? (" " + additionalMessage) : ("");
+            string banReason = "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + " - " + ((this.useBanAppend) ? (this.banAppend) : (""));
+            this.DebugWrite("Ban Message: '" + banReason + "'", 6);
             //Perform Actions
             switch (this.m_banMethod)
             {
                 case ADKAT_BanType.FrostbiteName:
-                    this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "seconds", seconds + "", "(" + record.source_name + ") " + record.record_message + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "seconds", seconds + "", banReason);
                     this.ExecuteCommand("procon.protected.send", "banList.save");
                     this.ExecuteCommand("procon.protected.send", "banList.list");
                     break;
                 case ADKAT_BanType.FrostbiteEaGuid:
-                    this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "seconds", seconds + "", "(" + record.source_name + ") " + record.record_message + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "seconds", seconds + "", banReason);
                     this.ExecuteCommand("procon.protected.send", "banList.save");
                     this.ExecuteCommand("procon.protected.send", "banList.list");
                     break;
                 case ADKAT_BanType.PunkbusterGuid:
-                    this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_kick \"{0}\" {1} \"{2}\"", record.target_name, record.record_durationMinutes.ToString(), "BC2! " + "(" + record.source_name + ") " + record.record_message + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : (""))));
+                    this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_kick \"{0}\" {1} \"{2}\"", record.target_name, record.record_durationMinutes.ToString(), "BC2! " + banReason));
                     break;
                 default:
+                    this.ConsoleError("Error, ban type not selected.");
                     break;
             }
             this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was BANNED by admin for " + record.record_message + " " + additionalMessage, "all");
@@ -3109,21 +3148,23 @@ namespace PRoConEvents
         public string permaBanTarget(ADKAT_Record record, string additionalMessage)
         {
             additionalMessage = (additionalMessage != null && additionalMessage.Length > 0) ? (" " + additionalMessage) : ("");
+            string banReason = "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + " - " + ((this.useBanAppend) ? (this.banAppend) : (""));
+            this.DebugWrite("Ban Message: '" + banReason + "'", 6);
             //Perform Actions
             switch (this.m_banMethod)
             {
                 case ADKAT_BanType.FrostbiteName:
-                    this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "perm", "(" + record.source_name + ") " + record.record_message + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "perm", banReason);
                     this.ExecuteCommand("procon.protected.send", "banList.save");
                     this.ExecuteCommand("procon.protected.send", "banList.list");
                     break;
                 case ADKAT_BanType.FrostbiteEaGuid:
-                    this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "perm", "(" + record.source_name + ") " + record.record_message + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : ("")));
+                    this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "perm", banReason);
                     this.ExecuteCommand("procon.protected.send", "banList.save");
                     this.ExecuteCommand("procon.protected.send", "banList.list");
                     break;
                 case ADKAT_BanType.PunkbusterGuid:
-                    this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_ban \"{0}\" \"{1}\"", record.target_name, "BC2! " + "(" + record.source_name + ") " + record.record_message + additionalMessage + ". " + ((this.useBanAppend) ? (this.banAppend) : (""))));
+                    this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_ban \"{0}\" \"{1}\"", record.target_name, "BC2! " + banReason));
                     break;
                 default:
                     break;
@@ -3205,6 +3246,7 @@ namespace PRoConEvents
                     record.command_action = ADKAT_CommandType.KillPlayer;
                     this.killTarget(record, additionalMessage);
                     message = "Punish options are set incorrectly. Inform plugin setting manager.";
+                    this.ConsoleError(message);
                 }
                 //Punishment is the only time updating should be needed
                 this.updateRecord(record);
@@ -3829,7 +3871,7 @@ namespace PRoConEvents
         //Only command_action, record_durationMinutes, and adkats_read are allowed to be updated
         private void updateRecord(ADKAT_Record record)
         {
-            DebugWrite("postRecord starting!", 6);
+            DebugWrite("updateRecord starting!", 6);
 
             Boolean success = false;
             try
@@ -3855,18 +3897,18 @@ namespace PRoConEvents
                 ConsoleException(e.ToString());
             }
 
-            string temp = this.ADKAT_RecordTypes[record.command_type];
+            string temp = this.ADKAT_RecordTypes[record.command_action];
 
             if (success)
             {
-                DebugWrite(temp + " log for player " + record.target_name + " by " + record.source_name + " SUCCESSFUL!", 3);
+                DebugWrite(temp + " UPDATE for player " + record.target_name + " by " + record.source_name + " SUCCESSFUL!", 3);
             }
             else
             {
-                ConsoleError(temp + " log for player '" + record.target_name + " by " + record.source_name + " FAILED!");
+                ConsoleError(temp + " UPDATE for player '" + record.target_name + " by " + record.source_name + " FAILED!");
             }
 
-            DebugWrite("postRecord finished!", 6);
+            DebugWrite("updateRecord finished!", 6);
         }
 
         private Boolean canPunish(ADKAT_Record record)
