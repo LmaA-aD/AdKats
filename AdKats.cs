@@ -55,7 +55,7 @@ namespace PRoConEvents
     {
         #region Variables
 
-        string plugin_version = "0.2.5.0";
+        string plugin_version = "0.2.5.1";
 
         // Enumerations
         //Messaging
@@ -128,7 +128,7 @@ namespace PRoConEvents
         private int server_id = -1;
         //Whether to get the release version of plugin description and setup scripts, or the dev version.
         //This setting is unchangeable by users, and will always be TRUE for released versions of the plugin.
-        private bool isRelease = false;
+        private bool isRelease = true;
         //Whether the plugin is enabled
         private bool isEnabled;
         //Current debug level
