@@ -10,6 +10,7 @@
  * 
  * Code Credit:
  * Modded Levenshtein Distance algorithm from Micovery's InsaneLimits
+ * Threading Examples from Micovery's InsaneLimits
  * Planned Future Usage:
  * Email System from "Notify Me!" By MorpheusX(AUT)
  * Twitter Post System from Micovery's InsaneLimits
@@ -55,7 +56,7 @@ namespace PRoConEvents
     {
         #region Variables
 
-        string plugin_version = "0.2.5.0";
+        string plugin_version = "0.2.7.0";
 
         // Enumerations
         //Messaging
@@ -101,8 +102,7 @@ namespace PRoConEvents
             PlayerSay,
             AdminYell,
             PlayerYell,
-            PreYell,
-            PreSay,
+            WhatIs,
             //Power Corner
             NukeServer,
             KickAll
@@ -137,15 +137,13 @@ namespace PRoConEvents
         //IDs of the two teams as the server understands it
         private int USTeamId = 1;
         private int RUTeamId = 2;
-        //Boolean used for archaic thread sync
-        private Boolean updating = false;
         //last time a manual call to listplayers was made
         private DateTime lastListPlayersRequest = DateTime.Now;
         //All server info
         private CServerInfo serverInfo = null;
 
         // Player Lists
-        Dictionary<string, CPlayerInfo> currentPlayers = new Dictionary<string, CPlayerInfo>();
+        Dictionary<string, CPlayerInfo> playerDictionary = new Dictionary<string, CPlayerInfo>();
         List<CPlayerInfo> playerList = new List<CPlayerInfo>();
         //player counts per team
         private int USPlayerCount = 0;
@@ -156,6 +154,7 @@ namespace PRoConEvents
         private Boolean toldCol = false;
 
         // MySQL Settings
+        private Boolean dbSettingsChanged = false;
         private string mySqlHostname;
         private string mySqlPort;
         private string mySqlDatabaseName;
@@ -193,9 +192,9 @@ namespace PRoConEvents
         private string m_strPlayerSayCommand = "psay|log";
         private string m_strYellCommand = "yell|log";
         private string m_strPlayerYellCommand = "pyell|log";
-        private string m_strPreYellCommand = "preyell|log";
-        private string m_strPreSayCommand = "presay|log";
+        private string m_strWhatIsCommand = "whatis";
         private List<string> preMessageList = new List<string>();
+        private Boolean requirePreMessageUse = false;
         private int m_iShowMessageLength = 5;
         private string m_strShowMessageLength = "5";
         //Map control
@@ -246,8 +245,6 @@ namespace PRoConEvents
         private int requiredReasonLength = 5;
 
         //TeamSwap Settings
-        //Delayed move list
-        private List<CPlayerInfo> onDeathMoveList = new List<CPlayerInfo>();
         //The list of players on RU wishing to move to US (This list takes first priority)
         private Queue<CPlayerInfo> USMoveQueue = new Queue<CPlayerInfo>();
         //the list of players on US wishing to move to RU (This list takes secondary)
@@ -265,7 +262,7 @@ namespace PRoConEvents
         //Round only whitelist
         private Dictionary<string, bool> teamswapRoundWhitelist = new Dictionary<string, bool>();
         //Number of random players to whitelist at the beginning of the round
-        private int playersToAutoWhitelist = 1;
+        private int playersToAutoWhitelist = 2;
 
         //Reports for the current round
         private Dictionary<string, ADKAT_Record> round_reports = new Dictionary<string, ADKAT_Record>();
@@ -280,7 +277,7 @@ namespace PRoConEvents
         //Admin Assistants
         private Boolean enableAdminAssistants = true;
         private Dictionary<string, bool> adminAssistantCache = new Dictionary<string, bool>();
-        private int minimumRequiredWeeklyReports = 10;
+        private int minimumRequiredWeeklyReports = 5;
 
         //Mail Settings
         private string strHostName;
@@ -295,22 +292,34 @@ namespace PRoConEvents
         private string strSMTPPassword;
 
         //Multi-Threading
+
         //Threads
         Thread MessagingThread;
         Thread CommandParsingThread;
         Thread RecordProcessingThread;
         Thread DatabaseCommThread;
         Thread ActionHandlingThread;
+        Thread TeamSwapThread;
+        Thread finalizer;
+
         //Mutexes
         public Object playersMutex = new Object();
         public Object reportsMutex = new Object();
+        public Object actionConfirmMutex = new Object();
+        public Object playerAccessMutex = new Object();
+        public Object teamswapMutex = new Object();
+        
         public Object unparsedMessageMutex = new Object();
         public Object unparsedCommandMutex = new Object();
         public Object unprocessedRecordMutex = new Object();
         public Object unprocessedActionMutex = new Object();
+
         //Handles
-        EventWaitHandle fetch_handle;
-        //Queues
+        EventWaitHandle databaseSettingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        EventWaitHandle teamswapHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        EventWaitHandle listPlayersHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+
+        //Threading Queues
         Queue<KeyValuePair<String, String>> unparsedMessageQueue = new Queue<KeyValuePair<String, String>>();
         Queue<KeyValuePair<String, String>> unparsedCommandQueue = new Queue<KeyValuePair<String, String>>();
 
@@ -319,6 +328,13 @@ namespace PRoConEvents
 
         Queue<KeyValuePair<String, int>> playerAccessUpdateQueue = new Queue<KeyValuePair<String, int>>();
         Queue<String> playerAccessRemovalQueue = new Queue<String>();
+
+        //Force move action queue
+        Queue<CPlayerInfo> teamswapForceMoveQueue = new Queue<CPlayerInfo>();
+        //Delayed move list
+        private Dictionary<String, CPlayerInfo> teamswapOnDeathMoveDic = new Dictionary<String, CPlayerInfo>();
+        //Delayed move checking queue
+        Queue<CPlayerInfo> teamswapOnDeathCheckingQueue = new Queue<CPlayerInfo>();
 
         #endregion
 
@@ -432,8 +448,7 @@ namespace PRoConEvents
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.AdminYell, 4);
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.PlayerSay, 4);
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.PlayerYell, 4);
-            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.PreSay, 4);
-            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.PreYell, 4);
+            this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.WhatIs, 4);
 
             this.ADKAT_CommandAccessRank.Add(ADKAT_CommandType.Teamswap, 5);
 
@@ -555,16 +570,15 @@ namespace PRoConEvents
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Report Player", typeof(string), m_strReportCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Call Admin on Player", typeof(string), m_strCallAdminCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Admin Say", typeof(string), m_strSayCommand));
-                lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Admin Pre-Say", typeof(string), m_strPreSayCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Player Say", typeof(string), m_strPlayerSayCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Admin Yell", typeof(string), m_strYellCommand));
-                lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Admin Pre-Yell", typeof(string), m_strPreYellCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Player Yell", typeof(string), m_strPlayerYellCommand));
+                lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|What Is", typeof(string), m_strWhatIsCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Restart Level", typeof(string), m_strRestartLevelCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Next Level", typeof(string), m_strNextLevelCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|End Level", typeof(string), m_strEndLevelCommand));
                 lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Nuke Server", typeof(string), m_strNukeCommand));
-                lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Kick All (Except Admins)", typeof(string), m_strKickAllCommand));
+                lstReturn.Add(new CPluginVariable("4. In-Game Command Settings|Kick All NonAdmins", typeof(string), m_strKickAllCommand));
 
                 //Punishment Settings
                 lstReturn.Add(new CPluginVariable("5. Punishment Settings|Punishment Hierarchy", typeof(string[]), this.punishmentHierarchy));
@@ -599,10 +613,7 @@ namespace PRoConEvents
 
                 //Admin Assistant Settings
                 lstReturn.Add(new CPluginVariable("8. Admin Assistant Settings|Enable Admin Assistant Perk", typeof(Boolean), this.enableAdminAssistants));
-                if (this.enableAdminAssistants)
-                {
-                    lstReturn.Add(new CPluginVariable("8. Admin Assistant Settings|Minimum Confirmed Reports Per Week", typeof(int), this.minimumRequiredWeeklyReports));
-                }
+                lstReturn.Add(new CPluginVariable("8. Admin Assistant Settings|Minimum Confirmed Reports Per Week", typeof(int), this.minimumRequiredWeeklyReports));
 
                 //Muting Settings
                 lstReturn.Add(new CPluginVariable("9. Player Mute Settings|On-Player-Muted Message", typeof(string), this.mutedPlayerMuteMessage));
@@ -613,6 +624,7 @@ namespace PRoConEvents
                 //Pre-Message Settings
                 lstReturn.Add(new CPluginVariable("A10. Messaging Settings|Yell display time seconds", typeof(int), this.m_iShowMessageLength));
                 lstReturn.Add(new CPluginVariable("A10. Messaging Settings|Pre-Message List", typeof(string[]), this.preMessageList.ToArray()));
+                lstReturn.Add(new CPluginVariable("A10. Messaging Settings|Require Use of Pre-Messages", typeof(Boolean), this.requirePreMessageUse));
 
                 //Ban Settings
                 lstReturn.Add(new CPluginVariable("A11. Banning Settings|Ban Type", "enum.AdKats_BanType(Frostbite - Name|Frostbite - EA GUID|Punkbuster - GUID)", this.m_strBanTypeOption));
@@ -627,7 +639,7 @@ namespace PRoConEvents
 
                 //Debug settings
                 lstReturn.Add(new CPluginVariable("A13. Debugging|Debug level", typeof(int), this.debugLevel));
-                lstReturn.Add(new CPluginVariable("A13. Debugging|Command Entry (Use like In-Game)", typeof(string), ""));
+                lstReturn.Add(new CPluginVariable("A13. Debugging|Command Entry", typeof(string), ""));
             }
             catch (Exception e)
             {
@@ -638,9 +650,31 @@ namespace PRoConEvents
 
         public void SetPluginVariable(string strVariable, string strValue)
         {
-            #region debugging
-            if (Regex.Match(strVariable, @"Command Entry (Use like In-Game)").Success)
+            if (strVariable.Equals("UpdateSettings"))
             {
+                //Do nothing. Settings page will be updated after return.
+            }
+            #region debugging
+            else if (Regex.Match(strVariable, @"Command Entry").Success)
+            {
+                //Check if the message is a command
+                if (strValue.StartsWith("@") || strValue.StartsWith("!"))
+                {
+                    strValue = strValue.Substring(1);
+                }
+                else if (strValue.StartsWith("/@") || strValue.StartsWith("/!"))
+                {
+                    strValue = strValue.Substring(2);
+                }
+                else if (strValue.StartsWith("/"))
+                {
+                    strValue = strValue.Substring(1);
+                }
+                else
+                {
+                    //If the message does not cause either of the above clauses, then ignore it.
+                    return;
+                }
                 ADKAT_Record recordItem = new ADKAT_Record();
                 recordItem.command_source = ADKAT_CommandSource.Settings;
                 recordItem.source_name = "SettingsAdmin";
@@ -707,6 +741,7 @@ namespace PRoConEvents
                     if (strValue.ToLower().EndsWith("|log"))
                     {
                         strValue = strValue.TrimEnd("|log".ToCharArray());
+                        this.ConsoleWrite("Cannot log Confirm Command");
                     }
                     this.m_strConfirmCommand = strValue;
                     rebindAllCommands();
@@ -724,6 +759,7 @@ namespace PRoConEvents
                     if (strValue.ToLower().EndsWith("|log"))
                     {
                         strValue = strValue.TrimEnd("|log".ToCharArray());
+                        this.ConsoleWrite("Cannot log Cancel Command");
                     }
                     this.m_strCancelCommand = strValue;
                     rebindAllCommands();
@@ -947,6 +983,24 @@ namespace PRoConEvents
                     this.m_strPlayerYellCommand = ADKAT_CommandType.PlayerYell + " COMMAND BLANK";
                 }
             }
+            else if (Regex.Match(strVariable, @"What Is").Success)
+            {
+                if (strValue.Length > 0)
+                {
+                    //Confirm cannot be logged
+                    if (strValue.ToLower().EndsWith("|log"))
+                    {
+                        strValue = strValue.TrimEnd("|log".ToCharArray());
+                        this.ConsoleWrite("Cannot log WhatIs Command");
+                    }
+                    this.m_strWhatIsCommand = strValue;
+                    rebindAllCommands();
+                }
+                else
+                {
+                    this.m_strWhatIsCommand = ADKAT_CommandType.WhatIs + " COMMAND BLANK";
+                }
+            }
             else if (Regex.Match(strVariable, @"Restart Level").Success)
             {
                 if (strValue.Length > 0)
@@ -995,7 +1049,7 @@ namespace PRoConEvents
                     this.m_strNukeCommand = ADKAT_CommandType.NukeServer + " COMMAND BLANK";
                 }
             }
-            else if (Regex.Match(strVariable, @"Kick All (Except Admins)").Success)
+            else if (Regex.Match(strVariable, @"Kick All NonAdmins").Success)
             {
                 if (strValue.Length > 0)
                 {
@@ -1031,33 +1085,33 @@ namespace PRoConEvents
             {
                 if (this.isEnabled)
                 {
-                    this.addPlayerAccess(strValue);
+                    this.queuePlayerForAccessUpdate(strValue, 6);
                 }
                 else
                 {
-                    this.ConsoleError("Enable AdKats before changing admins. Database connection required.");
+                    this.ConsoleError("Enable AdKats before changing admins.");
                 }
             }
             else if (Regex.Match(strVariable, @"Remove Access").Success)
             {
                 if (this.isEnabled)
                 {
-                    this.removePlayerAccess(strValue);
+                    this.queuePlayerForAccessRemoval(strValue);
                 }
                 else
                 {
-                    this.ConsoleError("Enable AdKats before changing admins. Database connection required.");
+                    this.ConsoleError("Enable AdKats before changing admins.");
                 }
             }
             else if (this.playerAccessCache.ContainsKey(strVariable))
             {
                 if (this.isEnabled)
                 {
-                    this.updatePlayerAccess(strVariable, Int32.Parse(strValue));
+                    this.queuePlayerForAccessUpdate(strVariable, Int32.Parse(strValue));
                 }
                 else
                 {
-                    this.ConsoleError("Enable AdKats before changing admins. Database connection required.");
+                    this.ConsoleError("Enable AdKats before changing admins.");
                 }
             }
             #endregion
@@ -1166,11 +1220,11 @@ namespace PRoConEvents
             }
             else if (Regex.Match(strVariable, @"On-Player-Killed Message").Success)
             {
-                this.mutedPlayerMuteMessage = strValue;
+                this.mutedPlayerKillMessage = strValue;
             }
-            else if (Regex.Match(strVariable, @"On-Player-Muted Message").Success)
+            else if (Regex.Match(strVariable, @"On-Player-Kicked Message").Success)
             {
-                this.mutedPlayerMuteMessage = strValue;
+                this.mutedPlayerKickMessage = strValue;
             }
             if (Regex.Match(strVariable, @"# Chances to give player before kicking").Success)
             {
@@ -1225,6 +1279,10 @@ namespace PRoConEvents
             {
                 this.preMessageList = new List<string>(CPluginVariable.DecodeStringArray(strValue));
             }
+            else if (Regex.Match(strVariable, @"Require Use of Pre-Messages").Success)
+            {
+                this.requirePreMessageUse = Boolean.Parse(strValue);
+            }
             #endregion
         }
 
@@ -1260,8 +1318,7 @@ namespace PRoConEvents
             this.m_strPlayerSayCommand = this.parseAddCommand(tempDictionary, this.m_strPlayerSayCommand, ADKAT_CommandType.PlayerSay);
             this.m_strYellCommand = this.parseAddCommand(tempDictionary, this.m_strYellCommand, ADKAT_CommandType.AdminYell);
             this.m_strPlayerYellCommand = this.parseAddCommand(tempDictionary, this.m_strPlayerYellCommand, ADKAT_CommandType.PlayerYell);
-            this.m_strPreYellCommand = this.parseAddCommand(tempDictionary, this.m_strPreYellCommand, ADKAT_CommandType.PreYell);
-            this.m_strPreSayCommand = this.parseAddCommand(tempDictionary, this.m_strPreSayCommand, ADKAT_CommandType.PreSay);
+            this.m_strWhatIsCommand = this.parseAddCommand(tempDictionary, this.m_strWhatIsCommand, ADKAT_CommandType.WhatIs);
 
             //Update level controls
             this.m_strRestartLevelCommand = this.parseAddCommand(tempDictionary, this.m_strRestartLevelCommand, ADKAT_CommandType.RestartLevel);
@@ -1348,7 +1405,6 @@ namespace PRoConEvents
                 this.DebugWrite("Logging option set successfuly", 6);
             }
         }
-
         #endregion
 
         #region Threading
@@ -1360,13 +1416,23 @@ namespace PRoConEvents
             this.CommandParsingThread = new Thread(new ThreadStart(commandParsingThreadLoop));
             this.DatabaseCommThread = new Thread(new ThreadStart(databaseCommThreadLoop));
             this.ActionHandlingThread = new Thread(new ThreadStart(actionHandlingThreadLoop));
-            this.RecordProcessingThread = new Thread(new ThreadStart(recordProcessingThreadLoop));
+            this.TeamSwapThread = new Thread(new ThreadStart(teamswapThreadLoop));
 
             this.MessagingThread.IsBackground = true;
             this.CommandParsingThread.IsBackground = true;
             this.DatabaseCommThread.IsBackground = true;
             this.ActionHandlingThread.IsBackground = true;
             this.RecordProcessingThread.IsBackground = true;
+            this.TeamSwapThread.IsBackground = true;
+        }
+
+        public void StartThreads()
+        {
+            this.MessagingThread.Start();
+            this.CommandParsingThread.Start();
+            this.DatabaseCommThread.Start();
+            this.ActionHandlingThread.Start();
+            this.TeamSwapThread.Start();
         }
 
         #endregion
@@ -1375,39 +1441,68 @@ namespace PRoConEvents
 
         public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion)
         {
-            this.RegisterEvents(this.GetType().Name, "OnVersion", "OnServerInfo", "OnResponseError", "OnListPlayers", "OnPlayerJoin", "OnPlayerLeft", "OnPlayerKilled", "OnPlayerSpawned", "OnPlayerTeamChange", "OnGlobalChat", "OnTeamChat", "OnSquadChat", "OnRoundOverPlayers", "OnRoundOver", "OnRoundOverTeamScores", "OnLoadingLevel", "OnLevelStarted", "OnLevelLoaded");
+            this.RegisterEvents(this.GetType().Name, "OnVersion", "OnServerInfo", "OnResponseError", "OnListPlayers", "OnPlayerKilled", "OnPlayerSpawned", "OnPlayerTeamChange", "OnGlobalChat", "OnTeamChat", "OnSquadChat", "OnRoundOverPlayers", "OnRoundOver", "OnRoundOverTeamScores", "OnLoadingLevel", "OnLevelStarted", "OnLevelLoaded");
         }
 
         public void OnPluginEnable()
         {
+            if (finalizer != null && finalizer.IsAlive)
+            {
+                ConsoleError("Cannot enable plugin while it is finalizing");
+                return;
+            }
             isEnabled = true;
             ConsoleWrite("^b^2Enabled!^n^0 Version: " + GetPluginVersion());
-            //Test the database connection
-            testDatabaseConnection();
+
+            //Start all the threads
+            this.StartThreads();
         }
 
         public void OnPluginDisable()
         {
-            ConsoleWrite("Disabling command functionality");
-            isEnabled = false;
-            ConsoleWrite("^b^1Disabled! =(^n^0");
+            if (this.finalizer != null && this.finalizer.IsAlive)
+                return;
+
+            try
+            {
+                ConsoleWrite("Disabling command functionality. Please Wait.");
+                isEnabled = false;
+
+                this.finalizer = new Thread(new ThreadStart(delegate()
+                {
+                    try
+                    {
+                        databaseSettingHandle.Set();
+                        teamswapHandle.Set();
+                        listPlayersHandle.Set();
+
+                        JoinWith(this.MessagingThread);
+                        JoinWith(this.CommandParsingThread);
+                        JoinWith(this.DatabaseCommThread);
+                        JoinWith(this.ActionHandlingThread);
+                        JoinWith(this.TeamSwapThread);
+
+                        ConsoleWrite("^b^1AdKats Disabled! =(^n^0");
+                    }
+                    catch (Exception e)
+                    {
+                        ConsoleException(e.ToString());
+                    }
+                }));
+
+                finalizer.Start();
+
+            }
+            catch (Exception e)
+            {
+                ConsoleException(e.ToString());
+            }
         }
 
         public override void OnListPlayers(List<CPlayerInfo> players, CPlayerSubset subset)
         {
             if (isEnabled)
             {
-                //Update last call time
-                this.lastListPlayersRequest = DateTime.Now;
-                //this.updating used as a primitive thread sync
-                if (this.updating)
-                {
-                    return;
-                }
-                else
-                {
-                    this.updating = true;
-                }
                 Dictionary<String, CPlayerInfo> currentPlayers = new Dictionary<String, CPlayerInfo>();
                 //Reset the player counts of both sides and recount everything
                 this.USPlayerCount = 0;
@@ -1424,11 +1519,11 @@ namespace PRoConEvents
                     }
                     currentPlayers.Add(player.SoldierName, player);
                 }
-                this.currentPlayers = currentPlayers;
+                this.playerDictionary = currentPlayers;
                 this.playerList = players;
-                //perform player switching
-                this.runTeamSwap();
-                this.updating = false;
+
+                //Set the handle for teamswap
+                this.listPlayersHandle.Set();
             }
         }
 
@@ -1443,9 +1538,6 @@ namespace PRoConEvents
                 int iTeam1Score = listCurrTeamScore[1].Score;
                 this.lowestTicketCount = (iTeam0Score < iTeam1Score) ? (iTeam0Score) : (iTeam1Score);
                 this.highestTicketCount = (iTeam0Score > iTeam1Score) ? (iTeam0Score) : (iTeam1Score);
-
-                //Check the database for actions to take
-                this.runActionsFromDB();
             }
         }
 
@@ -1457,39 +1549,9 @@ namespace PRoConEvents
             this.autoWhitelistPlayers();
 
             //Reset whether they have been informed
-            foreach(string assistantName in this.adminAssistantCache.Keys)
+            foreach (string assistantName in this.adminAssistantCache.Keys)
             {
                 this.adminAssistantCache[assistantName] = false;
-            }
-        }
-
-        //execute the swap code on player leaving
-        public override void OnPlayerLeft(CPlayerInfo playerInfo)
-        {
-            //Only call when a player is waiting to be switched
-            if (isEnabled && (this.USMoveQueue.Count > 0 || this.RUMoveQueue.Count > 0))
-            {
-                //When any player leaves, the list of players needs to be updated.
-                this.callListPlayers(false);
-            }
-        }
-
-        //execute the swap code on player teamchange
-        public override void OnPlayerTeamChange(String soldierName, int teamId, int squadId)
-        {
-            //Only call when a player is waiting to be switched
-            if (isEnabled && (this.USMoveQueue.Count > 0 || this.RUMoveQueue.Count > 0))
-            {
-                //When any player changes team, the list of players needs to be updated.
-                this.callListPlayers(false);
-            }
-        }
-
-        public void callListPlayers(Boolean bypass)
-        {
-            if (DateTime.Now > this.lastListPlayersRequest.AddSeconds(5) || bypass)
-            {
-                this.ExecuteCommand("procon.protected.send", "admin.listPlayers", "all");
             }
         }
 
@@ -1497,63 +1559,40 @@ namespace PRoConEvents
         public override void OnPlayerKilled(Kill kKillerVictimDetails)
         {
             //Used for delayed player moving
-            if (isEnabled)
+            if (isEnabled && this.teamswapOnDeathMoveDic.Count > 0)
             {
-                //Only do a search if the list contains players
-                if (this.onDeathMoveList.Count > 0)
+                lock(this.teamswapMutex) 
                 {
-                    CPlayerInfo playerToMove = null;
-                    foreach (CPlayerInfo player in this.onDeathMoveList)
-                    {
-                        if (player.SoldierName.Equals(kKillerVictimDetails.Victim.SoldierName))
-                        {
-                            playerToMove = player;
-                            break;
-                        }
-                    }
-                    if (playerToMove != null)
-                    {
-                        //if the player is found, remove their ondeath info and send them to teamswap
-                        this.DebugWrite("deathmove player found. swapping.", 6);
-                        this.onDeathMoveList.Remove(playerToMove);
-                        this.teamSwapPlayer(playerToMove);
-                    }
+                    this.teamswapOnDeathCheckingQueue.Enqueue(kKillerVictimDetails.Victim);
                 }
             }
         }
 
         public override void OnPlayerSpawned(String soldierName, Inventory spawnedInventory)
         {
-            try
+            Boolean informed = true;
+            if (this.enableAdminAssistants && this.adminAssistantCache.TryGetValue(soldierName, out informed))
             {
-                Boolean informed = true;
-                if (this.enableAdminAssistants && this.adminAssistantCache.TryGetValue(soldierName, out informed))
+                if (informed == false)
                 {
-                    if (informed == false)
-                    {
-                        string command = this.m_strTeamswapCommand.TrimEnd("|log".ToCharArray());
-                        this.ExecuteCommand("procon.protected.send", "admin.yell", "For your consistent player reporting you can now use TeamSwap. Type @" + command + " to move yourself between teams.", "10", "player", soldierName);
-                        this.adminAssistantCache[soldierName] = true;
-                    }
-                }
-                else if (this.teamswapRoundWhitelist.TryGetValue(soldierName, out informed))
-                {
-                    if (informed == false)
-                    {
-                        string command = this.m_strTeamswapCommand.TrimEnd("|log".ToCharArray());
-                        this.ExecuteCommand("procon.protected.send", "admin.yell", "You can use TeamSwap for this round. Type @" + command + " to move yourself between teams.", "10", "player", soldierName);
-                        this.teamswapRoundWhitelist[soldierName] = true;
-                    }
-                }
-                if (!toldCol && soldierName == "ColColonCleaner" && isRelease)
-                {
-                    this.ExecuteCommand("procon.protected.send", "admin.yell", "CONGRATS! This server has version " + this.plugin_version + " of AdKats installed!", "20", "player", "ColColonCleaner");
-                    this.toldCol = true;
+                    string command = this.m_strTeamswapCommand.TrimEnd("|log".ToCharArray());
+                    this.ExecuteCommand("procon.protected.send", "admin.yell", "For your consistent player reporting you can now use TeamSwap. Type @" + command + " to move yourself between teams.", "10", "player", soldierName);
+                    this.adminAssistantCache[soldierName] = true;
                 }
             }
-            catch (Exception e)
+            else if (this.teamswapRoundWhitelist.Count > 0 && this.teamswapRoundWhitelist.TryGetValue(soldierName, out informed))
             {
-                this.ConsoleException(e.ToString());
+                if (informed == false)
+                {
+                    string command = this.m_strTeamswapCommand.TrimEnd("|log".ToCharArray());
+                    this.ExecuteCommand("procon.protected.send", "admin.yell", "You can use TeamSwap for this round. Type @" + command + " to move yourself between teams.", "10", "player", soldierName);
+                    this.teamswapRoundWhitelist[soldierName] = true;
+                }
+            }
+            if (soldierName == "ColColonCleaner" && !toldCol && isRelease)
+            {
+                this.ExecuteCommand("procon.protected.send", "admin.yell", "CONGRATS! This server has version " + this.plugin_version + " of AdKats installed!", "20", "player", "ColColonCleaner");
+                this.toldCol = true;
             }
         }
 
@@ -1619,8 +1658,8 @@ namespace PRoConEvents
             this.DebugWrite("Preparing to queue command for parsing", 6);
             lock (unparsedCommandMutex)
             {
-                this.unparsedCommandQueue.Enqueue(new KeyValuePair<String, String>(speaker, message));
-                this.DebugWrite("Command sent to unparsed commands.", 7);
+                this.unparsedCommandQueue.Enqueue(new KeyValuePair<String, String>(speaker, command));
+                this.DebugWrite("Command sent to unparsed commands.", 6);
             }
         }
 
@@ -1639,7 +1678,7 @@ namespace PRoConEvents
                     //Add waitone if needed later
 
                     //Get all unparsed inbound messages
-                    Queue inboundMessages;
+                    Queue<KeyValuePair<String, String>> inboundMessages;
                     this.DebugWrite("Preparing to lock messaging to retrive new messages", 7);
                     lock (unparsedMessageMutex)
                     {
@@ -1647,7 +1686,7 @@ namespace PRoConEvents
                         {
                             this.DebugWrite("Inbound messages found. Grabbing.", 6);
                             //Grab all messages in the queue
-                            inboundMessages = this.unparsedMessageQueue().Clone();
+                            inboundMessages = new Queue<KeyValuePair<string,string>>(this.unparsedMessageQueue.ToArray());
                             //Clear the queue for next run
                             this.unparsedMessageQueue.Clear();
                         }
@@ -1678,7 +1717,7 @@ namespace PRoConEvents
                                 //Increment the muted chat count
                                 this.round_mutedPlayers[speaker] = this.round_mutedPlayers[speaker] + 1;
                                 //Get player info
-                                CPlayerInfo player_info = this.currentPlayers[speaker];
+                                CPlayerInfo player_info = this.playerDictionary[speaker];
                                 //Create record
                                 ADKAT_Record record = new ADKAT_Record();
                                 record.command_source = ADKAT_CommandSource.InGame;
@@ -1745,69 +1784,167 @@ namespace PRoConEvents
 
         #region Teamswap Methods
 
-        //runs through both team swap queues and performs the swapping
-        public void runTeamSwap()
+        private void queuePlayerForForceMove(CPlayerInfo player)
         {
-            //assume the max player count per team is 32 if no server info has been provided
-            int maxPlayerCount = (this.serverInfo != null) ? (this.serverInfo.MaxPlayerCount / 2) : (32);
-            Boolean movedPlayer;
-            do
+            this.DebugWrite("Preparing to queue player for teamswap", 6);
+            lock (teamswapMutex)
             {
-                movedPlayer = false;
-                if (this.RUMoveQueue.Count > 0)
-                {
-                    if (this.USPlayerCount < maxPlayerCount)
-                    {
-                        CPlayerInfo player = this.RUMoveQueue.Dequeue();
-                        ExecuteCommand("procon.protected.send", "admin.movePlayer", player.SoldierName, this.USTeamId.ToString(), "1", "true");
-                        this.playerSayMessage(player.SoldierName, "Swapping you from team RU to team US");
-                        movedPlayer = true;
-                        USPlayerCount++;
-                    }
-                }
-                if (this.USMoveQueue.Count > 0)
-                {
-                    if (this.RUPlayerCount < maxPlayerCount)
-                    {
-                        CPlayerInfo player = this.USMoveQueue.Dequeue();
-                        ExecuteCommand("procon.protected.send", "admin.movePlayer", player.SoldierName, this.RUTeamId.ToString(), "1", "true");
-                        this.playerSayMessage(player.SoldierName, "Swapping you from team US to team RU");
-                        movedPlayer = true;
-                        RUPlayerCount++;
-                    }
-                }
-            } while (movedPlayer);
+                this.teamswapForceMoveQueue.Enqueue(player);
+                this.teamswapHandle.Set();
+                this.DebugWrite("Player queued for teamswap", 6);
+            }
         }
 
-        //Adds a player to the proper move queue
-        public void teamSwapPlayer(CPlayerInfo player)
+        private void queuePlayerForMove(CPlayerInfo player)
         {
-            if (player.TeamID == this.USTeamId)
+            this.DebugWrite("Preparing to add player to 'on-death' move dictionary.", 6);
+            lock (teamswapMutex)
             {
-                if (!this.containsCPlayerInfo(this.USMoveQueue, player.SoldierName))
-                {
-                    this.USMoveQueue.Enqueue(player);
-                    this.playerSayMessage(player.SoldierName, "You have been added to the (US -> RU) TeamSwap queue in position " + (this.indexOfCPlayerInfo(this.USMoveQueue, player.SoldierName) + 1) + ".");
-                }
-                else
-                {
-                    this.playerSayMessage(player.SoldierName, "(US -> RU) queue: Position " + (this.indexOfCPlayerInfo(this.USMoveQueue, player.SoldierName) + 1));
-                }
+                this.teamswapOnDeathMoveDic.Add(player.SoldierName, player);
+                this.teamswapHandle.Set();
+                this.DebugWrite("Player added to 'on-death' move dictionary.", 6);
             }
-            else
+        }
+
+        //runs through both team swap queues and performs the swapping
+        public void teamswapThreadLoop()
+        {
+            //assume the max player count per team is 32 if no server info has been provided
+            int maxPlayerCount = 32;
+            Queue<CPlayerInfo> checkingQueue;
+            Queue<CPlayerInfo> movingQueue;
+            try
             {
-                if (!this.containsCPlayerInfo(this.RUMoveQueue, player.SoldierName))
+                this.DebugWrite("Starting TeamSwap Thread", 2);
+                Thread.CurrentThread.Name = "messaging";
+                while (this.isEnabled)
                 {
-                    this.RUMoveQueue.Enqueue(player);
-                    this.playerSayMessage(player.SoldierName, "You have been added to the (RU -> US) TeamSwap queue in position " + (this.indexOfCPlayerInfo(this.RUMoveQueue, player.SoldierName) + 1) + ".");
+                    this.DebugWrite("Entering TeamSwap Thread Loop", 7);
+
+                    //Sleep for 5 seconds
+                    Thread.Sleep(5000);
+
+                    //Call List Players
+                    this.listPlayersHandle.Reset();
+                    this.ExecuteCommand("procon.protected.send", "admin.listPlayers", "all");
+                    //Wait for listPlayers to finish
+                    this.listPlayersHandle.WaitOne();
+
+                    //Refresh Max Player Count, needed for responsive server size
+                    if (this.serverInfo != null && this.serverInfo.MaxPlayerCount != maxPlayerCount)
+                    {
+                        maxPlayerCount = this.serverInfo.MaxPlayerCount / 2;
+                    }
+
+                    //Get players who died that need moving
+                    this.DebugWrite("Preparing to lock teamswap queues", 4);
+                    if ((this.teamswapOnDeathMoveDic.Count > 0 && this.teamswapOnDeathCheckingQueue.Count > 0) || this.teamswapForceMoveQueue.Count > 0)
+                    {
+                        lock (teamswapMutex)
+                        {
+                            this.DebugWrite("Players in checking. Grabbing.", 6);
+                            //Grab all messages in the queue
+                            movingQueue = new Queue<CPlayerInfo>(this.teamswapForceMoveQueue.ToArray());
+                            checkingQueue = new Queue<CPlayerInfo>(this.teamswapOnDeathCheckingQueue.ToArray());
+                            //Clear the queue for next run
+                            this.teamswapOnDeathCheckingQueue.Clear();
+                            this.teamswapForceMoveQueue.Clear();
+
+                            //Check for "on-death" move players
+                            while (this.teamswapOnDeathMoveDic.Count > 0 && checkingQueue != null && checkingQueue.Count > 0)
+                            {
+                                //Dequeue the first/next player
+                                String playerName = checkingQueue.Dequeue().SoldierName;
+                                CPlayerInfo player;
+                                //If they are 
+                                if (this.teamswapOnDeathMoveDic.TryGetValue(playerName, out player))
+                                {
+                                    movingQueue.Enqueue(player);
+                                }
+                            }
+
+                            while (movingQueue != null && movingQueue.Count > 0)
+                            {
+                                CPlayerInfo player = movingQueue.Dequeue();
+                                if (player.TeamID == this.USTeamId)
+                                {
+                                    if (!this.containsCPlayerInfo(this.USMoveQueue, player.SoldierName))
+                                    {
+                                        this.USMoveQueue.Enqueue(player);
+                                        this.playerSayMessage(player.SoldierName, "You have been added to the (US -> RU) TeamSwap queue in position " + (this.indexOfCPlayerInfo(this.USMoveQueue, player.SoldierName) + 1) + ".");
+                                    }
+                                    else
+                                    {
+                                        this.playerSayMessage(player.SoldierName, "(US -> RU) queue: Position " + (this.indexOfCPlayerInfo(this.USMoveQueue, player.SoldierName) + 1));
+                                    }
+                                }
+                                else
+                                {
+                                    if (!this.containsCPlayerInfo(this.RUMoveQueue, player.SoldierName))
+                                    {
+                                        this.RUMoveQueue.Enqueue(player);
+                                        this.playerSayMessage(player.SoldierName, "You have been added to the (RU -> US) TeamSwap queue in position " + (this.indexOfCPlayerInfo(this.RUMoveQueue, player.SoldierName) + 1) + ".");
+                                    }
+                                    else
+                                    {
+                                        this.playerSayMessage(player.SoldierName, "(RU -> US) queue: Position " + (this.indexOfCPlayerInfo(this.RUMoveQueue, player.SoldierName) + 1));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (this.RUMoveQueue.Count > 0 || this.USMoveQueue.Count > 0)
+                    {
+                        //Perform player moving
+                        Boolean movedPlayer;
+                        do
+                        {
+                            movedPlayer = false;
+                            if (this.RUMoveQueue.Count > 0)
+                            {
+                                if (this.USPlayerCount < maxPlayerCount)
+                                {
+                                    CPlayerInfo player = this.RUMoveQueue.Dequeue();
+                                    ExecuteCommand("procon.protected.send", "admin.movePlayer", player.SoldierName, this.USTeamId.ToString(), "1", "true");
+                                    this.playerSayMessage(player.SoldierName, "Swapping you from team RU to team US");
+                                    movedPlayer = true;
+                                    USPlayerCount++;
+                                }
+                            }
+                            if (this.USMoveQueue.Count > 0)
+                            {
+                                if (this.RUPlayerCount < maxPlayerCount)
+                                {
+                                    CPlayerInfo player = this.USMoveQueue.Dequeue();
+                                    ExecuteCommand("procon.protected.send", "admin.movePlayer", player.SoldierName, this.RUTeamId.ToString(), "1", "true");
+                                    this.playerSayMessage(player.SoldierName, "Swapping you from team US to team RU");
+                                    movedPlayer = true;
+                                    RUPlayerCount++;
+                                }
+                            }
+                        } while (movedPlayer);
+                    }
+                    else
+                    {
+                        this.DebugWrite("No players to swap. Waiting for input.", 4);
+                        //There are no players to swap, wait.
+                        this.teamswapHandle.WaitOne();
+                        continue;
+                    }
                 }
-                else
-                {
-                    this.playerSayMessage(player.SoldierName, "(RU -> US) queue: Position " + (this.indexOfCPlayerInfo(this.RUMoveQueue, player.SoldierName) + 1));
-                }
+                this.DebugWrite("Ending TeamSwap Thread", 2);
             }
-            //call an update of the player list, this will move players when possible
-            this.callListPlayers(true);
+            catch (Exception e)
+            {
+                if (typeof(ThreadAbortException).Equals(e.GetType()))
+                {
+                    this.DebugWrite("Thread Exception", 4);
+                    Thread.ResetAbort();
+                    return;
+                }
+                this.ConsoleException(e.ToString());
+            }            
         }
 
         //Whether a move queue contains a given player
@@ -1872,7 +2009,7 @@ namespace PRoConEvents
                     //Add waitone if needed later
 
                     //Get all unparsed inbound messages
-                    Queue unparsedCommands;
+                    Queue<KeyValuePair<String, String>> unparsedCommands;
                     this.DebugWrite("Preparing to lock command queue to retrive new commands", 7);
                     if (this.unparsedCommandQueue.Count > 0)
                     {
@@ -1880,7 +2017,7 @@ namespace PRoConEvents
                         {
                             this.DebugWrite("Inbound commands found. Grabbing.", 6);
                             //Grab all messages in the queue
-                            unparsedCommands = this.unparsedCommandQueue().Clone();
+                            unparsedCommands = new Queue<KeyValuePair<string,string>>(this.unparsedCommandQueue.ToArray());
                             //Clear the queue for next run
                             this.unparsedCommandQueue.Clear();
                         }
@@ -1898,7 +2035,7 @@ namespace PRoConEvents
                             record.command_source = ADKAT_CommandSource.InGame;
                             record.source_name = speaker;
                             //Complete the record creation
-                            this.completeRecord(record, message);
+                            this.completeRecord(record, command);
                         }
                     }
                     else
@@ -1979,7 +2116,7 @@ namespace PRoConEvents
                     case ADKAT_CommandType.MovePlayer:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
                             String[] parameters = this.parseParameters(remainingMessage, 1);
@@ -2010,7 +2147,7 @@ namespace PRoConEvents
                     case ADKAT_CommandType.ForceMovePlayer:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
                             String[] parameters = this.parseParameters(remainingMessage, 1);
@@ -2041,7 +2178,7 @@ namespace PRoConEvents
                     case ADKAT_CommandType.Teamswap:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //May only call this command from in-game
                             if (record.command_source != ADKAT_CommandSource.InGame)
@@ -2059,7 +2196,7 @@ namespace PRoConEvents
                     case ADKAT_CommandType.KillPlayer:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
                             String[] parameters = this.parseParameters(remainingMessage, 2);
@@ -2082,7 +2219,12 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
 
                                     //attempt to handle via pre-message ID
-                                    record.record_message = this.getPreMessage(parameters[1], false);
+                                    record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
+                                    if (record.record_message == null)
+                                    {
+                                        this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                        break;
+                                    }
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2108,7 +2250,7 @@ namespace PRoConEvents
                     case ADKAT_CommandType.KickPlayer:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
                             String[] parameters = this.parseParameters(remainingMessage, 2);
@@ -2131,7 +2273,12 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
 
                                     //attempt to handle via pre-message ID
-                                    record.record_message = this.getPreMessage(parameters[1], false);
+                                    record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
+                                    if (record.record_message == null)
+                                    {
+                                        this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                        break;
+                                    }
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2157,7 +2304,7 @@ namespace PRoConEvents
                     case ADKAT_CommandType.TempBanPlayer:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
                             String[] parameters = this.parseParameters(remainingMessage, 3);
@@ -2210,7 +2357,12 @@ namespace PRoConEvents
                                         DebugWrite("target: " + record.target_name, 6);
 
                                         //attempt to handle via pre-message ID
-                                        record.record_message = this.getPreMessage(parameters[2], false);
+                                        record.record_message = this.getPreMessage(parameters[2], this.requirePreMessageUse);
+                                        if (record.record_message == null)
+                                        {
+                                            this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                            break;
+                                        }
 
                                         DebugWrite("reason: " + record.record_message, 6);
                                         if (record.record_message.Length >= this.requiredReasonLength)
@@ -2243,7 +2395,7 @@ namespace PRoConEvents
                     case ADKAT_CommandType.PermabanPlayer:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
                             String[] parameters = this.parseParameters(remainingMessage, 2);
@@ -2266,7 +2418,12 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
 
                                     //attempt to handle via pre-message ID
-                                    record.record_message = this.getPreMessage(parameters[1], false);
+                                    record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
+                                    if (record.record_message == null)
+                                    {
+                                        this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                        break;
+                                    }
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2292,7 +2449,7 @@ namespace PRoConEvents
                     case ADKAT_CommandType.PunishPlayer:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
                             String[] parameters = this.parseParameters(remainingMessage, 2);
@@ -2315,7 +2472,12 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
 
                                     //attempt to handle via pre-message ID
-                                    record.record_message = this.getPreMessage(parameters[1], false);
+                                    record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
+                                    if (record.record_message == null)
+                                    {
+                                        this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                        break;
+                                    }
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2341,7 +2503,7 @@ namespace PRoConEvents
                     case ADKAT_CommandType.ForgivePlayer:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
                             String[] parameters = this.parseParameters(remainingMessage, 2);
@@ -2364,7 +2526,12 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
 
                                     //attempt to handle via pre-message ID
-                                    record.record_message = this.getPreMessage(parameters[1], false);
+                                    record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
+                                    if (record.record_message == null)
+                                    {
+                                        this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                        break;
+                                    }
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2390,7 +2557,7 @@ namespace PRoConEvents
                     case ADKAT_CommandType.MutePlayer:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
                             String[] parameters = this.parseParameters(remainingMessage, 2);
@@ -2413,7 +2580,12 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
 
                                     //attempt to handle via pre-message ID
-                                    record.record_message = this.getPreMessage(parameters[1], false);
+                                    record.record_message = this.getPreMessage(parameters[1], this.requirePreMessageUse);
+                                    if (record.record_message == null)
+                                    {
+                                        this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                        break;
+                                    }
 
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
@@ -2439,7 +2611,7 @@ namespace PRoConEvents
                     case ADKAT_CommandType.RoundWhitelistPlayer:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
                             String[] parameters = this.parseParameters(remainingMessage, 2);
@@ -2488,7 +2660,7 @@ namespace PRoConEvents
                     case ADKAT_CommandType.ReportPlayer:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
                             String[] parameters = this.parseParameters(remainingMessage, 2);
@@ -2530,7 +2702,7 @@ namespace PRoConEvents
                     case ADKAT_CommandType.CallAdmin:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
                             String[] parameters = this.parseParameters(remainingMessage, 2);
@@ -2572,7 +2744,7 @@ namespace PRoConEvents
                     case ADKAT_CommandType.NukeServer:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
                             String[] parameters = this.parseParameters(remainingMessage, 2);
@@ -2608,7 +2780,7 @@ namespace PRoConEvents
                                         this.sendMessageToSource(record, "Use 'US', 'RU', or 'ALL' as targets.");
                                     }
                                     //Have the admin confirm the action
-                                    confirmActionWithSource(record);
+                                    this.confirmActionWithSource(record);
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
@@ -2619,7 +2791,7 @@ namespace PRoConEvents
                     #endregion
                     #region KickAll
                     case ADKAT_CommandType.KickAll:
-                        this.cancelSourcePendingAction(record);
+                        this.actionConfirmDic.Remove(record.source_name);
                         record.target_name = "Non-Admins";
                         record.target_guid = "Non-Admins";
                         record.record_message = "Kick All Players";
@@ -2630,7 +2802,7 @@ namespace PRoConEvents
                     case ADKAT_CommandType.EndLevel:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
                             String[] parameters = this.parseParameters(remainingMessage, 2);
@@ -2671,7 +2843,7 @@ namespace PRoConEvents
                     #endregion
                     #region RestartLevel
                     case ADKAT_CommandType.RestartLevel:
-                        this.cancelSourcePendingAction(record);
+                        this.actionConfirmDic.Remove(record.source_name);
                         record.target_name = "Server";
                         record.target_guid = "Server";
                         record.record_message = "Restart Round";
@@ -2680,28 +2852,60 @@ namespace PRoConEvents
                     #endregion
                     #region NextLevel
                     case ADKAT_CommandType.NextLevel:
-                        this.cancelSourcePendingAction(record);
+                        this.actionConfirmDic.Remove(record.source_name);
                         record.target_name = "Server";
                         record.target_guid = "Server";
                         record.record_message = "Run Next Map";
                         confirmActionWithSource(record);
                         break;
                     #endregion
-                    #region AdminSay
-                    case ADKAT_CommandType.AdminSay:
+                    #region WhatIs
+                    case ADKAT_CommandType.WhatIs:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
-                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            String[] parameters = this.parseParameters(remainingMessage, 1);
                             switch (parameters.Length)
                             {
                                 case 0:
                                     this.sendMessageToSource(record, "No parameters given, unable to submit.");
                                     return;
                                 case 1:
-                                    record.record_message = parameters[1];
+                                    record.record_message = this.getPreMessage(parameters[0], true);
+                                    if (record.record_message == null)
+                                    {
+                                        this.sendMessageToSource(record, "Invalid PreMessage ID, valid PreMessage IDs are 1-" + this.preMessageList.Count);
+                                    }
+                                    else
+                                    {
+                                        this.sendMessageToSource(record, record.record_message);
+                                    }
+                                    break;
+                                default:
+                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
+                                    return;
+                            }
+                            //This type is not processed
+                        }
+                        break;
+                    #endregion
+                    #region AdminSay
+                    case ADKAT_CommandType.AdminSay:
+                        {
+                            //Remove previous commands awaiting confirmation
+                            this.actionConfirmDic.Remove(record.source_name);
+
+                            //Parse parameters using max param count
+                            String[] parameters = this.parseParameters(remainingMessage, 1);
+                            switch (parameters.Length)
+                            {
+                                case 0:
+                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
+                                    return;
+                                case 1:
+                                    record.record_message = this.getPreMessage(parameters[0], false);
                                     DebugWrite("message: " + record.record_message, 6);
                                     record.target_name = "Server";
                                     record.target_guid = "Server";
@@ -2711,48 +2915,6 @@ namespace PRoConEvents
                                     return;
                             }
                             this.queueRecordForProcessing(record);
-                        }
-                        break;
-                    #endregion
-                    #region PreSay
-                    case ADKAT_CommandType.PreSay:
-                        {
-                            //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
-
-                            //Parse parameters using max param count
-                            String[] parameters = this.parseParameters(remainingMessage, 2);
-                            switch (parameters.Length)
-                            {
-                                case 0:
-                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
-                                    return;
-                                case 1:
-                                    record.target_name = "Server";
-                                    record.target_guid = "Server";
-                                    if (this.preMessageList.Count > 0)
-                                    {
-                                        record.command_type = ADKAT_CommandType.AdminSay;
-                                        record.record_message = this.getPreMessage(parameters[0], true);
-                                        if (record.record_message == null)
-                                        {
-                                            DebugWrite("invalid pre message id", 6);
-                                            this.sendMessageToSource(record, "Invalid Pre-Message ID. Valid IDs 1-" + (this.preMessageList.Count));
-                                            return;
-                                        }
-                                    }
-                                    else
-                                    {
-                                        DebugWrite("no premessages stored", 6);
-                                        this.sendMessageToSource(record, "No Pre-Messages stored");
-                                        return;
-                                    }
-                                    break;
-                                default:
-                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
-                                    return;
-                            }
-                            this.confirmActionWithSource(record);
                         }
                         break;
                     #endregion
@@ -2760,17 +2922,17 @@ namespace PRoConEvents
                     case ADKAT_CommandType.AdminYell:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
-                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            String[] parameters = this.parseParameters(remainingMessage, 1);
                             switch (parameters.Length)
                             {
                                 case 0:
                                     this.sendMessageToSource(record, "No parameters given, unable to submit.");
                                     return;
                                 case 1:
-                                    record.record_message = parameters[1];
+                                    record.record_message = this.getPreMessage(parameters[0], false).ToUpper();
                                     DebugWrite("message: " + record.record_message, 6);
                                     record.target_name = "Server";
                                     record.target_guid = "Server";
@@ -2783,56 +2945,14 @@ namespace PRoConEvents
                         }
                         break;
                     #endregion
-                    #region PreYell
-                    case ADKAT_CommandType.PreYell:
-                        {
-                            //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
-
-                            //Parse parameters using max param count
-                            String[] parameters = this.parseParameters(remainingMessage, 2);
-                            switch (parameters.Length)
-                            {
-                                case 0:
-                                    this.sendMessageToSource(record, "No parameters given, unable to submit.");
-                                    return;
-                                case 1:
-                                    record.target_name = "Server";
-                                    record.target_guid = "Server";
-                                    if (this.preMessageList.Count > 0)
-                                    {
-                                        record.command_type = ADKAT_CommandType.AdminYell;
-                                        record.record_message = this.getPreMessage(parameters[0], true);
-                                        if (record.record_message == null)
-                                        {
-                                            DebugWrite("invalid pre message id", 6);
-                                            this.sendMessageToSource(record, "Invalid Pre-Message ID. Valid IDs 1-" + (this.preMessageList.Count));
-                                            return;
-                                        }
-                                    }
-                                    else
-                                    {
-                                        DebugWrite("no premessages stored", 6);
-                                        this.sendMessageToSource(record, "No Pre-Messages stored");
-                                        return;
-                                    }
-                                    break;
-                                default:
-                                    this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
-                                    return;
-                            }
-                            this.confirmActionWithSource(record);
-                        }
-                        break;
-                    #endregion
                     #region PlayerSay
                     case ADKAT_CommandType.PlayerSay:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
-                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            String[] parameters = this.parseParameters(remainingMessage, 1);
                             switch (parameters.Length)
                             {
                                 case 0:
@@ -2845,7 +2965,7 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
                                     DebugWrite("target: " + record.target_name, 6);
 
-                                    record.record_message = parameters[1];
+                                    record.record_message = this.getPreMessage(parameters[1], false);
                                     DebugWrite("message: " + record.record_message, 6);
 
                                     this.completeTargetInformation(record, false);
@@ -2861,10 +2981,10 @@ namespace PRoConEvents
                     case ADKAT_CommandType.PlayerYell:
                         {
                             //Remove previous commands awaiting confirmation
-                            this.cancelSourcePendingAction(record);
+                            this.actionConfirmDic.Remove(record.source_name);
 
                             //Parse parameters using max param count
-                            String[] parameters = this.parseParameters(remainingMessage, 2);
+                            String[] parameters = this.parseParameters(remainingMessage, 1);
                             switch (parameters.Length)
                             {
                                 case 0:
@@ -2877,7 +2997,7 @@ namespace PRoConEvents
                                     record.target_name = parameters[0];
                                     DebugWrite("target: " + record.target_name, 6);
 
-                                    record.record_message = parameters[1];
+                                    record.record_message = this.getPreMessage(parameters[1], false).ToUpper();
                                     DebugWrite("message: " + record.record_message, 6);
 
                                     this.completeTargetInformation(record, false);
@@ -2893,26 +3013,30 @@ namespace PRoConEvents
                     case ADKAT_CommandType.ConfirmCommand:
                         this.DebugWrite("attempting to confirm command", 6);
                         ADKAT_Record recordAttempt = null;
-                        lock (actionConfirmMutex)
+                        this.actionConfirmDic.TryGetValue(record.source_name, out recordAttempt);
+                        if (recordAttempt != null)
                         {
-                            this.actionConfirmDic.TryGetValue(record.source_name, out recordAttempt);
-                            if (recordAttempt != null)
-                            {
-                                this.DebugWrite("command found, calling processing", 6);
-                                this.cancelSourcePendingAction(record);
-                                this.queueRecordForProcessing(recordAttempt);
-                            }
-                            else
-                            {
-                                this.DebugWrite("no command to confirm", 6);
-                                this.sendMessageToSource(record, "No command to confirm.");
-                            }
+                            this.DebugWrite("command found, calling processing", 6);
+                            this.actionConfirmDic.Remove(record.source_name);
+                            this.queueRecordForProcessing(recordAttempt);
                         }
+                        else
+                        {
+                            this.DebugWrite("no command to confirm", 6);
+                            this.sendMessageToSource(record, "No command to confirm.");
+                        }
+                        //This type is not processed
                         break;
                     #endregion
                     #region CancelCommand
                     case ADKAT_CommandType.CancelCommand:
-                        this.cancelSourcePendingAction(record);
+                        this.DebugWrite("attempting to cancel command", 6);
+                        if (!this.actionConfirmDic.Remove(record.source_name))
+                        {
+                            this.DebugWrite("no command to cancel", 6);
+                            this.sendMessageToSource(record, "No command to cancel.");
+                        }
+                        //This type is not processed
                         break;
                     #endregion
                     default:
@@ -2934,19 +3058,19 @@ namespace PRoConEvents
                 lock (playersMutex)
                 {
                     //Check for an exact match
-                    if (currentPlayers.ContainsKey(record.target_name))
+                    if (playerDictionary.ContainsKey(record.target_name))
                     {
                         //Exact player match, call processing without confirmation
-                        record.targetPlayerInfo = this.currentPlayers[record.target_name];
+                        record.targetPlayerInfo = this.playerDictionary[record.target_name];
                         record.target_guid = record.targetPlayerInfo.GUID;
                         if (!requireConfirm)
                         {
                             //Process record right away
-                            return this.queueRecordForProcessing(record);
+                            this.queueRecordForProcessing(record);
                         }
                         else
                         {
-                            return this.confirmActionWithSource(record);
+                            this.confirmActionWithSource(record);
                         }
                     }
                     //Get all substring matches
@@ -2973,11 +3097,11 @@ namespace PRoConEvents
                         if (!requireConfirm)
                         {
                             //Process record right away
-                            return this.queueRecordForProcessing(record);
+                            this.queueRecordForProcessing(record);
                         }
                         else
                         {
-                            return this.confirmActionWithSource(record);
+                            this.confirmActionWithSource(record);
                         }
                     }
                     else if (substringMatches.Count > 1)
@@ -3061,6 +3185,7 @@ namespace PRoConEvents
                 this.ConsoleException(e.ToString());
                 return e.ToString();
             }
+            return "END OF FUNCTION";
         }
 
         public void cancelSourcePendingAction(ADKAT_Record record)
@@ -3232,7 +3357,7 @@ namespace PRoConEvents
             }
         }
 
-        private void recordActionThreadLoop()
+        private void actionHandlingThreadLoop()
         {
             try
             {
@@ -3255,7 +3380,7 @@ namespace PRoConEvents
                         {
                             this.DebugWrite("Inbound records found. Grabbing.", 6);
                             //Grab all messages in the queue
-                            unprocessedActions = this.unprocessedActionQueue().Clone();
+                            unprocessedActions = new Queue<ADKAT_Record>(this.unprocessedActionQueue.ToArray());
                             //Clear the queue for next run
                             this.unprocessedActionQueue.Clear();
                         }
@@ -3372,7 +3497,7 @@ namespace PRoConEvents
 
         public string moveTarget(ADKAT_Record record)
         {
-            this.onDeathMoveList.Add(record.targetPlayerInfo);
+            this.queuePlayerForMove(record.targetPlayerInfo);
             return this.sendMessageToSource(record, record.target_name + " will be sent to teamswap on their next death.");
         }
 
@@ -3388,7 +3513,7 @@ namespace PRoConEvents
                 {
                     message = "Calling Teamswap on self";
                     this.DebugWrite(message, 6);
-                    teamSwapPlayer(record.targetPlayerInfo);
+                    this.queuePlayerForForceMove(record.targetPlayerInfo);
                 }
                 else
                 {
@@ -3402,7 +3527,7 @@ namespace PRoConEvents
                 message = "TeamSwap called on " + record.target_name;
                 this.DebugWrite("Calling Teamswap on target", 6);
                 this.sendMessageToSource(record, "" + record.target_name + " sent to teamswap.");
-                teamSwapPlayer(record.targetPlayerInfo);
+                this.queuePlayerForForceMove(record.targetPlayerInfo);
             }
             this.DebugWrite("Exiting forceMoveTarget", 6);
 
@@ -3732,7 +3857,27 @@ namespace PRoConEvents
 
         #endregion
 
-        #region Access Checking
+        #region Player Access
+
+        private void queuePlayerForAccessUpdate(String player_name, int access_level)
+        {
+            this.DebugWrite("Preparing to queue player for access update", 6);
+            lock (playerAccessMutex)
+            {
+                this.playerAccessUpdateQueue.Enqueue(new KeyValuePair<string, int>(player_name, access_level));
+                this.DebugWrite("Player queued for access update", 6);
+            }
+        }
+
+        private void queuePlayerForAccessRemoval(String player_name)
+        {
+            this.DebugWrite("Preparing to queue player for access removal", 6);
+            lock (playerAccessMutex)
+            {
+                this.playerAccessRemovalQueue.Enqueue(player_name);
+                this.DebugWrite("Player queued for access removal", 6);
+            }
+        }
 
         private int getAccessLevel(String player_name)
         {
@@ -3771,7 +3916,7 @@ namespace PRoConEvents
 
                 Queue<ADKAT_Record> inboundRecords;
                 Queue<KeyValuePair<String, int>> inboundAccessUpdates;
-                Queue<KeyValuePair<String, int>> inboundAccessRemoval;
+                Queue<String> inboundAccessRemoval;
                 while (this.isEnabled)
                 {
                     this.DebugWrite("Entering Database Comm Thread Loop", 7);
@@ -3788,16 +3933,16 @@ namespace PRoConEvents
                         }
                         else
                         {
+                            //Reset the handle
+                            this.databaseSettingHandle.Reset();
                             //The database connection failed, wait for settings to change again
+                            this.ConsoleError("Database connection FAILED. Please update settings.");
                             this.databaseSettingHandle.WaitOne();
+                            this.DebugWrite("Settings changed, attempting new connection", 3);
                             continue;
                         }
                     }
-                    else
-                    {
-                        this.DebugWrite("No Changes in DB Settings", 7);
-                    }
-                        
+
                     //Check for new actions from the database at given interval
                     if (DateTime.Now > this.lastDBActionFetch.AddMinutes(this.dbActionFrequency))
                     {
@@ -3816,8 +3961,8 @@ namespace PRoConEvents
                         {
                             this.DebugWrite("Inbound access changes found. Grabbing.", 6);
                             //Grab all in the queue
-                            inboundAccessUpdates = this.playerAccessUpdateQueue().Clone();
-                            inboundAccessRemoval = this.playerAccessRemovalQueue().Clone();
+                            inboundAccessUpdates = new Queue<KeyValuePair<string,int>>(this.playerAccessUpdateQueue.ToArray());
+                            inboundAccessRemoval = new Queue<String>(this.playerAccessRemovalQueue.ToArray());
                             //Clear the queue for next run
                             this.playerAccessUpdateQueue.Clear();
                             this.playerAccessRemovalQueue.Clear();
@@ -3835,11 +3980,15 @@ namespace PRoConEvents
                             this.removePlayerAccess(playerName);
                         }
                         this.fetchAccessLists();
+                        //Update the setting page with new information
+                        this.updateSettingPage();
                     }
-                    else if(DateTime.Now > this.lastDBAccessFetch.AddMinutes(this.dbAccessFetchFrequency))
-                    {   
+                    else if (DateTime.Now > this.lastDBAccessFetch.AddMinutes(this.dbAccessFetchFrequency))
+                    {
                         //Handle access updates directly from the database
                         this.fetchAccessLists();
+                        //Update the setting page with new information
+                        this.updateSettingPage();
                     }
                     else
                     {
@@ -3855,7 +4004,7 @@ namespace PRoConEvents
                         {
                             this.DebugWrite("Inbound records found. Grabbing.", 6);
                             //Grab all messages in the queue
-                            inboundRecords = this.unprocessedRecordQueue().Clone();
+                            inboundRecords = new Queue<ADKAT_Record>(this.unprocessedRecordQueue.ToArray());
                             //Clear the queue for next run
                             this.unprocessedRecordQueue.Clear();
                         }
@@ -3868,7 +4017,7 @@ namespace PRoConEvents
                             {
                                 //Record already has a record ID, it can only be updated
                                 this.DebugWrite("calling update on record", 6);
-                                this.UpdateRecord(record);
+                                this.updateRecord(record);
                             }
                             else
                             {
@@ -3929,13 +4078,14 @@ namespace PRoConEvents
             }
             else
             {
-                this.ConsoleError("Attempted to connect to database without all variables in place", 2);
+                this.ConsoleError("Attempted to connect to database without all variables in place");
                 return null;
             }
         }
 
         private Boolean testDatabaseConnection()
         {
+            Boolean databaseValid = false;
             DebugWrite("testDatabaseConnection starting!", 6);
             if (this.connectionCapable())
             {
@@ -3966,11 +4116,7 @@ namespace PRoConEvents
                         {
                             //If the structure is good, fetch all access lists
                             this.fetchAccessLists();
-                            return true;
-                        }
-                        else
-                        {
-                            return false;
+                            databaseValid = true;
                         }
                     }
                 }
@@ -3978,17 +4124,17 @@ namespace PRoConEvents
                 {
                     //Invalid credentials or no connection to database
                     this.ConsoleError("Database connection FAILED with EXCEPTION. Bad credentials, invalid hostname, or invalid port.");
-                    return false;
                 }
             }
             else
             {
                 this.ConsoleWrite("Not DB connection capable yet, complete sql connection variables.");
-                return false;
             }
             //clear setting change monitor
             this.dbSettingsChanged = false;
             DebugWrite("testDatabaseConnection finished!", 6);
+
+            return databaseValid;
         }
 
         private Boolean confirmDatabaseSetup()
@@ -4121,7 +4267,7 @@ namespace PRoConEvents
 
         #endregion
 
-        #region Data 
+        #region Data
         /*
          * This method handles uploading of records and calling their action methods
          * Will only upload a record if upload setting for that command is true, or if uploading is required
@@ -4336,6 +4482,49 @@ namespace PRoConEvents
             DebugWrite("updatePlayerAccess finished!", 6);
         }
 
+        //Only command_action, record_durationMinutes, and adkats_read are allowed to be updated
+        private void updateRecord(ADKAT_Record record)
+        {
+            DebugWrite("updateRecord starting!", 6);
+
+            Boolean success = false;
+            try
+            {
+                using (MySqlConnection databaseConnection = this.getDatabaseConnection())
+                {
+                    using (MySqlCommand command = databaseConnection.CreateCommand())
+                    {
+                        //Convert enum to DB string
+                        string action = this.ADKAT_RecordTypes[record.command_action];
+                        //Set values
+                        command.CommandText = "UPDATE `" + this.mySqlDatabaseName + "`.`adkat_records` SET `command_action` = '" + action + "', `record_durationMinutes` = " + record.record_durationMinutes + ", `adkats_read` = 'Y' WHERE `record_id` = " + record.record_id;
+                        //Attempt to execute the query
+                        if (command.ExecuteNonQuery() > 0)
+                        {
+                            success = true;
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                ConsoleException(e.ToString());
+            }
+
+            string temp = this.ADKAT_RecordTypes[record.command_action];
+
+            if (success)
+            {
+                DebugWrite(temp + " UPDATE for player " + record.target_name + " by " + record.source_name + " SUCCESSFUL!", 3);
+            }
+            else
+            {
+                ConsoleError(temp + " UPDATE for player '" + record.target_name + " by " + record.source_name + " FAILED!");
+            }
+
+            DebugWrite("updateRecord finished!", 6);
+        }
+
         private Boolean canPunish(ADKAT_Record record)
         {
             DebugWrite("canPunish starting!", 6);
@@ -4348,11 +4537,11 @@ namespace PRoConEvents
                     {
                         if (this.combineServerPunishments)
                         {
-                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 30 SECOND) > NOW() order by record_time desc limit 1";
+                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 20 SECOND) > NOW() order by record_time desc limit 1";
                         }
                         else
                         {
-                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`server_id` = '" + this.server_id + "' and `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 30 SECOND) > NOW() order by record_time desc limit 1";
+                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`server_id` = '" + this.server_id + "' and `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 20 SECOND) > NOW() order by record_time desc limit 1";
                         }
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
@@ -4377,11 +4566,9 @@ namespace PRoConEvents
             return false;
         }
 
-        private int fetchPoints(string player_guid)
+        private Boolean isDoubleCounted(ADKAT_Record record)
         {
-            DebugWrite("fetchPoints starting!", 6);
-
-            int returnVal = -1;
+            DebugWrite("isDoubleCounted starting!", 6);
 
             try
             {
@@ -4391,18 +4578,22 @@ namespace PRoConEvents
                     {
                         if (this.combineServerPunishments)
                         {
-                            command.CommandText = "SELECT playername, playerguid, totalpoints FROM `" + this.mySqlDatabaseName + "`.`adkat_playerpoints` WHERE `playerguid` = '" + player_guid + "'";
+                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 5 MINUTE) > NOW() order by record_time desc limit 1";
                         }
                         else
                         {
-                            command.CommandText = "SELECT playername, playerguid, totalpoints FROM `" + this.mySqlDatabaseName + "`.`adkat_playerpoints` WHERE `playerguid` = '" + player_guid + "' AND `serverid` = " + this.server_id;
+                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`server_id` = '" + this.server_id + "' and `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 5 MINUTE) > NOW() order by record_time desc limit 1";
                         }
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
                             if (reader.Read())
                             {
-                                DebugWrite("getPoints found records for player " + reader.GetString("playername") + "!", 5);
-                                returnVal = reader.GetInt32("totalpoints");
+                                this.DebugWrite("Is double counted", 6);
+                                return true;
+                            }
+                            else
+                            {
+                                return false;
                             }
                         }
                     }
@@ -4412,141 +4603,8 @@ namespace PRoConEvents
             {
                 DebugWrite(e.ToString(), 3);
             }
-
-            DebugWrite("fetchPoints finished!", 6);
-
-            return returnVal;
-        }
-
-        private void fetchAccessLists()
-        {
-            DebugWrite("fetchAccessList starting!", 6);
-
-            Boolean success = false;
-            Dictionary<string, int> tempAccessCache = new Dictionary<string, int>();
-            try
-            {
-                using (MySqlConnection databaseConnection = this.getDatabaseConnection())
-                {
-                    List<string> namesToGUIDUpdate = new List<string>();
-                    using (MySqlCommand command = databaseConnection.CreateCommand())
-                    {
-                        command.CommandText = "SELECT `player_name`, `player_guid`, `access_level` FROM `" + this.mySqlDatabaseName + "`.`adkat_accesslist` ORDER BY `access_level` ASC";
-                        using (MySqlDataReader reader = command.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                success = true;
-                                string playerName = reader.GetString("player_name");
-                                string playerGuid = reader.GetString("player_guid");
-                                int accessLevel = reader.GetInt32("access_level");
-                                tempAccessCache.Add(playerName, accessLevel);
-                                if (playerGuid == "WAITING ON USE FOR GUID" && this.currentPlayers.ContainsKey(playerName))
-                                {
-                                    namesToGUIDUpdate.Add(playerName);
-                                }
-                                DebugWrite("Admin found: " + playerName, 6);
-                            }
-                        }
-                    }
-                    if (namesToGUIDUpdate.Count > 0)
-                    {
-                        using (MySqlCommand command = databaseConnection.CreateCommand())
-                        {
-                            command.CommandText = "";
-                            foreach (string player_name in namesToGUIDUpdate)
-                            {
-                                this.DebugWrite("Updating GUID for " + player_name, 6);
-                                command.CommandText += "UPDATE `" + this.mySqlDatabaseName + "`.`adkat_accesslist` SET `player_guid` = '" + this.currentPlayers[player_name] + "' WHERE `player_name` = '" + player_name + "'; ";
-                            }
-                            //Attempt to execute the query
-                            if (command.ExecuteNonQuery() > 0)
-                            {
-                                success = true;
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                DebugWrite(e.ToString(), 3);
-            }
-            if (success)
-            {
-                //Update the access cache
-                this.playerAccessCache = tempAccessCache;
-                //Update the last update time
-                this.lastAccessListUpdate = DateTime.Now;
-                ConsoleWrite("Admin List Fetched from Database. Admin Count: " + this.playerAccessCache.Count);
-            }
-            else
-            {
-                ConsoleError("No admins in the admin table.");
-            }
-
-            //Fetch the admin assistants now
-            this.fetchAdminAssistants();
-
-            DebugWrite("fetchAccessList finished!", 6);
-        }
-
-        private void fetchAdminAssistants()
-        {
-            DebugWrite("fetchAdminAssistants starting!", 6);
-
-            Boolean success = false;
-            Dictionary<string, Boolean> tempAssistantCache = new Dictionary<string, Boolean>();
-            try
-            {
-                using (MySqlConnection databaseConnection = this.getDatabaseConnection())
-                {
-                    using (MySqlCommand command = databaseConnection.CreateCommand())
-                    {
-                        command.CommandText = @"
-                        SELECT `player_name` 
-                        FROM `adkat_playerlist` 
-                        WHERE (
-                          SELECT count(`command_action`) 
-	                        FROM `" + this.mySqlDatabaseName + @"`.`adkat_records` 
-	                        WHERE `command_action` = 'ConfirmReport' 
-	                        AND `source_name` = `player_name` 
-	                        AND (`adkat_records`.`record_time` BETWEEN date_sub(now(),INTERVAL 7 DAY) AND now())
-                        ) > " + this.minimumRequiredWeeklyReports;
-
-                        using (MySqlDataReader reader = command.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                success = true;
-                                string playerName = reader.GetString("player_name");
-                                tempAssistantCache.Add(playerName, true);
-                                DebugWrite("Assistant found: " + playerName, 6);
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                DebugWrite(e.ToString(), 3);
-            }
-
-            if (success)
-            {
-                //Update the access cache
-                this.adminAssistantCache = tempAssistantCache;
-                if (this.enableAdminAssistants)
-                {
-                    ConsoleWrite("Admin Assistant List Fetched from Database. Assistant Count: " + this.adminAssistantCache.Count);
-                }
-            }
-            else
-            {
-                ConsoleWrite("There are currently no admin assistants.");
-            }
-
-            DebugWrite("fetchAdminAssistants finished!", 6);
+            DebugWrite("ERROR in isDoubleCounted!", 6);
+            return false;
         }
 
         private void runActionsFromDB()
@@ -4554,6 +4612,7 @@ namespace PRoConEvents
             DebugWrite("runActionsFromDB starting!", 6);
             try
             {
+                List<ADKAT_Record> recordsProcessed = new List<ADKAT_Record>();
                 using (MySqlConnection databaseConnection = this.getDatabaseConnection())
                 {
                     using (MySqlCommand command = databaseConnection.CreateCommand())
@@ -4564,6 +4623,7 @@ namespace PRoConEvents
                             Boolean actionsMade = false;
                             while (reader.Read())
                             {
+                                DebugWrite("getPoints found actions for player " + reader.GetString("target_name") + "!", 5);
                                 ADKAT_Record record = new ADKAT_Record();
                                 record.command_source = ADKAT_CommandSource.Database;
                                 record.record_id = reader.GetInt32("record_id");
@@ -4593,10 +4653,76 @@ namespace PRoConEvents
                                 record.record_message = reader.GetString("record_message");
                                 record.record_time = reader.GetDateTime("record_time");
                                 record.record_durationMinutes = reader.GetInt32("record_durationMinutes");
-                                lock (unprocessedActionMutex)
-                                {
-                                    this.unprocessedActionQueue.Enqueue(record);
-                                }
+                                this.runAction(record);
+                                recordsProcessed.Add(record);
+                                actionsMade = true;
+                            }
+                            //close and return if no actions were taken
+                            if (!actionsMade)
+                            {
+                                databaseConnection.Close();
+                                return;
+                            }
+                        }
+                    }
+                }
+                foreach (ADKAT_Record record in recordsProcessed)
+                {
+                    this.updateRecord(record);
+                }
+            }
+            catch (Exception e)
+            {
+                DebugWrite(e.ToString(), 3);
+            }
+        }
+
+        private int fetchPoints(string player_guid)
+        {
+            DebugWrite("fetchPoints starting!", 6);
+
+            int returnVal = -1;
+
+            try
+            {
+                using (MySqlConnection databaseConnection = this.getDatabaseConnection())
+                {
+                    using (MySqlCommand command = databaseConnection.CreateCommand())
+                    {
+                        if (this.combineServerPunishments)
+                        {
+                            command.CommandText = @"SELECT 
+                                                (SELECT count(`adkat_records`.`target_guid`) 
+	                                                FROM `adkat_records` 
+	                                                WHERE   `adkat_records`.`command_type` = 'Punish' 
+		                                                AND `adkat_records`.`target_guid` = @player_guid) - 
+                                                (SELECT count(`adkat_records`.`target_guid`)
+	                                                FROM `adkat_records`
+	                                                WHERE   `adkat_records`.`command_type` = 'Forgive'
+		                                                AND `adkat_records`.`target_guid` = @player_guid) as `totalpoints`";
+                            command.Parameters.AddWithValue("@player_guid", player_guid);
+                        }
+                        else
+                        {
+                            command.CommandText = @"SELECT 
+                                                (SELECT count(`adkat_records`.`target_guid`) 
+	                                                FROM `adkat_records` 
+	                                                WHERE   `adkat_records`.`command_type` = 'Punish' 
+		                                                AND `adkat_records`.`target_guid` = @player_guid 
+		                                                AND `adkat_records`.`server_id` = @server_id) - 
+                                                (SELECT count(`adkat_records`.`target_guid`)
+	                                                FROM `adkat_records`
+	                                                WHERE   `adkat_records`.`command_type` = 'Forgive'
+		                                                AND `adkat_records`.`target_guid` = @player_guid
+		                                                AND `adkat_records`.`server_id` = @server_id) as `totalpoints`";
+                            command.Parameters.AddWithValue("@player_guid", player_guid);
+                            command.Parameters.AddWithValue("@server_id", this.server_id);
+                        }
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                returnVal = reader.GetInt32("totalpoints");
                             }
                         }
                     }
@@ -4606,6 +4732,138 @@ namespace PRoConEvents
             {
                 DebugWrite(e.ToString(), 3);
             }
+
+            DebugWrite("fetchPoints finished!", 6);
+
+            return returnVal;
+        }
+
+        private void fetchAccessList()
+        {
+            DebugWrite("fetchAccessList starting!", 6);
+
+            Boolean success = false;
+            Dictionary<string, int> tempAccessCache = new Dictionary<string, int>();
+            try
+            {
+                using (MySqlConnection databaseConnection = this.getDatabaseConnection())
+                {
+                    List<string> namesToGUIDUpdate = new List<string>();
+                    using (MySqlCommand command = databaseConnection.CreateCommand())
+                    {
+                        command.CommandText = "SELECT `player_name`, `player_guid`, `access_level` FROM `" + this.mySqlDatabaseName + "`.`adkat_accesslist` ORDER BY `access_level` ASC";
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                success = true;
+                                string playerName = reader.GetString("player_name");
+                                string playerGuid = reader.GetString("player_guid");
+                                int accessLevel = reader.GetInt32("access_level");
+                                tempAccessCache.Add(playerName, accessLevel);
+                                if (!Regex.Match(playerGuid, "EA_").Success && this.currentPlayers.ContainsKey(playerName))
+                                {
+                                    namesToGUIDUpdate.Add(playerName);
+                                }
+                                DebugWrite("Admin found: " + playerName, 6);
+                            }
+                        }
+                    }
+                    if (namesToGUIDUpdate.Count > 0)
+                    {
+                        using (MySqlCommand command = databaseConnection.CreateCommand())
+                        {
+                            command.CommandText = "";
+                            foreach (string player_name in namesToGUIDUpdate)
+                            {
+                                this.DebugWrite("Updating GUID for " + player_name, 6);
+                                command.CommandText += "UPDATE `" + this.mySqlDatabaseName + "`.`adkat_accesslist` SET `player_guid` = '" + this.currentPlayers[player_name].GUID + "' WHERE `player_name` = '" + player_name + "'; ";
+                            }
+                            //Attempt to execute the query
+                            if (command.ExecuteNonQuery() > 0)
+                            {
+                                success = true;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                DebugWrite(e.ToString(), 3);
+            }
+            if (success)
+            {
+                //Update the access cache
+                this.playerAccessCache = tempAccessCache;
+                //Update the last update time
+                this.lastAccessListUpdate = DateTime.Now;
+                ConsoleWrite("Admin List Fetched from Database. Admin Count: " + this.playerAccessCache.Count);
+            }
+            else
+            {
+                ConsoleError("No admins in the admin table.");
+            }
+
+            DebugWrite("fetchAccessList finished!", 6);
+        }
+
+        private void fetchAdminAssistants()
+        {
+            DebugWrite("fetchAdminAssistants starting!", 6);
+
+            Boolean success = false;
+            Dictionary<string, Boolean> tempAssistantCache = new Dictionary<string, Boolean>();
+            try
+            {
+                using (MySqlConnection databaseConnection = this.getDatabaseConnection())
+                {
+                    using (MySqlCommand command = databaseConnection.CreateCommand())
+                    {
+                        command.CommandText = @"
+                        SELECT `player_name` 
+                        FROM `adkat_playerlist` 
+                        WHERE (
+	                        SELECT count(`command_action`) 
+	                        FROM `" + this.mySqlDatabaseName + @"`.`adkat_records` 
+	                        WHERE `command_action` = 'ConfirmReport' 
+	                        AND `source_name` = `player_name` 
+	                        AND (`adkat_records`.`record_time` BETWEEN date_sub(now(),INTERVAL 7 DAY) AND now())
+                        ) > " + this.minimumRequiredWeeklyReports;
+
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                success = true;
+                                string playerName = reader.GetString("player_name");
+                                tempAssistantCache.Add(playerName, false);
+                                DebugWrite("Assistant found: " + playerName, 6);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                DebugWrite(e.ToString(), 3);
+            }
+
+            if (success)
+            {
+                //Update the access cache
+                this.adminAssistantCache = tempAssistantCache;
+                if (this.enableAdminAssistants)
+                {
+                    ConsoleWrite("Admin Assistant List Fetched from Database. Assistant Count: " + this.adminAssistantCache.Count);
+                }
+            }
+            else
+            {
+                ConsoleWrite("There are currently no admin assistants.");
+            }
+
+            DebugWrite("fetchAdminAssistants finished!", 6);
         }
 
         #endregion
@@ -4931,6 +5189,12 @@ namespace PRoConEvents
 
         #region Helper Methods and Classes
 
+        //Calling this method will make the settings window refresh with new data
+        public void updateSettingPage()
+        {
+            this.ExecuteCommand("procon.protected.plugins.setVariable", "AdKats", "UpdateSettings", "Update");
+        }
+
         //Credit to Micovery and PapaCharlie9 for modified Levenshtein Distance algorithm 
         public static int LevenshteinDistance(string s, string t)
         {
@@ -4972,6 +5236,23 @@ namespace PRoConEvents
             }
             this.DebugWrite("Num params: " + parameters.Count, 6);
             return parameters.ToArray();
+        }
+
+        public void JoinWith(Thread thread, int secs)
+        {
+            if (thread == null || !thread.IsAlive)
+                return;
+
+            DebugWrite("Waiting for ^b" + thread.Name + "^n to finish", 3);
+            thread.Join(secs * 1000);
+        }
+
+        public void JoinWith(Thread thread)
+        {
+            if (thread == null || !thread.IsAlive)
+                return;
+
+            JoinWith(thread, 3);
         }
 
         public class ADKAT_Record
