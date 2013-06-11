@@ -1,8 +1,8 @@
-<h2 style="color:#FF0000;">Version 0.2.5.0 released! Your version is listed above (Procon Only).</h2>
-New in version 0.2.5.0 at the bottom of this document. Download link available.
+<h2 style="color:#FF0000;">Version 0.2.7.0 released! Your version is listed above (Procon Only).</h2>
+New in version 0.2.7.0 at the bottom of this document. Download link available.
 <h1>AdKats</h1>
 <p>
-A MySQL reflected admin toolset that includes editable in-game commands, an out-of-game controller, database 
+A Threaded, MySQL reflected admin toolset that includes editable in-game commands, an out-of-game controller, database 
 reflected punishment and forgiveness, proper player report and admin call handling, player name completion, 
 player muting, yell/say pre-recording, and internal implementation of TeamSwap.<br/><br/>
 
@@ -11,7 +11,7 @@ Visit the tool's github page
 to submit bugs or wanted features.<br/><br/>
 
 Download the latest version here: 
-<a href="http://sourceforge.net/projects/adkats/files/" target="_blank">Version 2.5</a>
+<a href="http://sourceforge.net/projects/adkats/files/AdKats_v0.2.7.0.zip/download" target="_blank">Version 2.7.0</a>
 </p>
 <h2>Features</h2>
 <h3>Main</h3>
@@ -34,8 +34,10 @@ this basic formula:<br/>
 <b>(Punishment Count - Forgiveness Count = Total Points)</b></center><br/>
 Then an action is decided using total points from the punishment hierarchy. Punishments should get more harsh as the
 player gets more points. A player cannot be punished more than once every 30 seconds, this prevents multiple admins from 
-accidentally punishing a player multiple times for the same thing. The punishment hierarchy is configurable to suit 
-your needs, but the default is below.<br/>
+accidentally punishing a player multiple times for the same thing. When a player is punished, and has already been 
+punished in the past 5 minutes, the new punish counts for 2 points instead of 1, as the player is immediately breaking 
+server rules after being punished. The punishment hierarchy is configurable to suit your needs, but the default is 
+below.<br/>
 
 <table>
 	<tr>
@@ -90,7 +92,7 @@ your needs, but the default is below.<br/>
 
 Players may also be 'forgiven', which will reduce their total point value by 1 each time, this is useful if you have a
 website where players can apologize for their actions in-game. Players can be forgiven into negative total point values 
-which is why a 'less than 1' clause is needed.<br/><br/>
+which is why a 'less than 1' clause is needed. <br/><br/>
 
 You can run multiple servers with this plugin on the same database, just use different serverIDs for each 
 one in plugin settings. If you want punishments to increase on this server when infractions are commited on others set 
@@ -138,11 +140,14 @@ being muted will be killed each time they talk (up through 5 chat messages), on 
 the server. No action other than kill or kick is used by this system. There will be no way to un-mute players, there 
 was a reason they were muted, and they can talk again next round. Admins cannot mute other admins.
 </p>
-<h3>Pre-Yell and Pre-Say</h3>
+<h3>Pre-Messaging</h3>
 <p>
 A list of editable pre-defined messages can be added in settings, then admins can use the message ID instead of typing 
-the whole message in. Example: @presay 2 will call the second pre-defined message, admin is asked to confirm the message 
-with @yes to make sure it's the one they wanted.
+the whole message in. Example: @say 2 will call the second pre-defined message.<br/><br/>
+
+Use @whatis [preMessageID] to find out what a particular ID links to before using it in commands.<br/><br/>
+
+<b>Anywhere a reason or message is needed, a preMessage ID can be used instead.</b>
 </p>
 <h3>TeamSwap</h3>
 <p>
@@ -262,33 +267,28 @@ especially when you have to hold 40+ admins accountable, and has not caused any 
 	</tr>
 	<tr>
 		<td><b>Admin Say</b></td>
-		<td>[message]</td>
+		<td>[message]<br/>OR<br/>[preMessageID]</td>
 		<td>The in-game command used to send a message through admin chat to the whole server.</td>
 	</tr>
 	<tr>
 		<td><b>Admin Yell</b></td>
-		<td>[message]</td>
+		<td>[message]<br/>OR<br/>[preMessageID]</td>
 		<td>The in-game command used for to send a message through admin yell to the whole server.</td>
 	</tr>
 	<tr>
 		<td><b>Player Say</b></td>
-		<td>[player][message]</td>
+		<td>[player][message]<br/>OR<br/>[player][preMessageID]</td>
 		<td>The in-game command used for sending a message through admin chat to only a specific player.</td>
 	</tr>
 	<tr>
 		<td><b>Player Yell</b></td>
-		<td>[player][message]</td>
+		<td>[player][message]<br/>OR<br/>[player][preMessageID]</td>
 		<td>The in-game command used for sending a message through admin yell to only a specific player.</td>
 	</tr>
 	<tr>
-		<td><b>Pre-Say</b></td>
-		<td>[messageID]</td>
-		<td>The in-game command used for sending a pre-defined message as an Admin Say.</td>
-	</tr>
-	<tr>
-		<td><b>Pre-Yell</b></td>
-		<td>[messageID]</td>
-		<td>The in-game command used for sending a pre-defined message as an Admin Yell.</td>
+		<td><b>What Is</b></td>
+		<td>[preMessageID]</td>
+		<td>The in-game command used for finding out what a particular preMessage ID links to.</td>
 	</tr>
 	<tr>
 		<td><b>Restart Level</b></td>
@@ -571,8 +571,8 @@ Valid 'command_type's that can be acted on include the following:<br/>
 </ul>
 <h3>3. Player Access Settings:</h3>
 <ul>
-  <li><b>'Add Access'</b> - The integer time in seconds that yell messages will be displayed.<br/></li>
-  <li><b>'Remove Access'</b> - The integer time in seconds that yell messages will be displayed.<br/></li>
+  <li><b>'Add Access'</b> - Add a player to the access list by entering their exact IGN here.<br/></li>
+  <li><b>'Remove Access'</b> - Remove a player already on the access list by typing their exact IGN here.<br/></li>
   <li><b>*PlayerName*</b> - Players in the current database access list are appeneded here with their access level.</li>
 </ul> 
 <h3>4. In-Game Command Settings:</h3>
@@ -630,47 +630,13 @@ Valid 'command_type's that can be acted on include the following:<br/>
   <li><b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step. Don't edit unless you really wanna be spammed with console logs, it will also slow down the plugin when turned up.</li>
   <li><b>'Command Entry'</b> - Enter commands here just like in game, mainly for debug purposes. Don't let more than one person use this at any time.</li>
 </ul>
-<h2>New in Version 0.2.5.0</h3>
+<h2>New in Version 0.2.7.0</h3>
 <p>
 <ul>
-  <li><b>Admin List GUI.</b> You can now modify the database reflected admin list through AdKats 
-  settings. You can edit who the admins are, and what level of access they have, without needing to access the database 
-  manually. All instances of the plugin on your database will reflect the admins you enter.</li>
-  <li><b>Admins now have multiple levels of access.</b> They range from full admin (0) to normal player (6). List of 
-  commands for each level is given below. Admins can issue commands at or below their level. All commands on an admin's 
-  access level can be used on other admins of any level with the exception of muting.</li>
-  <li><b>Commands now have levels of access.</b> Admins need to be at or above certain levels of access to use certain 
-  commands.</li>
-  <li><b>HTTP Server Online.</b> Commands can now be sent to AdKats using procon's internal HTTP server, or through the 
-  database. Info given below on security of this system.</li>
-  <li><b>Player name suggestion system improved.</b> System now considers player names starting with what was typed more 
-  correct than those with it just somewhere in their name. System will also perform a "fuzzy" player-name search if the 
-  text admins entered is not valid for any players.</li>
-  <li><b>Ghost Commands Fixed.</b> Commands admins send but don't confirm will be auto-canceled if they move on to other 
-  things. This stops unwanted commands from being acted on after the fact.</li>
-  <li><b>TeamSwap can now auto-whitelist X random players in the server each round.</b> The random list is changed each 
-  round. Use this to generate hype for players to get full access to teamswap. Players are told the first time they 
-  spawn that they have access. Players who already have access are not added to the auto-whitelist.</li>
-  <li><b>Player report logging improved.</b> Whether a report was used by an admin is now logged.</li>
-  <li><b>"Admin Assistant" position added.</b> Players who consistently send useful player reports get a small bonus. 
-  Details below. This can be disabled.</li>
-  <li><b>Round Report Handling Improved.</b> Handling changed so admins can enter new reasons that override the report 
-  reason. The new reason entered will be used instead, and must follow the requirements for a reason defined in 
-  settings.</li>
-  <li><b>Pre-defined messages usable in all commands.</b> All player interaction commands (not say or yell), will 
-  accept preMessageIDs as input for reasons now. e.g. @kill charlietheunicorn 4 --> 
-  charlietheunicorn killed for Baseraping Enemy Spawn Area.</li>
-  <li><b>Server IDs can be different now, yet still have punishments increase across servers.</b> Now the origin of 
-  reports wont show as coming from the same server, since same server ID was required before for global punishments.</li>
-  <li><b>Added new commands.</b> Kick all Players, and Nuke Server.</li>
-  <li><b>Commands can now operate in shortened hidden mode.</b> When commands are issued in hidden mode they normally 
-  require an extra character. e.g. /@kill target reason. They now work with just the slash. e.g. /kill target reason. 
-  </li>
-  <li><b>Commands will target the speaker when entered with no parameters.</b> Most player interaction commands will 
-  now target the speaker when entered with no parameters. So "@kill" == "@kill SourcePlayerName Self-Inflicted". Report 
-  and call admin will not do this, in addition to commands meant for targeting multiple players.</li>
-  <li><b>Additional ban message option added.</b> e.g. Optionally add "appeal at www.yoursite.com" to the end of bans.</li>
-  <li><b>30 seconds now hardcoded as punishment timeout.</b> Setting was only editable for testing purposes.</li>
-  <li><b>Optimizations in code, database, and settings handling.</b></li>
+  <li><b>Performance.</b> All actions, parsing, and database communications take place on their own threads now, 
+  increasing performance greatly. Even most complicated DB active commands complete in less than 100ms now, under 
+  full server load.</li>
+  <li><b>Small bug-fixes and enhancements.</b> Messages for errors, player information, and commands, are more 
+  informative to the users now. Small bugs fixed.</li>
 </ul>
 </p>
