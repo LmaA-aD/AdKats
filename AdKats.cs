@@ -161,10 +161,12 @@ namespace PRoConEvents
         private string mySqlUsername;
         private string mySqlPassword;
         //frequency in seconds to fetch at
-        private DateTime lastDBActionFetch = DateTime.Now;
-        private int dbActionFrequency = 10;
         private DateTime lastDBAccessFetch = DateTime.Now;
         private int dbAccessFetchFrequency = 300;
+        //Action fetch from database settings
+        private Boolean fetchActionsFromDB = false;
+        private DateTime lastDBActionFetch = DateTime.Now;
+        private int dbActionFrequency = 10;
 
         //current ban type
         private string m_strBanTypeOption = "Frostbite - EA GUID";
@@ -320,6 +322,7 @@ namespace PRoConEvents
         EventWaitHandle listPlayersHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
         EventWaitHandle messageParsingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
         EventWaitHandle commandParsingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        EventWaitHandle dbCommHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
         EventWaitHandle actionHandlingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
 
         //Threading Queues
@@ -641,7 +644,8 @@ namespace PRoConEvents
                 }
 
                 //External Command Settings
-                lstReturn.Add(new CPluginVariable("A12. HTTP Command Settings|External Access Key", typeof(string), this.externalCommandAccessKey));
+                lstReturn.Add(new CPluginVariable("A12. External Command Settings|HTTP External Access Key", typeof(string), this.externalCommandAccessKey));
+                lstReturn.Add(new CPluginVariable("A12. External Command Settings|Fetch Actions from Database", typeof(Boolean), this.fetchActionsFromDB));
 
                 //Debug settings
                 lstReturn.Add(new CPluginVariable("A13. Debugging|Debug level", typeof(int), this.debugLevel));
@@ -697,6 +701,13 @@ namespace PRoConEvents
             else if (Regex.Match(strVariable, @"External Access Key").Success)
             {
                 this.externalCommandAccessKey = strValue;
+            }
+            else if (Regex.Match(strVariable, @"Fetch Actions from Database").Success)
+            {
+                if (fetchActionsFromDB = Boolean.Parse(strValue))
+                {
+                    this.dbCommHandle.Set();
+                }
             }
             #endregion
             #region server settings
@@ -1477,7 +1488,7 @@ namespace PRoConEvents
                         this.listPlayersHandle.Set();
                         this.messageParsingHandle.Set();
                         this.commandParsingHandle.Set();
-                        //no command processing handle
+                        this.dbCommHandle.Set();
                         this.actionHandlingHandle.Set();
 
                         //Join all threads
@@ -1833,8 +1844,8 @@ namespace PRoConEvents
                 {
                     this.DebugWrite("Entering TeamSwap Thread Loop", 7);
 
-                    //Sleep for 5 seconds
-                    Thread.Sleep(100);
+                    //Sleep for 10ms
+                    Thread.Sleep(10);
 
                     //Call List Players
                     this.listPlayersHandle.Reset();
@@ -2017,7 +2028,7 @@ namespace PRoConEvents
             {
                 this.unprocessedRecordQueue.Enqueue(record);
                 this.DebugWrite("Record queued for processing", 6);
-                //No need to set handle here. Database comm thread does not wait.
+                this.dbCommHandle.Set();
             }
         }
 
@@ -2030,8 +2041,9 @@ namespace PRoConEvents
                 while (this.isEnabled)
                 {
                     this.DebugWrite("Entering Parsing Thread Loop", 7);
-                    //Sleep for 1 second, reduce for production
-                    Thread.Sleep(100);
+
+                    //Sleep for 10ms
+                    Thread.Sleep(10);
 
                     //Get all unparsed inbound messages
                     Queue<KeyValuePair<String, String>> unparsedCommands;
@@ -3448,14 +3460,15 @@ namespace PRoConEvents
                 while (this.isEnabled)
                 {
                     this.DebugWrite("Entering Action Thread Loop", 7);
-                    //Sleep for 1 second, reduce for production
-                    Thread.Sleep(100);
+
+                    //Sleep for 10ms
+                    Thread.Sleep(10);
 
                     //Handle Inbound Records
                     if (this.unprocessedActionQueue.Count > 0)
                     {
                         this.DebugWrite("Preparing to lock inbound action queue to retrive new action records", 7);
-                        lock (unprocessedRecordMutex)
+                        lock (unprocessedActionMutex)
                         {
                             this.DebugWrite("Inbound records found. Grabbing.", 6);
                             //Grab all messages in the queue
@@ -3973,6 +3986,7 @@ namespace PRoConEvents
             {
                 this.playerAccessUpdateQueue.Enqueue(new KeyValuePair<string, int>(player_name, access_level));
                 this.DebugWrite("Player queued for access update", 6);
+                this.dbCommHandle.Set();
             }
         }
 
@@ -3983,6 +3997,7 @@ namespace PRoConEvents
             {
                 this.playerAccessRemovalQueue.Enqueue(player_name);
                 this.DebugWrite("Player queued for access removal", 6);
+                this.dbCommHandle.Set();
             }
         }
 
@@ -4032,8 +4047,9 @@ namespace PRoConEvents
                 while (this.isEnabled)
                 {
                     this.DebugWrite("Entering Database Comm Thread Loop", 7);
-                    //Sleep for 100ms
-                    Thread.Sleep(100);
+
+                    //Sleep for 10ms
+                    Thread.Sleep(10);
 
                     //Check if database connection settings have changed
                     if (this.dbSettingsChanged)
@@ -4055,7 +4071,7 @@ namespace PRoConEvents
                     }
 
                     //Check for new actions from the database at given interval
-                    if (DateTime.Now > this.lastDBActionFetch.AddSeconds(this.dbActionFrequency))
+                    if (this.fetchActionsFromDB && (DateTime.Now > this.lastDBActionFetch.AddSeconds(this.dbActionFrequency)))
                     {
                         this.runActionsFromDB();
                     }
@@ -4146,6 +4162,17 @@ namespace PRoConEvents
                     else
                     {
                         this.DebugWrite("No inbound records.", 7);
+                        this.dbCommHandle.Reset();
+                        if (!this.fetchActionsFromDB)
+                        {
+                            //Can only pause this thread infinitely if we aren't waiting for database input
+                            this.dbCommHandle.WaitOne(Timeout.Infinite);
+                        }
+                        else
+                        {
+                            //If waiting on DB input, the maximum time we can wait is "db action frequency"
+                            this.dbCommHandle.WaitOne(this.dbActionFrequency * 1000);
+                        }
                     }
                 }
                 this.DebugWrite("Ending Database Comm Thread", 2);
