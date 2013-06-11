@@ -1,4 +1,4 @@
-<h2 style="color:#FF0000;">Version 0.2.7.0 released! Your version is listed above (Procon Only).</h2>
+<h2 style="color:#00FF33;">Version 0.2.7.0 released! Your version is listed above (Procon Only).</h2>
 New in version 0.2.7.0 at the bottom of this document. Download link available.
 <h1>AdKats</h1>
 <p>
