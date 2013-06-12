@@ -1411,6 +1411,30 @@ namespace PRoConEvents
 
         #region Threading
 
+        public void InitWaitHandles()
+        {
+            this.databaseSettingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            this.teamswapHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            this.listPlayersHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            this.messageParsingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            this.commandParsingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            this.dbCommHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            this.actionHandlingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+
+            this.setAllHandles();
+        }
+
+        public void setAllHandles()
+        {
+            this.databaseSettingHandle.Set();
+            this.teamswapHandle.Set();
+            this.listPlayersHandle.Set();
+            this.messageParsingHandle.Set();
+            this.commandParsingHandle.Set();
+            this.dbCommHandle.Set();
+            this.actionHandlingHandle.Set();
+        }
+
         public void InitThreads()
         {
             try
@@ -1443,6 +1467,37 @@ namespace PRoConEvents
             this.TeamSwapThread.Start();
         }
 
+        public Boolean allThreadsWaiting()
+        {
+            Boolean waiting = true;
+            if (this.teamswapHandle.WaitOne(0))
+            {
+                this.DebugWrite("teamswap not waiting.", 6);
+                waiting = false;
+            }
+            if (this.messageParsingHandle.WaitOne(0))
+            {
+                this.DebugWrite("messaging not waiting.", 6);
+                waiting = false;
+            }
+            if (this.commandParsingHandle.WaitOne(0))
+            {
+                this.DebugWrite("command parsing not waiting.", 6);
+                waiting = false;
+            }
+            if (this.dbCommHandle.WaitOne(0))
+            {
+                this.DebugWrite("db comm not waiting.", 6);
+                waiting = false;
+            }
+            if (this.actionHandlingHandle.WaitOne(0))
+            {
+                this.DebugWrite("action handling not waiting.", 6);
+                waiting = false;
+            }
+            return waiting;
+        }
+
         #endregion
 
         #region Procon Events
@@ -1459,12 +1514,49 @@ namespace PRoConEvents
                 ConsoleError("Cannot enable plugin while it is finalizing");
                 return;
             }
-            this.isEnabled = true;
-            this.ConsoleWrite("^b^2Enabled!^n^0 Version: " + this.GetPluginVersion());
+            try
+            {
+                Thread Activator = new Thread(new ThreadStart(delegate()
+                {
+                    try
+                    {
+                        ConsoleWrite("Enabling command functionality. Please Wait.");
+                        Thread.Sleep(1000);
 
-            //Init and start all the threads
-            this.InitThreads();
-            this.StartThreads();
+                        //Init and start all the threads
+                        this.InitWaitHandles();
+                        this.InitThreads();
+                        this.StartThreads();
+
+                        this.isEnabled = true;
+                        DateTime startTime = DateTime.Now;
+                        TimeSpan duration = TimeSpan.MinValue;
+                        do
+                        {
+                            Thread.Sleep(1000);
+                            duration = DateTime.Now.Subtract(startTime);
+                            if (duration.Seconds > 5)
+                            {
+                                this.ConsoleError("Failed to enable in 5 seconds. Shutting down.");
+                                this.ExecuteCommand("procon.protected.plugins.enable", "AdKats", "False");
+                                return;
+                            }
+                        } while (!this.allThreadsWaiting() );
+                        this.ConsoleWrite("^b^2Enabled!^n^0 Version: " + this.GetPluginVersion() + " in " + duration.Seconds + "sec.");
+                    }
+                    catch (Exception e)
+                    {
+                        ConsoleException(e.ToString());
+                    }
+                }));
+
+                //Start the thread
+                Activator.Start();
+            }
+            catch (Exception e)
+            {
+                ConsoleException(e.ToString());
+            }
         }
 
         public void OnPluginDisable()
@@ -1482,13 +1574,7 @@ namespace PRoConEvents
                         this.isEnabled = false;
 
                         //Open all handles
-                        this.databaseSettingHandle.Set();
-                        this.teamswapHandle.Set();
-                        this.listPlayersHandle.Set();
-                        this.messageParsingHandle.Set();
-                        this.commandParsingHandle.Set();
-                        this.dbCommHandle.Set();
-                        this.actionHandlingHandle.Set();
+                        this.setAllHandles();
 
                         //Join all threads
                         JoinWith(this.MessagingThread);
@@ -5382,9 +5468,11 @@ namespace PRoConEvents
                 DebugWrite("^b" + thread.Name + "^n unable to end.", 3);
                 return;
             }
-
-            DebugWrite("Waiting for ^b" + thread.Name + "^n to finish", 3);
-            thread.Join(secs * 1000);
+            while (thread.IsAlive)
+            {
+                DebugWrite("Waiting for ^b" + thread.Name + "^n to finish", 3);
+                thread.Join(secs * 1000);
+            }
         }
 
         public void JoinWith(Thread thread)
