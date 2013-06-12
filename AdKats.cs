@@ -156,12 +156,12 @@ namespace PRoConEvents
         private Boolean toldCol = false;
 
         // MySQL Settings
-        private Boolean dbSettingsChanged = false;
-        private string mySqlHostname;
-        private string mySqlPort;
-        private string mySqlDatabaseName;
-        private string mySqlUsername;
-        private string mySqlPassword;
+        private volatile Boolean dbSettingsChanged = true;
+        private string mySqlHostname = "";
+        private string mySqlPort = "";
+        private string mySqlDatabaseName = "";
+        private string mySqlUsername = "";
+        private string mySqlPassword = "";
         //frequency in seconds to fetch at
         private DateTime lastDBAccessFetch = DateTime.Now;
         private int dbAccessFetchFrequency = 300;
@@ -257,9 +257,9 @@ namespace PRoConEvents
         //whether to allow all players, or just players in the whitelist
         private Boolean requireTeamswapWhitelist = true;
         //the lowest ticket count of either team
-        private int lowestTicketCount = 500000;
+        private volatile int lowestTicketCount = 500000;
         //the highest ticket count of either team
-        private int highestTicketCount = 0;
+        private volatile int highestTicketCount = 0;
         //the highest ticket count of either team to allow self move
         private int teamSwapTicketWindowHigh = 500000;
         //the lowest ticket count of either team to allow self move
@@ -313,6 +313,7 @@ namespace PRoConEvents
         public Object actionConfirmMutex = new Object();
         public Object playerAccessMutex = new Object();
         public Object teamswapMutex = new Object();
+        public Object serverInfoMutex = new Object();
 
         public Object unparsedMessageMutex = new Object();
         public Object unparsedCommandMutex = new Object();
@@ -576,9 +577,10 @@ namespace PRoConEvents
             {
                 //Server Settings
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID", typeof(int), this.server_id));
-                if(this.serverInfo != null) 
+                CServerInfo info = this.getServerInfo();
+                if(info != null) 
                 {
-                    lstReturn.Add(new CPluginVariable("1. Server Settings|Server IP", typeof(string), this.serverInfo.ExternalGameIpandPort));
+                    lstReturn.Add(new CPluginVariable("1. Server Settings|Server IP", typeof(string), info.ExternalGameIpandPort));
                 }
 
                 //SQL Settings
@@ -1708,24 +1710,27 @@ namespace PRoConEvents
         {
             if (isEnabled)
             {
-                Dictionary<String, CPlayerInfo> playerDictionary = new Dictionary<String, CPlayerInfo>();
-                //Reset the player counts of both sides and recount everything
-                this.USPlayerCount = 0;
-                this.RUPlayerCount = 0;
-                foreach (CPlayerInfo player in players)
+                lock (playersMutex)
                 {
-                    if (player.TeamID == USTeamId)
+                    Dictionary<String, CPlayerInfo> playerDictionary = new Dictionary<String, CPlayerInfo>();
+                    //Reset the player counts of both sides and recount everything
+                    this.USPlayerCount = 0;
+                    this.RUPlayerCount = 0;
+                    foreach (CPlayerInfo player in players)
                     {
-                        this.USPlayerCount++;
+                        if (player.TeamID == USTeamId)
+                        {
+                            this.USPlayerCount++;
+                        }
+                        else
+                        {
+                            this.RUPlayerCount++;
+                        }
+                        playerDictionary.Add(player.SoldierName, player);
                     }
-                    else
-                    {
-                        this.RUPlayerCount++;
-                    }
-                    playerDictionary.Add(player.SoldierName, player);
+                    this.playerDictionary = playerDictionary;
+                    this.playerList = players;
                 }
-                this.playerDictionary = playerDictionary;
-                this.playerList = players;
 
                 //Set the handle for teamswap
                 this.listPlayersHandle.Set();
@@ -1737,7 +1742,7 @@ namespace PRoConEvents
             if (isEnabled)
             {
                 //Get the team scores
-                this.serverInfo = serverInfo;
+                this.setServerInfo(serverInfo);
                 List<TeamScore> listCurrTeamScore = serverInfo.TeamScores;
                 int iTeam0Score = listCurrTeamScore[0].Score;
                 int iTeam1Score = listCurrTeamScore[1].Score;
@@ -1943,7 +1948,7 @@ namespace PRoConEvents
                                     ADKAT_Record record = new ADKAT_Record();
                                     record.command_source = ADKAT_CommandSource.InGame;
                                     record.server_id = this.server_id;
-                                    record.server_ip = this.serverInfo.ExternalGameIpandPort;
+                                    record.server_ip = this.getServerInfo().ExternalGameIpandPort;
                                     record.record_time = DateTime.Now;
                                     record.record_durationMinutes = 0;
                                     record.source_name = "PlayerMuteSystem";
@@ -2055,9 +2060,10 @@ namespace PRoConEvents
                     this.listPlayersHandle.WaitOne(5000);
 
                     //Refresh Max Player Count, needed for responsive server size
-                    if (this.serverInfo != null && this.serverInfo.MaxPlayerCount != maxPlayerCount)
+                    CServerInfo info = this.getServerInfo();
+                    if (info != null && info.MaxPlayerCount != maxPlayerCount)
                     {
-                        maxPlayerCount = this.serverInfo.MaxPlayerCount / 2;
+                        maxPlayerCount = info.MaxPlayerCount / 2;
                     }
 
                     //Get players who died that need moving
@@ -2318,9 +2324,10 @@ namespace PRoConEvents
 
                 //GATE 1: Add general data
                 record.server_id = this.server_id;
-                if (this.serverInfo != null)
+                CServerInfo info = this.getServerInfo();
+                if (info != null)
                 {
-                    record.server_ip = this.serverInfo.ExternalGameIpandPort;
+                    record.server_ip = info.ExternalGameIpandPort;
                 }
                 record.record_time = DateTime.Now;
 
@@ -4699,8 +4706,8 @@ namespace PRoConEvents
                             action = type;
                         }
                         //Set values
-                        command.Parameters.AddWithValue("@server_id", this.server_id);
-                        command.Parameters.AddWithValue("@server_ip", this.serverInfo.ExternalGameIpandPort);
+                        command.Parameters.AddWithValue("@server_id", record.server_id);
+                        command.Parameters.AddWithValue("@server_ip", record.server_ip);
                         command.Parameters.AddWithValue("@command_type", type);
                         command.Parameters.AddWithValue("@command_action", action);
                         command.Parameters.AddWithValue("@record_durationMinutes", record.record_durationMinutes);
@@ -5344,6 +5351,7 @@ namespace PRoConEvents
 
         private void sendAdminCallEmail(ADKAT_Record record)
         {
+            CServerInfo info = this.getServerInfo();
             string subject = String.Empty;
             string body = String.Empty;
 
@@ -5352,15 +5360,15 @@ namespace PRoConEvents
             StringBuilder sb = new StringBuilder();
             sb.Append("<b>Admin Request Notification</b><br /><br />");
             sb.Append("Date/Time of call:<b> " + DateTime.Now.ToString() + "</b><br />");
-            sb.Append("Servername:<b> " + this.serverInfo.ServerName + "</b><br />");
+            sb.Append("Servername:<b> " + info.ServerName + "</b><br />");
             sb.Append("Server address:<b> " + this.strHostName + ":" + this.strPort + "</b><br />");
-            sb.Append("Playercount:<b> " + this.serverInfo.PlayerCount + "/" + this.serverInfo.MaxPlayerCount + "</b><br />");
-            sb.Append("Map:<b> " + this.serverInfo.Map + "</b><br /><br />");
+            sb.Append("Playercount:<b> " + info.PlayerCount + "/" + info.MaxPlayerCount + "</b><br />");
+            sb.Append("Map:<b> " + info.Map + "</b><br /><br />");
             sb.Append("Request-Sender:<b> " + record.source_name + "</b><br />");
             sb.Append("Message:<b> " + record.record_message + "</b><br /><br />");
             /*sb.Append("<i>Playertable:</i><br />");
             sb.Append("<table border='1' rules='rows'><tr><th>Playername</th><th>Score</th><th>Kills</th><th>Deaths</th><th>HPK%</th><th>KDR</th><th>GUID</th></tr>");
-            foreach (CPlayerInfo player in this.serverInfo)
+            foreach (CPlayerInfo player in this.playerList)
             {
                 double mHeadshots = 0;
                 if (this.d_Headshots.ContainsKey(player.SoldierName.ToLower()) == true)
@@ -5422,6 +5430,22 @@ namespace PRoConEvents
         #endregion
 
         #region Helper Methods and Classes
+
+        public void setServerInfo(CServerInfo info)
+        {
+            lock(this.serverInfoMutex)
+            {
+                this.serverInfo = info;
+            }
+        }
+
+        public CServerInfo getServerInfo()
+        {
+            lock (this.serverInfoMutex)
+            {
+                return this.serverInfo;
+            }
+        }
 
         //Calling this method will make the settings window refresh with new data
         public void updateSettingPage()
