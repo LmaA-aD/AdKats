@@ -27,6 +27,7 @@ using System.Collections.Specialized;
 using System.Security.Cryptography;
 using System.Collections;
 using System.Net;
+using System.Net.Mail;
 using System.Web;
 using System.Data;
 using System.Threading;
@@ -131,12 +132,13 @@ namespace PRoConEvents
         //This setting is unchangeable by users, and will always be TRUE for released versions of the plugin.
         private bool isRelease = false;
         //Whether the plugin is enabled
-        private bool isEnabled;
+        private volatile bool isEnabled;
+        private volatile bool threadsReady;
         //Current debug level
-        private int debugLevel;
+        private volatile int debugLevel;
         //IDs of the two teams as the server understands it
-        private int USTeamId = 1;
-        private int RUTeamId = 2;
+        private static int USTeamId = 1;
+        private static int RUTeamId = 2;
         //last time a manual call to listplayers was made
         private DateTime lastListPlayersRequest = DateTime.Now;
         //All server info
@@ -302,6 +304,7 @@ namespace PRoConEvents
         Thread DatabaseCommThread;
         Thread ActionHandlingThread;
         Thread TeamSwapThread;
+        Thread activator;
         Thread finalizer;
 
         //Mutexes
@@ -346,7 +349,8 @@ namespace PRoConEvents
 
         public AdKats()
         {
-            isEnabled = false;
+            this.isEnabled = false;
+            this.threadsReady = false;
             debugLevel = 0;
 
             this.externalCommandAccessKey = AdKats.GetRandom64BitHashCode();
@@ -524,22 +528,42 @@ namespace PRoConEvents
         public List<CPluginVariable> GetDisplayPluginVariables()
         {
             //Get storage variables
-            List<CPluginVariable> lstReturn = this.GetPluginVariables();
+            List<CPluginVariable> lstReturn;
 
-            //Add display variables
-            //Admin Settings
-            lstReturn.Add(new CPluginVariable("3. Player Access Settings|Add Access", typeof(string), ""));
-            lstReturn.Add(new CPluginVariable("3. Player Access Settings|Remove Access", typeof(string), ""));
-            if (this.playerAccessCache.Count > 0)
+            if (!this.threadsReady)
             {
-                foreach (string playerName in this.playerAccessCache.Keys)
-                {
-                    lstReturn.Add(new CPluginVariable("3. Player Access Settings|" + playerName, typeof(string), this.playerAccessCache[playerName] + ""));
-                }
+                lstReturn = new List<CPluginVariable>();
+
+                //Server Settings
+                lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID", typeof(int), this.server_id));
+                //SQL Settings
+                lstReturn.Add(new CPluginVariable("2. MySQL Settings|MySQL Hostname", typeof(string), mySqlHostname));
+                lstReturn.Add(new CPluginVariable("2. MySQL Settings|MySQL Port", typeof(string), mySqlPort));
+                lstReturn.Add(new CPluginVariable("2. MySQL Settings|MySQL Database", typeof(string), mySqlDatabaseName));
+                lstReturn.Add(new CPluginVariable("2. MySQL Settings|MySQL Username", typeof(string), mySqlUsername));
+                lstReturn.Add(new CPluginVariable("2. MySQL Settings|MySQL Password", typeof(string), mySqlPassword));
+
+                lstReturn.Add(new CPluginVariable("Complete these settings before enabling. Once enabled, more settings will appear.", typeof(string), ""));
             }
             else
             {
-                lstReturn.Add(new CPluginVariable("3. Player Access Settings|No Players in Access List", typeof(string), "Add Players with 'Add Access', or Re-Enable AdKats to fetch."));
+                lstReturn = this.GetPluginVariables();
+
+                //Add display variables
+                //Admin Settings
+                lstReturn.Add(new CPluginVariable("3. Player Access Settings|Add Access", typeof(string), ""));
+                lstReturn.Add(new CPluginVariable("3. Player Access Settings|Remove Access", typeof(string), ""));
+                if (this.playerAccessCache.Count > 0)
+                {
+                    foreach (string playerName in this.playerAccessCache.Keys)
+                    {
+                        lstReturn.Add(new CPluginVariable("3. Player Access Settings|" + playerName, typeof(string), this.playerAccessCache[playerName] + ""));
+                    }
+                }
+                else
+                {
+                    lstReturn.Add(new CPluginVariable("3. Player Access Settings|No Players in Access List", typeof(string), "Add Players with 'Add Access', or Re-Enable AdKats to fetch."));
+                }
             }
             return lstReturn;
         }
@@ -552,7 +576,10 @@ namespace PRoConEvents
             {
                 //Server Settings
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID", typeof(int), this.server_id));
-                lstReturn.Add(new CPluginVariable("1. Server Settings|Server IP", typeof(string), (this.serverInfo == null) ? ("Waiting on Server Info (10-20 seconds)") : (this.serverInfo.ExternalGameIpandPort)));
+                if(this.serverInfo != null) 
+                {
+                    lstReturn.Add(new CPluginVariable("1. Server Settings|Server IP", typeof(string), this.serverInfo.ExternalGameIpandPort));
+                }
 
                 //SQL Settings
                 lstReturn.Add(new CPluginVariable("2. MySQL Settings|MySQL Hostname", typeof(string), mySqlHostname));
@@ -599,7 +626,7 @@ namespace PRoConEvents
                 }
 
                 //Player Report Settings
-                lstReturn.Add(new CPluginVariable("6. Email Settings|Send Emails", typeof(string), "Disabled Until Implemented"));//, typeof(enumBoolYesNo), this.sendmail));
+                lstReturn.Add(new CPluginVariable("6. Email Settings|Send Emails", typeof(string), "Disabled Until Implemented"));
                 if (this.sendmail == true)
                 {
                     lstReturn.Add(new CPluginVariable("6. Email Settings|Email: Use SSL?", typeof(Boolean), this.blUseSSL));
@@ -1200,19 +1227,62 @@ namespace PRoConEvents
             }
             else if (strVariable.CompareTo("Sender address") == 0)
             {
-                this.strSenderMail = strValue;
+                if (strValue == null || strValue == String.Empty)
+                {
+                    this.strSenderMail = "SENDER_CANNOT_BE_EMPTY";
+                    this.ConsoleError("No sender for email was given! Canceling Operation.");
+                }
+                else
+                {
+                    this.strSenderMail = strValue;
+                }
             }
             else if (strVariable.CompareTo("Receiver addresses") == 0)
             {
-                this.lstReceiverMail = new List<string>(CPluginVariable.DecodeStringArray(strValue));
+                List<String> addresses = new List<string>(CPluginVariable.DecodeStringArray(strValue));
+                if (addresses.Count > 0)
+                {
+                    foreach (string mailto in addresses)
+                    {
+                        if (!Regex.IsMatch(mailto, @"^([\w-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([\w-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$"))
+                        {
+                            this.ConsoleError("Error in receiver email address: " + mailto);
+                        }
+                    }
+                    this.lstReceiverMail = addresses;
+                }
+                else
+                {
+                    this.ConsoleError("No receiver email addresses were given!");
+                    this.lstReceiverMail = new List<string>()
+                    {
+                        "test@test.net"
+                    };
+                }
             }
             else if (strVariable.CompareTo("SMTP-Server username") == 0)
             {
-                this.strSMTPUser = strValue;
+                if (strValue == null || strValue == String.Empty)
+                {
+                    this.strSMTPUser = "SMTP_USERNAME_CANNOT_BE_EMPTY";
+                    this.ConsoleError("No username for SMTP was given! Canceling Operation.");
+                }
+                else
+                {
+                    this.strSMTPUser = strValue;
+                }
             }
             else if (strVariable.CompareTo("SMTP-Server password") == 0)
             {
-                this.strSMTPPassword = strValue;
+                if (strValue == null || strValue == String.Empty)
+                {
+                    this.strSMTPPassword = "SMTP_PASSWORD_CANNOT_BE_EMPTY";
+                    this.ConsoleError("No password for SMTP was given! Canceling Operation.");
+                }
+                else
+                {
+                    this.strSMTPPassword = strValue;
+                }
             }
             #endregion
             #region mute settings
@@ -1420,8 +1490,6 @@ namespace PRoConEvents
             this.commandParsingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             this.dbCommHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             this.actionHandlingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-
-            this.setAllHandles();
         }
 
         public void setAllHandles()
@@ -1440,17 +1508,45 @@ namespace PRoConEvents
             try
             {
                 DebugWrite("Initializing threads", 6);
-                this.MessagingThread = new Thread(new ThreadStart(messagingThreadLoop));
-                this.CommandParsingThread = new Thread(new ThreadStart(commandParsingThreadLoop));
-                this.DatabaseCommThread = new Thread(new ThreadStart(databaseCommThreadLoop));
-                this.ActionHandlingThread = new Thread(new ThreadStart(actionHandlingThreadLoop));
-                this.TeamSwapThread = new Thread(new ThreadStart(teamswapThreadLoop));
+                if ((this.MessagingThread.ThreadState & System.Threading.ThreadState.Running) != 0)
+                    this.ConsoleError("Messaging thread already running, cannot start.");
+                else
+                {
+                    this.MessagingThread = new Thread(new ThreadStart(messagingThreadLoop));
+                    this.MessagingThread.IsBackground = true;
+                }
 
-                this.MessagingThread.IsBackground = true;
-                this.CommandParsingThread.IsBackground = true;
-                this.DatabaseCommThread.IsBackground = true;
-                this.ActionHandlingThread.IsBackground = true;
-                this.TeamSwapThread.IsBackground = true;
+                if ((this.CommandParsingThread.ThreadState & System.Threading.ThreadState.Running) != 0)
+                    this.ConsoleError("Command Parsing thread already running, cannot start.");
+                else
+                {
+                    this.CommandParsingThread = new Thread(new ThreadStart(commandParsingThreadLoop));
+                    this.CommandParsingThread.IsBackground = true;
+                }
+
+                if ((this.DatabaseCommThread.ThreadState & System.Threading.ThreadState.Running) != 0)
+                    this.ConsoleError("Database Comm thread already running, cannot start.");
+                else
+                {
+                    this.DatabaseCommThread = new Thread(new ThreadStart(databaseCommThreadLoop));
+                    this.DatabaseCommThread.IsBackground = true;
+                }
+
+                if ((this.ActionHandlingThread.ThreadState & System.Threading.ThreadState.Running) != 0)
+                    this.ConsoleError("Action Handling thread already running, cannot start.");
+                else
+                {
+                    this.ActionHandlingThread = new Thread(new ThreadStart(actionHandlingThreadLoop));
+                    this.ActionHandlingThread.IsBackground = true;
+                }
+
+                if ((this.TeamSwapThread.ThreadState & System.Threading.ThreadState.Running) != 0)
+                    this.ConsoleError("Teamswap thread already running, cannot start.");
+                else
+                {
+                    this.TeamSwapThread = new Thread(new ThreadStart(teamswapThreadLoop));
+                    this.TeamSwapThread.IsBackground = true;
+                }
             }
             catch (Exception e)
             {
@@ -1467,35 +1563,35 @@ namespace PRoConEvents
             this.TeamSwapThread.Start();
         }
 
-        public Boolean allThreadsWaiting()
+        public Boolean allThreadsReady()
         {
-            Boolean waiting = true;
+            Boolean ready = true;
             if (this.teamswapHandle.WaitOne(0))
             {
-                this.DebugWrite("teamswap not waiting.", 6);
-                waiting = false;
+                this.DebugWrite("teamswap not ready.", 6);
+                ready = false;
             }
             if (this.messageParsingHandle.WaitOne(0))
             {
-                this.DebugWrite("messaging not waiting.", 6);
-                waiting = false;
+                this.DebugWrite("messaging not ready.", 6);
+                ready = false;
             }
             if (this.commandParsingHandle.WaitOne(0))
             {
-                this.DebugWrite("command parsing not waiting.", 6);
-                waiting = false;
+                this.DebugWrite("command parsing not ready.", 6);
+                ready = false;
             }
             if (this.dbCommHandle.WaitOne(0))
             {
-                this.DebugWrite("db comm not waiting.", 6);
-                waiting = false;
+                this.DebugWrite("db comm not ready.", 6);
+                ready = false;
             }
             if (this.actionHandlingHandle.WaitOne(0))
             {
-                this.DebugWrite("action handling not waiting.", 6);
-                waiting = false;
+                this.DebugWrite("action handling not ready.", 6);
+                ready = false;
             }
-            return waiting;
+            return ready;
         }
 
         #endregion
@@ -1511,20 +1607,21 @@ namespace PRoConEvents
         {
             if (this.finalizer != null && this.finalizer.IsAlive)
             {
-                ConsoleError("Cannot enable plugin while it is finalizing");
+                ConsoleError("Cannot enable plugin while it is shutting down. Please Wait.");
                 return;
             }
             try
             {
-                Thread Activator = new Thread(new ThreadStart(delegate()
+                this.activator = new Thread(new ThreadStart(delegate()
                 {
                     try
                     {
                         ConsoleWrite("Enabling command functionality. Please Wait.");
                         Thread.Sleep(1000);
-
+                        
                         //Init and start all the threads
                         this.InitWaitHandles();
+                        this.setAllHandles();
                         this.InitThreads();
                         this.StartThreads();
 
@@ -1537,12 +1634,16 @@ namespace PRoConEvents
                             duration = DateTime.Now.Subtract(startTime);
                             if (duration.Seconds > 5)
                             {
-                                this.ConsoleError("Failed to enable in 5 seconds. Shutting down.");
+                                //Inform the user
+                                this.ConsoleError("Failed to enable in 5 seconds. Shutting down. Inform ColColonCleaner.");
+                                //Disable the plugin
                                 this.ExecuteCommand("procon.protected.plugins.enable", "AdKats", "False");
                                 return;
                             }
-                        } while (!this.allThreadsWaiting() );
-                        this.ConsoleWrite("^b^2Enabled!^n^0 Version: " + this.GetPluginVersion() + " in " + duration.Seconds + "sec.");
+                        } while (!this.allThreadsReady());
+                        this.threadsReady = true;
+                        this.updateSettingPage();
+                        this.ConsoleWrite("^b^2Enabled!^n^0 Version: " + this.GetPluginVersion() + " in " + duration.Milliseconds + "ms.");
                     }
                     catch (Exception e)
                     {
@@ -1551,7 +1652,7 @@ namespace PRoConEvents
                 }));
 
                 //Start the thread
-                Activator.Start();
+                this.activator.Start();
             }
             catch (Exception e)
             {
@@ -1563,27 +1664,30 @@ namespace PRoConEvents
         {
             if (this.finalizer != null && this.finalizer.IsAlive)
                 return;
-
             try
             {
                 this.finalizer = new Thread(new ThreadStart(delegate()
                 {
                     try
                     {
-                        ConsoleWrite("Disabling command functionality. Please Wait.");
+                        ConsoleWrite("Disabling all functionality. Please Wait.");
                         this.isEnabled = false;
 
-                        //Open all handles
+                        //Open all handles. Threads will finish on their own.
                         this.setAllHandles();
 
-                        //Join all threads
+                        //Make sure all threads are finished.
+                        //TODO try removing these and see if it works better
                         JoinWith(this.MessagingThread);
                         JoinWith(this.CommandParsingThread);
                         JoinWith(this.DatabaseCommThread);
                         JoinWith(this.ActionHandlingThread);
                         JoinWith(this.TeamSwapThread);
 
-                        ConsoleWrite("^b^1AdKats Disabled! =(^n^0");
+                        this.threadsReady = false;
+                        this.updateSettingPage();
+
+                        ConsoleWrite("^b^1AdKats " + this.GetPluginVersion() + " Disabled! =(^n^0");
                     }
                     catch (Exception e)
                     {
@@ -1610,7 +1714,7 @@ namespace PRoConEvents
                 this.RUPlayerCount = 0;
                 foreach (CPlayerInfo player in players)
                 {
-                    if (player.TeamID == this.USTeamId)
+                    if (player.TeamID == USTeamId)
                     {
                         this.USPlayerCount++;
                     }
@@ -1644,15 +1748,18 @@ namespace PRoConEvents
 
         public override void OnLevelLoaded(string strMapFileName, string strMapMode, int roundsPlayed, int roundsTotal)
         {
-            this.round_reports = new Dictionary<string, ADKAT_Record>();
-            this.round_mutedPlayers = new Dictionary<string, int>();
-            this.teamswapRoundWhitelist = new Dictionary<string, Boolean>();
-            this.autoWhitelistPlayers();
-
-            //Reset whether they have been informed
-            foreach (string assistantName in this.adminAssistantCache.Keys)
+            if (isEnabled)
             {
-                this.adminAssistantCache[assistantName] = false;
+                this.round_reports = new Dictionary<string, ADKAT_Record>();
+                this.round_mutedPlayers = new Dictionary<string, int>();
+                this.teamswapRoundWhitelist = new Dictionary<string, Boolean>();
+                this.autoWhitelistPlayers();
+
+                //Reset whether they have been informed
+                foreach (string assistantName in this.adminAssistantCache.Keys)
+                {
+                    this.adminAssistantCache[assistantName] = false;
+                }
             }
         }
 
@@ -1672,29 +1779,32 @@ namespace PRoConEvents
 
         public override void OnPlayerSpawned(String soldierName, Inventory spawnedInventory)
         {
-            Boolean informed = true;
-            if (this.enableAdminAssistants && this.adminAssistantCache.TryGetValue(soldierName, out informed))
+            if (this.isEnabled)
             {
-                if (informed == false)
+                Boolean informed = true;
+                if (this.enableAdminAssistants && this.adminAssistantCache.TryGetValue(soldierName, out informed))
                 {
-                    string command = this.m_strTeamswapCommand.TrimEnd("|log".ToCharArray());
-                    this.ExecuteCommand("procon.protected.send", "admin.yell", "For your consistent player reporting you can now use TeamSwap. Type @" + command + " to move yourself between teams.", "10", "player", soldierName);
-                    this.adminAssistantCache[soldierName] = true;
+                    if (informed == false)
+                    {
+                        string command = this.m_strTeamswapCommand.TrimEnd("|log".ToCharArray());
+                        this.ExecuteCommand("procon.protected.send", "admin.yell", "For your consistent player reporting you can now use TeamSwap. Type @" + command + " to move yourself between teams.", "10", "player", soldierName);
+                        this.adminAssistantCache[soldierName] = true;
+                    }
                 }
-            }
-            else if (this.teamswapRoundWhitelist.Count > 0 && this.teamswapRoundWhitelist.TryGetValue(soldierName, out informed))
-            {
-                if (informed == false)
+                else if (this.teamswapRoundWhitelist.Count > 0 && this.teamswapRoundWhitelist.TryGetValue(soldierName, out informed))
                 {
-                    string command = this.m_strTeamswapCommand.TrimEnd("|log".ToCharArray());
-                    this.ExecuteCommand("procon.protected.send", "admin.yell", "You can use TeamSwap for this round. Type @" + command + " to move yourself between teams.", "10", "player", soldierName);
-                    this.teamswapRoundWhitelist[soldierName] = true;
+                    if (informed == false)
+                    {
+                        string command = this.m_strTeamswapCommand.TrimEnd("|log".ToCharArray());
+                        this.ExecuteCommand("procon.protected.send", "admin.yell", "You can use TeamSwap for this round. Type @" + command + " to move yourself between teams.", "10", "player", soldierName);
+                        this.teamswapRoundWhitelist[soldierName] = true;
+                    }
                 }
-            }
-            if (soldierName == "ColColonCleaner" && !toldCol && isRelease)
-            {
-                this.ExecuteCommand("procon.protected.send", "admin.yell", "CONGRATS! This server has version " + this.plugin_version + " of AdKats installed!", "20", "player", "ColColonCleaner");
-                this.toldCol = true;
+                if (soldierName == "ColColonCleaner" && !toldCol && isRelease)
+                {
+                    this.ExecuteCommand("procon.protected.send", "admin.yell", "CONGRATS! This server has version " + this.plugin_version + " of AdKats installed!", "20", "player", "ColColonCleaner");
+                    this.toldCol = true;
+                }
             }
         }
 
@@ -1704,13 +1814,13 @@ namespace PRoConEvents
         //all messaging is redirected to global chat for analysis
         public override void OnGlobalChat(string speaker, string message)
         {
-            //Performance testing area
-            if (speaker == "ColColonCleaner")
-            {
-                this.commandStartTime = DateTime.Now;
-            }
             if (isEnabled)
             {
+                //Performance testing area
+                if (speaker == "ColColonCleaner")
+                {
+                    this.commandStartTime = DateTime.Now;
+                }
                 this.queueMessageForParsing(speaker, message);
             }
         }
@@ -1839,7 +1949,7 @@ namespace PRoConEvents
                                     record.source_name = "PlayerMuteSystem";
                                     record.target_guid = player_info.GUID;
                                     record.target_name = speaker;
-                                    record.targetPlayerInfo = player_info;
+                                    record.target_playerInfo = player_info;
                                     if (this.round_mutedPlayers[speaker] > this.mutedPlayerChances)
                                     {
                                         record.record_message = this.mutedPlayerKickMessage;
@@ -1983,7 +2093,7 @@ namespace PRoConEvents
                             while (movingQueue != null && movingQueue.Count > 0)
                             {
                                 CPlayerInfo player = movingQueue.Dequeue();
-                                if (player.TeamID == this.USTeamId)
+                                if (player.TeamID == USTeamId)
                                 {
                                     if (!this.containsCPlayerInfo(this.USMoveQueue, player.SoldierName))
                                     {
@@ -2023,7 +2133,7 @@ namespace PRoConEvents
                                 if (this.USPlayerCount < maxPlayerCount)
                                 {
                                     CPlayerInfo player = this.RUMoveQueue.Dequeue();
-                                    ExecuteCommand("procon.protected.send", "admin.movePlayer", player.SoldierName, this.USTeamId.ToString(), "1", "true");
+                                    ExecuteCommand("procon.protected.send", "admin.movePlayer", player.SoldierName, USTeamId.ToString(), "1", "true");
                                     this.playerSayMessage(player.SoldierName, "Swapping you from team RU to team US");
                                     movedPlayer = true;
                                     this.USPlayerCount++;
@@ -2034,7 +2144,7 @@ namespace PRoConEvents
                                 if (this.RUPlayerCount < maxPlayerCount)
                                 {
                                     CPlayerInfo player = this.USMoveQueue.Dequeue();
-                                    ExecuteCommand("procon.protected.send", "admin.movePlayer", player.SoldierName, this.RUTeamId.ToString(), "1", "true");
+                                    ExecuteCommand("procon.protected.send", "admin.movePlayer", player.SoldierName, RUTeamId.ToString(), "1", "true");
                                     this.playerSayMessage(player.SoldierName, "Swapping you from team US to team RU");
                                     movedPlayer = true;
                                     this.RUPlayerCount++;
@@ -2168,8 +2278,8 @@ namespace PRoConEvents
                     }
                     else
                     {
-                        this.DebugWrite("No inbound commands, waiting.", 7);
-                        //No commands to parse, waiting.
+                        this.DebugWrite("No inbound commands, ready.", 7);
+                        //No commands to parse, ready.
                         this.commandParsingHandle.Reset();
                         this.commandParsingHandle.WaitOne(Timeout.Infinite);
                         continue;
@@ -2246,7 +2356,7 @@ namespace PRoConEvents
                 //Items that need filling before record processing:
                 //target_name
                 //target_guid
-                //targetPlayerInfo
+                //target_playerInfo
                 //record_message
                 switch (record.command_type)
                 {
@@ -3253,8 +3363,8 @@ namespace PRoConEvents
                     if (playerDictionary.ContainsKey(record.target_name))
                     {
                         //Exact player match, call processing without confirmation
-                        record.targetPlayerInfo = this.playerDictionary[record.target_name];
-                        record.target_guid = record.targetPlayerInfo.GUID;
+                        record.target_playerInfo = this.playerDictionary[record.target_name];
+                        record.target_guid = record.target_playerInfo.GUID;
                         if (!requireConfirm)
                         {
                             //Process record right away
@@ -3285,7 +3395,7 @@ namespace PRoConEvents
                         //Only one substring match, call processing without confirmation
                         record.target_name = substringMatches[0].SoldierName;
                         record.target_guid = substringMatches[0].GUID;
-                        record.targetPlayerInfo = substringMatches[0];
+                        record.target_playerInfo = substringMatches[0];
                         if (!requireConfirm)
                         {
                             //Process record right away
@@ -3342,7 +3452,7 @@ namespace PRoConEvents
                         //Use suggestion for target
                         record.target_guid = suggestion.GUID;
                         record.target_name = suggestion.SoldierName;
-                        record.targetPlayerInfo = suggestion;
+                        record.target_playerInfo = suggestion;
                         //Send record to attempt list for confirmation
                         return this.confirmActionWithSource(record);
                     }
@@ -3366,7 +3476,7 @@ namespace PRoConEvents
                         //Use suggestion for target
                         record.target_guid = fuzzyMatch.GUID;
                         record.target_name = fuzzyMatch.SoldierName;
-                        record.targetPlayerInfo = fuzzyMatch;
+                        record.target_playerInfo = fuzzyMatch;
                         //Send record to attempt list for confirmation
                         return this.confirmActionWithSource(record);
                     }
@@ -3470,7 +3580,7 @@ namespace PRoConEvents
                     //Get target information
                     record.target_guid = reportedRecord.target_guid;
                     record.target_name = reportedRecord.target_name;
-                    record.targetPlayerInfo = reportedRecord.targetPlayerInfo;
+                    record.target_playerInfo = reportedRecord.target_playerInfo;
                     //Update record message if needed
                     //attempt to handle via pre-message ID
                     //record.record_message = this.getPreMessage(record.record_message, this.requirePreMessageUse);
@@ -3683,7 +3793,7 @@ namespace PRoConEvents
 
         public string moveTarget(ADKAT_Record record)
         {
-            this.queuePlayerForMove(record.targetPlayerInfo);
+            this.queuePlayerForMove(record.target_playerInfo);
             return this.sendMessageToSource(record, record.target_name + " will be sent to teamswap on their next death.");
         }
 
@@ -3699,7 +3809,7 @@ namespace PRoConEvents
                 {
                     message = "Calling Teamswap on self";
                     this.DebugWrite(message, 6);
-                    this.queuePlayerForForceMove(record.targetPlayerInfo);
+                    this.queuePlayerForForceMove(record.target_playerInfo);
                 }
                 else
                 {
@@ -3713,7 +3823,7 @@ namespace PRoConEvents
                 message = "TeamSwap called on " + record.target_name;
                 this.DebugWrite("Calling Teamswap on target", 6);
                 this.sendMessageToSource(record, "" + record.target_name + " sent to teamswap.");
-                this.queuePlayerForForceMove(record.targetPlayerInfo);
+                this.queuePlayerForForceMove(record.target_playerInfo);
             }
             this.DebugWrite("Exiting forceMoveTarget", 6);
 
@@ -3816,7 +3926,7 @@ namespace PRoConEvents
             string additionalMessage = "(" + points + " infraction points)";
 
             //Call correct action
-            if (action.Equals("kill") || (this.onlyKillOnLowPop && this.playerList.Count < this.lowPopPlayerCount))
+            if (action.Equals("kill") || (!record.isIRO && (this.onlyKillOnLowPop && this.playerList.Count < this.lowPopPlayerCount)))
             {
                 record.command_action = ADKAT_CommandType.KillPlayer;
                 message = this.killTarget(record, additionalMessage);
@@ -4002,8 +4112,8 @@ namespace PRoConEvents
             string message = "No Message";
             foreach (CPlayerInfo player in this.playerList)
             {
-                if ((record.target_name == "US Team" && player.TeamID == this.USTeamId) ||
-                    (record.target_name == "RU Team" && player.TeamID == this.RUTeamId) ||
+                if ((record.target_name == "US Team" && player.TeamID == USTeamId) ||
+                    (record.target_name == "RU Team" && player.TeamID == RUTeamId) ||
                     (record.target_name == "Server"))
                 {
                     ExecuteCommand("procon.protected.send", "admin.killPlayer", player.SoldierName);
@@ -4229,24 +4339,12 @@ namespace PRoConEvents
                         while (inboundRecords != null && inboundRecords.Count > 0)
                         {
                             ADKAT_Record record = inboundRecords.Dequeue();
-                            //Check whether to call update, or full upload
-                            if (record.record_id > 0)
+                            string response = this.handleRecordUpload(record);
+                            if (response == null)
                             {
-                                //Record already has a record ID, it can only be updated
-                                this.DebugWrite("calling update on record", 6);
-                                this.updateRecord(record);
-                            }
-                            else
-                            {
-                                //No record ID. Perform full upload
-                                this.DebugWrite("calling upload on record", 6);
-                                string response = this.handleRecordUpload(record);
-                                if (response == null)
-                                {
-                                    //Action is only called after initial upload, not after update
-                                    this.DebugWrite("Upload success. Attempting to add to action queue.", 6);
-                                    this.queueRecordForActionHandling(record);
-                                }
+                                //Action is only called after initial upload, not after update
+                                this.DebugWrite("Upload success. Attempting to add to action queue.", 6);
+                                this.queueRecordForActionHandling(record);
                             }
                         }
                     }
@@ -4256,12 +4354,12 @@ namespace PRoConEvents
                         this.dbCommHandle.Reset();
                         if (!this.fetchActionsFromDB)
                         {
-                            //Can only pause this thread infinitely if we aren't waiting for database input
+                            //Can only pause this thread infinitely if we aren't ready for database input
                             this.dbCommHandle.WaitOne(Timeout.Infinite);
                         }
                         else
                         {
-                            //If waiting on DB input, the maximum time we can wait is "db action frequency"
+                            //If ready on DB input, the maximum time we can wait is "db action frequency"
                             this.dbCommHandle.WaitOne(this.dbActionFrequency * 1000);
                         }
                     }
@@ -4504,61 +4602,75 @@ namespace PRoConEvents
         {
             //Null is good
             string response = null;
-            switch (record.command_type)
-            {
-                case ADKAT_CommandType.PunishPlayer:
-                    //Upload for punish is required
 
-                    //Check if the punish will be double counted
-                    if (this.isDoubleCounted(record))
-                    {
-                        //Check if player is on timeout
-                        if (this.canPunish(record))
+            //Check whether to call update, or full upload
+            if (record.record_id > 0)
+            {
+                //Record already has a record ID, it can only be updated
+                if (this.ADKAT_LoggingSettings[record.command_type])
+                {
+                    this.DebugWrite("UPDATING record for " + record.command_type, 6);
+                    //Update Record
+                    this.updateRecord(record);
+                }
+                else
+                {
+                    this.DebugWrite("Skipping record UPDATE for " + record.command_type, 6);
+                }
+            }
+            else
+            {
+                //No record ID. Perform full upload
+                this.DebugWrite("calling upload on record", 6);
+                switch (record.command_type)
+                {
+                    case ADKAT_CommandType.PunishPlayer:
+                        //Upload for punish is required
+                        //Check if the punish will be double counted
+                        if (this.isDoubleCounted(record))
                         {
-                            //IRO - Immediate Repeat Offence
-                            record.record_message += " [IRO]";
-                            //Upload record twice
+                            //Check if player is on timeout
+                            if (this.canPunish(record))
+                            {
+                                //IRO - Immediate Repeat Offence
+                                record.isIRO = true;
+                                record.record_message += " [IRO]";
+                                //Upload record twice
+                                this.uploadRecord(record);
+                                this.uploadRecord(record);
+                            }
+                            else
+                            {
+                                response = record.target_name + " already punished in the last 20 seconds.";
+                                this.sendMessageToSource(record, response);
+                            }
+                        }
+                        else
+                        {
+                            //Upload record once
                             this.uploadRecord(record);
+                        }
+                        break;
+                    case ADKAT_CommandType.ForgivePlayer:
+                        //Upload for forgive is required
+                        //No restriction on forgives/minute
+                        this.uploadRecord(record);
+                        break;
+                    default: 
+                        if (this.ADKAT_LoggingSettings[record.command_type])
+                        {
+                            this.DebugWrite("UPLOADING record for " + record.command_type, 6);
+                            //Upload Record
                             this.uploadRecord(record);
                         }
                         else
                         {
-                            response = record.target_name + " already punished in the last 20 seconds.";
-                            this.sendMessageToSource(record, response);
+                            this.DebugWrite("Skipping record UPLOAD for " + record.command_type, 6);
                         }
-                    }
-                    else
-                    {
-                        //Upload record once
-                        this.uploadRecord(record);
-                    }
-                    break;
-                case ADKAT_CommandType.ForgivePlayer:
-                    //Upload for forgive is required
-                    //No restriction on forgives/minute
-                    this.uploadRecord(record);
-                    break;
-                default:
-                    this.conditionalUploadRecord(record);
-                    break;
+                        break;
+                }
             }
             return response;
-        }
-
-        //Checks the logging setting for a record type to see if it should be sent to database
-        //If yes then it's sent, if not then it's ignored
-        private void conditionalUploadRecord(ADKAT_Record record)
-        {
-            if (this.ADKAT_LoggingSettings[record.command_type])
-            {
-                this.DebugWrite("Uploading record for " + record.command_type, 6);
-                //Upload Record
-                this.uploadRecord(record);
-            }
-            else
-            {
-                this.DebugWrite("Skipping record upload for " + record.command_type, 6);
-            }
         }
 
         private void uploadRecord(ADKAT_Record record)
@@ -4808,7 +4920,7 @@ namespace PRoConEvents
                         {
                             if (reader.Read())
                             {
-                                this.DebugWrite("Is double counted", 6);
+                                this.DebugWrite("Punish is double counted", 6);
                                 return true;
                             }
                             else
@@ -5230,72 +5342,35 @@ namespace PRoConEvents
 
         #region Mailing Functions
 
-        /*private void PrepareEmail(string sender, string message)
-        {
-            if (this.blNotifyEmail == true)
-            {
-                string subject = String.Empty;
-                string body = String.Empty;
-
-                subject = "[Admin Request] - (" + sender + ") requested an admin. Message - " + message;
-
-                StringBuilder sb = new StringBuilder();
-                sb.Append("<b>Admin Request Notification</b><br /><br />");
-                sb.Append("Date/Time of call:<b> " + DateTime.Now.ToString() + "</b><br />");
-                sb.Append("Servername:<b> " + this.csiServer.ServerName + "</b><br />");
-                sb.Append("Server address:<b> " + this.strHostName + ":" + this.strPort + "</b><br />");
-                sb.Append("Playercount:<b> " + this.csiServer.PlayerCount + "/" + this.csiServer.MaxPlayerCount + "</b><br />");
-                sb.Append("Map:<b> " + this.csiServer.Map + "</b><br /><br />");
-                sb.Append("Request-Sender:<b> " + sender + "</b><br />");
-                sb.Append("Message:<b> " + message + "</b><br /><br />");
-                sb.Append("<i>Playertable:</i><br />");
-                sb.Append("<table border='1' rules='rows'><tr><th>Playername</th><th>Score</th><th>Kills</th><th>Deaths</th><th>HPK%</th><th>KDR</th><th>GUID</th></tr>");
-                foreach (CPlayerInfo player in this.lstPlayers)
-                {
-                    double mHeadshots = 0;
-                    if (this.d_Headshots.ContainsKey(player.SoldierName.ToLower()) == true)
-                    {
-                        if (player.Kills > 0) { mHeadshots = (double)(d_Headshots[player.SoldierName.ToLower()] * 100) / player.Kills; }
-                    }
-                    sb.Append("<tr align='center'><td>" + player.SoldierName + "</td><td>" + player.Score + "</td><td>" + player.Kills + "</td><td>" + player.Deaths + "</td><td>" + String.Format("{0:0.##}", mHeadshots) + "</td><td>" + String.Format("{0:0.##}", player.Kdr) + "</td><td>" + player.GUID + "</td></tr>");
-                }
-                sb.Append("</table>");
-
-                body = sb.ToString();
-
-                this.EmailWrite(subject, body);
-            }
-        }
-
-        private void SuspectMail(string player, string trigger, string weapons)
+        private void sendAdminCallEmail(ADKAT_Record record)
         {
             string subject = String.Empty;
             string body = String.Empty;
-            string adminword = "Please remember the player that triggered this email is just a SUSPECT.<br />Please do not kick or ban just based off the information in this mail.<br />Please make sure you do things like checking their battlelog page,<br />and monitor them in-game so that you can make a fair decision.";
-            subject = "[Suspicious Player Alert!] - (" + player + ") is a suspected cheater. Trigger(" + trigger + ")";
+
+            subject = "[Admin Call] - " + record.source_name + " requested an admin. Message - " + record.record_message;
 
             StringBuilder sb = new StringBuilder();
-            sb.Append("<table border='1' rules='rows'><tr align='left'><td>");
-            sb.Append("Suspected Cheater:</td><td><b>" + player + "</b></td></tr><tr align='left'><td>");
-            sb.Append("Date/Time of call:</td><td><b>" + DateTime.Now.ToString() + "</b></td></tr><tr align='left'><td>");
-            sb.Append("Servername:</td><td><b>" + this.csiServer.ServerName + "</b></td></tr><tr align='left'><td>");
-            sb.Append("Server address:</td><td><b>" + this.strHostName + ":" + this.strPort + "</b></td></tr><tr align='left'><td>");
-            sb.Append("Playercount:</td><td><b>" + this.csiServer.PlayerCount + "/" + this.csiServer.MaxPlayerCount + "</b></td></tr><tr align='left'><td>");
-            sb.Append("Map:</td><td><b>" + this.csiServer.Map + "</b></td></tr><tr align='left'><td>");
-            sb.Append("Alert Trigger:</td><td><b>" + trigger + "</b></td></tr><tr align='left'><td>");
-            sb.Append("Word to Admins:</td><td><b>" + adminword + "</b>");
-            sb.Append("</td></tr></table><br /><br />");
-
+            sb.Append("<b>Admin Request Notification</b><br /><br />");
+            sb.Append("Date/Time of call:<b> " + DateTime.Now.ToString() + "</b><br />");
+            sb.Append("Servername:<b> " + this.serverInfo.ServerName + "</b><br />");
+            sb.Append("Server address:<b> " + this.strHostName + ":" + this.strPort + "</b><br />");
+            sb.Append("Playercount:<b> " + this.serverInfo.PlayerCount + "/" + this.serverInfo.MaxPlayerCount + "</b><br />");
+            sb.Append("Map:<b> " + this.serverInfo.Map + "</b><br /><br />");
+            sb.Append("Request-Sender:<b> " + record.source_name + "</b><br />");
+            sb.Append("Message:<b> " + record.record_message + "</b><br /><br />");
+            /*sb.Append("<i>Playertable:</i><br />");
             sb.Append("<table border='1' rules='rows'><tr><th>Playername</th><th>Score</th><th>Kills</th><th>Deaths</th><th>HPK%</th><th>KDR</th><th>GUID</th></tr>");
-
-            double mHeadshots = 0;
-            if (this.d_Headshots.ContainsKey(player.ToLower()) == true)
+            foreach (CPlayerInfo player in this.serverInfo)
             {
-                if (this.m_dicPlayers[player].Kills > 0) { mHeadshots = (double)(this.d_Headshots[player] * 100) / this.m_dicPlayers[player].Kills; }
+                double mHeadshots = 0;
+                if (this.d_Headshots.ContainsKey(player.SoldierName.ToLower()) == true)
+                {
+                    if (player.Kills > 0) { mHeadshots = (double)(d_Headshots[player.SoldierName.ToLower()] * 100) / player.Kills; }
+                }
+                sb.Append("<tr align='center'><td>" + player.SoldierName + "</td><td>" + player.Score + "</td><td>" + player.Kills + "</td><td>" + player.Deaths + "</td><td>" + String.Format("{0:0.##}", mHeadshots) + "</td><td>" + String.Format("{0:0.##}", player.Kdr) + "</td><td>" + player.GUID + "</td></tr>");
             }
-            sb.Append("<tr align='center'><td>" + player + "</td><td>" + this.m_dicPlayers[player].Score + "</td><td>" + this.m_dicPlayers[player].Kills + "</td><td>" + this.m_dicPlayers[player].Deaths + "</td><td>" + String.Format("{0:0.##}", mHeadshots) + "</td><td>" + String.Format("{0:0.##}", this.m_dicPlayers[player].Kdr) + "</td><td>" + this.m_dicPlayers[player].GUID + "</td></tr>");
-            sb.Append("</table><br /><br /><table border='1' rules='rows'><tr align='center'><td>");
-            sb.Append("Weapons Used By Suspected Player</td></tr><tr align='left'><td>" + weapons + "</td></tr><tr align='center'><td><b>Keep in mind vehicle kills show as Weapon-(DEATH).</b></td></tr></table>");
+            sb.Append("</table>");*/
+
             body = sb.ToString();
 
             this.EmailWrite(subject, body);
@@ -5305,35 +5380,21 @@ namespace PRoConEvents
         {
             try
             {
-                if (this.strSenderMail == null || this.strSenderMail == String.Empty)
-                {
-                    this.ConsoleWrite("[Mailer]", "No sender-mail is given!");
-                    return;
-                }
-
                 MailMessage email = new MailMessage();
 
                 email.From = new MailAddress(this.strSenderMail);
 
-                if (this.lstReceiverMail.Count > 0)
+                foreach (string mailto in this.lstReceiverMail)
                 {
-                    foreach (string mailto in this.lstReceiverMail)
+                    if (Regex.IsMatch(mailto, @"^([\w-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([\w-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$"))
                     {
-                        if (mailto.Contains("@") && mailto.Contains("."))
-                        {
-                            email.To.Add(new MailAddress(mailto));
-                        }
-                        else
-                        {
-                            this.ConsoleWrite("[Mailer]", "Error in receiver-mail: " + mailto);
-                        }
+                        email.To.Add(new MailAddress(mailto));
+                    }
+                    else
+                    {
+                        this.ConsoleError("Error in receiver email address: " + mailto);
                     }
                 }
-                else
-                {
-                    this.ConsoleWrite("[Mailer]", "No receiver-mail are given!");
-                    return;
-                }
 
                 email.Subject = subject;
                 email.Body = body;
@@ -5341,73 +5402,23 @@ namespace PRoConEvents
                 email.BodyEncoding = UTF8Encoding.UTF8;
 
                 SmtpClient smtp = new SmtpClient(this.strSMTPServer, this.iSMTPPort);
-                if (this.blUseSSL == true)
-                {
-                    smtp.EnableSsl = true;
-                }
-                else if (this.blUseSSL == false)
-                {
-                    smtp.EnableSsl = false;
-                }
+                
+                smtp.EnableSsl = this.blUseSSL;
+                
                 smtp.Timeout = 10000;
                 smtp.DeliveryMethod = SmtpDeliveryMethod.Network;
                 smtp.UseDefaultCredentials = false;
                 smtp.Credentials = new NetworkCredential(this.strSMTPUser, this.strSMTPPassword);
                 smtp.Send(email);
 
-                this.ConsoleWrite("[Mailer]", "A notification email has been sent.");
+                this.DebugWrite("A notification email has been sent.", 1);
             }
             catch (Exception e)
             {
-                this.ConsoleWrite("[Mailer]", "Error while sending mails: " + e.ToString());
+                this.ConsoleError("Error while sending mails: " + e.ToString());
             }
         }
 
-        private void SendLogMail(string subject, string body, string address)
-        {
-            try
-            {
-                if (this.strSenderMail == null || this.strSenderMail == String.Empty)
-                {
-                    this.ConsoleWrite("[Mailer]", "No sender-mail is given!");
-                    return;
-                }
-                MailMessage email = new MailMessage();
-                email.From = new MailAddress(this.strSenderMail);
-                if (address.Contains("@") && address.Contains("."))
-                {
-                    email.To.Add(new MailAddress(address));
-                }
-                else
-                {
-                    this.ChatWrite("[Mailer]", "Error in receiver-mail: " + address);
-                }
-                email.Subject = subject;
-                email.Body = body;
-                email.IsBodyHtml = true;
-                email.BodyEncoding = UTF8Encoding.UTF8;
-                SmtpClient smtp = new SmtpClient(this.strSMTPServer, this.iSMTPPort);
-                if (this.blUseSSL == true)
-                {
-                    smtp.EnableSsl = true;
-                }
-                else if (this.blUseSSL == false)
-                {
-                    smtp.EnableSsl = false;
-                }
-                smtp.Timeout = 10000;
-                smtp.DeliveryMethod = SmtpDeliveryMethod.Network;
-                smtp.UseDefaultCredentials = false;
-                smtp.Credentials = new NetworkCredential(this.strSMTPUser, this.strSMTPPassword);
-                smtp.Send(email);
-                this.ConsoleWrite("[Mailer]", "Command Log has been sent.");
-            }
-            catch (Exception e)
-            {
-                this.ConsoleWrite("[Mailer]", "Error while sending mails: " + e.ToString());
-            }
-        }
-        */
         #endregion
 
         #region Helper Methods and Classes
@@ -5461,35 +5472,26 @@ namespace PRoConEvents
             return parameters.ToArray();
         }
 
-        public void JoinWith(Thread thread, int secs)
-        {
-            if (thread == null || !thread.IsAlive)
-            {
-                DebugWrite("^b" + thread.Name + "^n unable to end.", 3);
-                return;
-            }
-            while (thread.IsAlive)
-            {
-                DebugWrite("Waiting for ^b" + thread.Name + "^n to finish", 3);
-                thread.Join(secs * 1000);
-            }
-        }
-
         public void JoinWith(Thread thread)
         {
             if (thread == null || !thread.IsAlive)
+            {
+                DebugWrite("^b" + thread.Name + "^n already finished.", 3);
                 return;
-
-            JoinWith(thread, 3);
+            }
+            DebugWrite("Waiting for ^b" + thread.Name + "^n to finish", 3);
+            thread.Join();
         }
 
         public class ADKAT_Record
         {
+            public Boolean isIRO = false;
             public long record_id = -1;
             public int server_id = -1;
             public string server_ip = "0.0.0.0:0000";
             public string target_guid = null;
             public string target_name = null;
+            public CPlayerInfo target_playerInfo = null;
             //Command source not stored in the database
             public ADKAT_CommandSource command_source = ADKAT_CommandSource.Default;
             public string source_name = null;
@@ -5498,9 +5500,6 @@ namespace PRoConEvents
             public string record_message = null;
             public DateTime record_time;
             public Int32 record_durationMinutes = 0;
-
-            //Sup Attributes
-            public CPlayerInfo targetPlayerInfo;
 
             public ADKAT_Record()
             {
