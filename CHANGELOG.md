@@ -167,6 +167,8 @@ fine for performance). Right now only Punish and Forgive are required to be logg
 <ul>
   <li><b>Bug-fixes.</b> Some documented bugs in the issues section (milestone 0.2.5.1) are fixed.</li>
   <li><b>Punishment Enhancements.</b> Punishment timout has been reduced to 20 seconds.</li>
+  <li><b>IRO Punishments Added.</b> Immediate Repeat Offence. If a player gets punished more than once in a 5 minute 
+  time span, the subsequent punishes were be worth 2 infraction points instead of just 1.</li>
   <li><b>Messaging Enhancements.</b> Pre-say and pre-yell commands have been removed, and now the preMessage IDs can 
   be used in regular say, yell, and any other commands that need a reason or message.</li>
   <li><b>Pre-Message Enhancements.</b> Use of pre-defined messages can be required now.</li>
@@ -177,6 +179,7 @@ fine for performance). Right now only Punish and Forgive are required to be logg
   <li><b>Performance.</b> All actions, parsing, and database communications take place on their own threads now, 
   increasing performance greatly. Even most complicated DB active commands complete in less than 100ms now, under 
   full server load.</li>
+  <li><b>Punishment Enhancements.</b> IRO punishments will now override the low population count and act normally.</li>
   <li><b>Small bug-fixes and enhancements.</b> Messages for errors, player information, and commands, are more 
   informative to the users now. Small bugs fixed.</li>
 </ul>
