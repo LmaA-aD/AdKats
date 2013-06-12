@@ -175,6 +175,7 @@ namespace PRoConEvents
         private string banAppend = "Appeal at www.your_site.com";
 
         //Command Strings for Input
+        private DateTime commandStartTime = DateTime.Now;
         //Player Interaction
         private string m_strKillCommand = "kill|log";
         private string m_strKickCommand = "kick|log";
@@ -298,7 +299,6 @@ namespace PRoConEvents
         //Threads
         Thread MessagingThread;
         Thread CommandParsingThread;
-        Thread RecordProcessingThread;
         Thread DatabaseCommThread;
         Thread ActionHandlingThread;
         Thread TeamSwapThread;
@@ -1426,7 +1426,6 @@ namespace PRoConEvents
                 this.CommandParsingThread.IsBackground = true;
                 this.DatabaseCommThread.IsBackground = true;
                 this.ActionHandlingThread.IsBackground = true;
-                this.RecordProcessingThread.IsBackground = true;
                 this.TeamSwapThread.IsBackground = true;
             }
             catch (Exception e)
@@ -1580,6 +1579,7 @@ namespace PRoConEvents
                 lock (this.teamswapMutex)
                 {
                     this.teamswapOnDeathCheckingQueue.Enqueue(kKillerVictimDetails.Victim);
+                    this.teamswapHandle.Set();
                 }
             }
         }
@@ -1618,6 +1618,11 @@ namespace PRoConEvents
         //all messaging is redirected to global chat for analysis
         public override void OnGlobalChat(string speaker, string message)
         {
+            //Performance testing area
+            if (speaker == "ColColonCleaner")
+            {
+                this.commandStartTime = DateTime.Now;
+            }
             if (isEnabled)
             {
                 this.queueMessageForParsing(speaker, message);
@@ -3784,7 +3789,7 @@ namespace PRoConEvents
         {
             int points = this.fetchPoints(record.target_guid);
             this.playerSayMessage(record.target_name, "Forgiven 1 infraction point. You now have " + points + " point(s) against you.");
-            return this.sendMessageToSource(record, "Forgive Logged for " + record.target_name + " They now have " + points + " points.");
+            return this.sendMessageToSource(record, "Forgive Logged for " + record.target_name + ". They now have " + points + " infraction points.");
         }
 
         public string muteTarget(ADKAT_Record record)
@@ -4580,6 +4585,12 @@ namespace PRoConEvents
             else
             {
                 ConsoleError(temp + " UPDATE for player '" + record.target_name + " by " + record.source_name + " FAILED!");
+            }
+
+            if (record.source_name == "ColColonCleaner")
+            {
+                TimeSpan commandTime = DateTime.Now.Subtract(this.commandStartTime);
+                this.playerSayMessage("ColColonCleaner", "Duration: " + commandTime.TotalMilliseconds + "ms");
             }
 
             DebugWrite("updateRecord finished!", 6);
