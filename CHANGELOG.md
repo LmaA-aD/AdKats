@@ -177,8 +177,7 @@ fine for performance). Right now only Punish and Forgive are required to be logg
 <b>Changes</b> <br/>
 <ul>
   <li><b>Performance.</b> All actions, parsing, and database communications take place on their own threads now, 
-  increasing performance greatly. Even most complicated DB active commands complete in less than 100ms now, under 
-  full server load.</li>
+  increasing performance greatly.</li>
   <li><b>Punishment Enhancements.</b> IRO punishments will now override the low population count and act normally.</li>
   <li><b>Small bug-fixes and enhancements.</b> Messages for errors, player information, and commands, are more 
   informative to the users now. Small bugs fixed.</li>
