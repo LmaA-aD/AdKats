@@ -630,13 +630,4 @@ Valid 'command_type's that can be acted on include the following:<br/>
   <li><b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step. Don't edit unless you really wanna be spammed with console logs, it will also slow down the plugin when turned up.</li>
   <li><b>'Command Entry'</b> - Enter commands here just like in game, mainly for debug purposes. Don't let more than one person use this at any time.</li>
 </ul>
-<h2>New in Version 0.2.7.0</h3>
-<p>
-<ul>
-  <li><b>Performance.</b> All actions, parsing, and database communications take place on their own threads now, 
-  increasing performance greatly. Even most complicated DB active commands complete in less than 100ms now, under 
-  full server load.</li>
-  <li><b>Small bug-fixes and enhancements.</b> Messages for errors, player information, and commands, are more 
-  informative to the users now. Small bugs fixed.</li>
-</ul>
 </p>
