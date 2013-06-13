@@ -535,6 +535,7 @@ namespace PRoConEvents
             {
                 lstReturn = new List<CPluginVariable>();
 
+                lstReturn.Add(new CPluginVariable("0. Complete these settings before enabling.", typeof(string), "Once enabled, more settings will appear."));
                 //Server Settings
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID", typeof(int), this.server_id));
                 //SQL Settings
@@ -543,8 +544,8 @@ namespace PRoConEvents
                 lstReturn.Add(new CPluginVariable("2. MySQL Settings|MySQL Database", typeof(string), mySqlDatabaseName));
                 lstReturn.Add(new CPluginVariable("2. MySQL Settings|MySQL Username", typeof(string), mySqlUsername));
                 lstReturn.Add(new CPluginVariable("2. MySQL Settings|MySQL Password", typeof(string), mySqlPassword));
-
-                lstReturn.Add(new CPluginVariable("Complete these settings before enabling. Once enabled, more settings will appear.", typeof(string), ""));
+                //Debugging Settings
+                lstReturn.Add(new CPluginVariable("3. Debugging|Debug level", typeof(int), this.debugLevel));
             }
             else
             {
@@ -578,7 +579,7 @@ namespace PRoConEvents
                 //Server Settings
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID", typeof(int), this.server_id));
                 CServerInfo info = this.getServerInfo();
-                if(info != null) 
+                if (info != null)
                 {
                     lstReturn.Add(new CPluginVariable("1. Server Settings|Server IP", typeof(string), info.ExternalGameIpandPort));
                 }
@@ -1256,10 +1257,8 @@ namespace PRoConEvents
                 else
                 {
                     this.ConsoleError("No receiver email addresses were given!");
-                    this.lstReceiverMail = new List<string>()
-                    {
-                        "test@test.net"
-                    };
+                    this.lstReceiverMail = new List<string>();
+                    this.lstReceiverMail.Add("test@test.net");
                 }
             }
             else if (strVariable.CompareTo("SMTP-Server username") == 0)
@@ -1509,46 +1508,20 @@ namespace PRoConEvents
         {
             try
             {
-                DebugWrite("Initializing threads", 6);
-                if ((this.MessagingThread.ThreadState & System.Threading.ThreadState.Running) != 0)
-                    this.ConsoleError("Messaging thread already running, cannot start.");
-                else
-                {
-                    this.MessagingThread = new Thread(new ThreadStart(messagingThreadLoop));
-                    this.MessagingThread.IsBackground = true;
-                }
+                this.MessagingThread = new Thread(new ThreadStart(messagingThreadLoop));
+                this.MessagingThread.IsBackground = true;
 
-                if ((this.CommandParsingThread.ThreadState & System.Threading.ThreadState.Running) != 0)
-                    this.ConsoleError("Command Parsing thread already running, cannot start.");
-                else
-                {
-                    this.CommandParsingThread = new Thread(new ThreadStart(commandParsingThreadLoop));
-                    this.CommandParsingThread.IsBackground = true;
-                }
+                this.CommandParsingThread = new Thread(new ThreadStart(commandParsingThreadLoop));
+                this.CommandParsingThread.IsBackground = true;
 
-                if ((this.DatabaseCommThread.ThreadState & System.Threading.ThreadState.Running) != 0)
-                    this.ConsoleError("Database Comm thread already running, cannot start.");
-                else
-                {
-                    this.DatabaseCommThread = new Thread(new ThreadStart(databaseCommThreadLoop));
-                    this.DatabaseCommThread.IsBackground = true;
-                }
+                this.DatabaseCommThread = new Thread(new ThreadStart(databaseCommThreadLoop));
+                this.DatabaseCommThread.IsBackground = true;
 
-                if ((this.ActionHandlingThread.ThreadState & System.Threading.ThreadState.Running) != 0)
-                    this.ConsoleError("Action Handling thread already running, cannot start.");
-                else
-                {
-                    this.ActionHandlingThread = new Thread(new ThreadStart(actionHandlingThreadLoop));
-                    this.ActionHandlingThread.IsBackground = true;
-                }
+                this.ActionHandlingThread = new Thread(new ThreadStart(actionHandlingThreadLoop));
+                this.ActionHandlingThread.IsBackground = true;
 
-                if ((this.TeamSwapThread.ThreadState & System.Threading.ThreadState.Running) != 0)
-                    this.ConsoleError("Teamswap thread already running, cannot start.");
-                else
-                {
-                    this.TeamSwapThread = new Thread(new ThreadStart(teamswapThreadLoop));
-                    this.TeamSwapThread.IsBackground = true;
-                }
+                this.TeamSwapThread = new Thread(new ThreadStart(teamswapThreadLoop));
+                this.TeamSwapThread.IsBackground = true;
             }
             catch (Exception e)
             {
@@ -1612,6 +1585,14 @@ namespace PRoConEvents
                 ConsoleError("Cannot enable plugin while it is shutting down. Please Wait.");
                 return;
             }
+            if (!this.connectionCapable())
+            {
+                //Inform the user
+                this.ConsoleError("Cannot enable AdKats without database variables entered.");
+                //Disable the plugin
+                this.ExecuteCommand("procon.protected.plugins.enable", "AdKats", "False");
+                return;
+            }
             try
             {
                 this.activator = new Thread(new ThreadStart(delegate()
@@ -1619,18 +1600,18 @@ namespace PRoConEvents
                     try
                     {
                         ConsoleWrite("Enabling command functionality. Please Wait.");
-                        Thread.Sleep(1000);
-                        
+                        //Set the enabled variable
+                        this.isEnabled = true;
+
                         //Init and start all the threads
                         this.InitWaitHandles();
                         this.setAllHandles();
                         this.InitThreads();
                         this.StartThreads();
 
-                        this.isEnabled = true;
                         DateTime startTime = DateTime.Now;
                         TimeSpan duration = TimeSpan.MinValue;
-                        do
+                        while (!this.allThreadsReady())
                         {
                             Thread.Sleep(1000);
                             duration = DateTime.Now.Subtract(startTime);
@@ -1642,7 +1623,8 @@ namespace PRoConEvents
                                 this.ExecuteCommand("procon.protected.plugins.enable", "AdKats", "False");
                                 return;
                             }
-                        } while (!this.allThreadsReady());
+                        }
+
                         this.threadsReady = true;
                         this.updateSettingPage();
                         this.ConsoleWrite("^b^2Enabled!^n^0 Version: " + this.GetPluginVersion() + " in " + duration.Milliseconds + "ms.");
@@ -1685,6 +1667,16 @@ namespace PRoConEvents
                         JoinWith(this.DatabaseCommThread);
                         JoinWith(this.ActionHandlingThread);
                         JoinWith(this.TeamSwapThread);
+
+                        this.playerAccessRemovalQueue.Clear();
+                        this.playerAccessUpdateQueue.Clear();
+                        this.teamswapForceMoveQueue.Clear();
+                        this.teamswapOnDeathCheckingQueue.Clear();
+                        this.teamswapOnDeathMoveDic.Clear();
+                        this.unparsedCommandQueue.Clear();
+                        this.unparsedMessageQueue.Clear();
+                        this.unprocessedActionQueue.Clear();
+                        this.unprocessedRecordQueue.Clear();
 
                         this.threadsReady = false;
                         this.updateSettingPage();
@@ -1893,9 +1885,14 @@ namespace PRoConEvents
             {
                 this.DebugWrite("Starting Messaging Thread", 2);
                 Thread.CurrentThread.Name = "messaging";
-                while (this.isEnabled)
+                while (true)
                 {
                     this.DebugWrite("Entering Messaging Thread Loop", 7);
+                    if (!this.isEnabled)
+                    {
+                        this.DebugWrite("Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
+                        break;
+                    }
 
                     //Get all unparsed inbound messages
                     Queue<KeyValuePair<String, String>> inboundMessages;
@@ -2045,10 +2042,15 @@ namespace PRoConEvents
             try
             {
                 this.DebugWrite("Starting TeamSwap Thread", 2);
-                Thread.CurrentThread.Name = "messaging";
-                while (this.isEnabled)
+                Thread.CurrentThread.Name = "teamswap";
+                while (true)
                 {
                     this.DebugWrite("Entering TeamSwap Thread Loop", 7);
+                    if (!this.isEnabled)
+                    {
+                        this.DebugWrite("Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
+                        break;
+                    }
 
                     //Sleep for 10ms
                     Thread.Sleep(10);
@@ -2245,9 +2247,14 @@ namespace PRoConEvents
             {
                 this.DebugWrite("Starting Parsing Thread", 2);
                 Thread.CurrentThread.Name = "parsing";
-                while (this.isEnabled)
+                while (true)
                 {
                     this.DebugWrite("Entering Parsing Thread Loop", 7);
+                    if (!this.isEnabled)
+                    {
+                        this.DebugWrite("Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
+                        break;
+                    }
 
                     //Sleep for 10ms
                     Thread.Sleep(10);
@@ -3665,9 +3672,14 @@ namespace PRoConEvents
                 this.DebugWrite("Starting Action Thread", 2);
                 Thread.CurrentThread.Name = "action";
                 Queue<ADKAT_Record> unprocessedActions;
-                while (this.isEnabled)
+                while (true)
                 {
                     this.DebugWrite("Entering Action Thread Loop", 7);
+                    if (!this.isEnabled)
+                    {
+                        this.DebugWrite("Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
+                        break;
+                    }
 
                     //Sleep for 10ms
                     Thread.Sleep(10);
@@ -3801,6 +3813,7 @@ namespace PRoConEvents
         public string moveTarget(ADKAT_Record record)
         {
             this.queuePlayerForMove(record.target_playerInfo);
+            this.playerSayMessage(record.target_name, "On your next death you will be moved to the opposing team.");
             return this.sendMessageToSource(record, record.target_name + " will be sent to teamswap on their next death.");
         }
 
@@ -4252,9 +4265,14 @@ namespace PRoConEvents
                 Queue<ADKAT_Record> inboundRecords;
                 Queue<KeyValuePair<String, int>> inboundAccessUpdates;
                 Queue<String> inboundAccessRemoval;
-                while (this.isEnabled)
+                while (true)
                 {
                     this.DebugWrite("Entering Database Comm Thread Loop", 7);
+                    if (!this.isEnabled)
+                    {
+                        this.DebugWrite("Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
+                        break;
+                    }
 
                     //Sleep for 10ms
                     Thread.Sleep(10);
@@ -4346,8 +4364,9 @@ namespace PRoConEvents
                         while (inboundRecords != null && inboundRecords.Count > 0)
                         {
                             ADKAT_Record record = inboundRecords.Dequeue();
-                            string response = this.handleRecordUpload(record);
-                            if (response == null)
+
+                            //Only run action if the record needs action
+                            if(this.handleRecordUpload(record))
                             {
                                 //Action is only called after initial upload, not after update
                                 this.DebugWrite("Upload success. Attempting to add to action queue.", 6);
@@ -4605,11 +4624,9 @@ namespace PRoConEvents
          * This method handles uploading of records and calling their action methods
          * Will only upload a record if upload setting for that command is true, or if uploading is required
          */
-        private string handleRecordUpload(ADKAT_Record record)
+        private Boolean handleRecordUpload(ADKAT_Record record)
         {
-            //Null is good
-            string response = null;
-
+            Boolean recordNeedsAction = false;
             //Check whether to call update, or full upload
             if (record.record_id > 0)
             {
@@ -4627,6 +4644,7 @@ namespace PRoConEvents
             }
             else
             {
+                recordNeedsAction = true;
                 //No record ID. Perform full upload
                 this.DebugWrite("calling upload on record", 6);
                 switch (record.command_type)
@@ -4648,8 +4666,7 @@ namespace PRoConEvents
                             }
                             else
                             {
-                                response = record.target_name + " already punished in the last 20 seconds.";
-                                this.sendMessageToSource(record, response);
+                                this.sendMessageToSource(record, record.target_name + " already punished in the last 20 seconds.");
                             }
                         }
                         else
@@ -4663,7 +4680,7 @@ namespace PRoConEvents
                         //No restriction on forgives/minute
                         this.uploadRecord(record);
                         break;
-                    default: 
+                    default:
                         if (this.ADKAT_LoggingSettings[record.command_type])
                         {
                             this.DebugWrite("UPLOADING record for " + record.command_type, 6);
@@ -4677,7 +4694,7 @@ namespace PRoConEvents
                         break;
                 }
             }
-            return response;
+            return recordNeedsAction;
         }
 
         private void uploadRecord(ADKAT_Record record)
@@ -5410,9 +5427,9 @@ namespace PRoConEvents
                 email.BodyEncoding = UTF8Encoding.UTF8;
 
                 SmtpClient smtp = new SmtpClient(this.strSMTPServer, this.iSMTPPort);
-                
+
                 smtp.EnableSsl = this.blUseSSL;
-                
+
                 smtp.Timeout = 10000;
                 smtp.DeliveryMethod = SmtpDeliveryMethod.Network;
                 smtp.UseDefaultCredentials = false;
@@ -5431,9 +5448,25 @@ namespace PRoConEvents
 
         #region Helper Methods and Classes
 
+        /*public void setEnabled(Boolean enabled)
+        {
+            lock (this.enableMutex)
+            {
+                this.isEnabled = enabled;
+            }
+        }
+
+        public Boolean getEnabled()
+        {
+            lock (this.enableMutex)
+            {
+                return this.isEnabled;
+            }
+        }*/
+
         public void setServerInfo(CServerInfo info)
         {
-            lock(this.serverInfoMutex)
+            lock (this.serverInfoMutex)
             {
                 this.serverInfo = info;
             }
