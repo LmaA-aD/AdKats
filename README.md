@@ -94,10 +94,12 @@ below.<br/>
 	<tr>
 		<td><b>9</b></td>
 		<td>Perma-Ban</td>
+		<td>ban</td>
 	</tr>
 	<tr>
 		<td><b>Greater Than 9</b></td>
 		<td>Perma-Ban</td>
+		<td>ban</td>
 	</tr>
 </table>
 
