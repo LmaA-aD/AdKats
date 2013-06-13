@@ -229,6 +229,8 @@ namespace PRoConEvents
         private Dictionary<string, ADKAT_Record> actionConfirmDic = new Dictionary<string, ADKAT_Record>();
         //Whether to combine server punishments
         private Boolean combineServerPunishments = false;
+        //IRO punishment setting
+        private Boolean IROOverridesLowPop = false;
         //Default hierarchy of punishments
         private string[] punishmentHierarchy = 
         {
@@ -626,6 +628,7 @@ namespace PRoConEvents
                 if (this.onlyKillOnLowPop)
                 {
                     lstReturn.Add(new CPluginVariable("5. Punishment Settings|Low Population Value", typeof(int), this.lowPopPlayerCount));
+                    lstReturn.Add(new CPluginVariable("5. Punishment Settings|IRO Punishment Overrides Low Pop", typeof(Boolean), this.IROOverridesLowPop));
                 }
 
                 //Player Report Settings
@@ -1125,6 +1128,10 @@ namespace PRoConEvents
             else if (Regex.Match(strVariable, @"Low Population Value").Success)
             {
                 this.lowPopPlayerCount = Int32.Parse(strValue);
+            }
+            else if (Regex.Match(strVariable, @"IRO Punishment Overrides Low Pop").Success)
+            {
+                this.IROOverridesLowPop = Boolean.Parse(strValue);
             }
             #endregion
             #region access settings
@@ -1883,14 +1890,14 @@ namespace PRoConEvents
         {
             try
             {
-                this.DebugWrite("Starting Messaging Thread", 2);
+                this.DebugWrite("MESSAGE: Starting Messaging Thread", 2);
                 Thread.CurrentThread.Name = "messaging";
                 while (true)
                 {
-                    this.DebugWrite("Entering Messaging Thread Loop", 7);
+                    this.DebugWrite("MESSAGE: Entering Messaging Thread Loop", 7);
                     if (!this.isEnabled)
                     {
-                        this.DebugWrite("Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
+                        this.DebugWrite("MESSAGE: Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
                         break;
                     }
 
@@ -1898,10 +1905,10 @@ namespace PRoConEvents
                     Queue<KeyValuePair<String, String>> inboundMessages;
                     if (this.unparsedMessageQueue.Count > 0)
                     {
-                        this.DebugWrite("Preparing to lock messaging to retrive new messages", 7);
+                        this.DebugWrite("MESSAGE: Preparing to lock messaging to retrive new messages", 7);
                         lock (unparsedMessageMutex)
                         {
-                            this.DebugWrite("Inbound messages found. Grabbing.", 6);
+                            this.DebugWrite("MESSAGE: Inbound messages found. Grabbing.", 6);
                             //Grab all messages in the queue
                             inboundMessages = new Queue<KeyValuePair<string, string>>(this.unparsedMessageQueue.ToArray());
                             //Clear the queue for next run
@@ -1910,7 +1917,7 @@ namespace PRoConEvents
                     }
                     else
                     {
-                        this.DebugWrite("No inbound messages. Waiting for Input.", 4);
+                        this.DebugWrite("MESSAGE: No inbound messages. Waiting for Input.", 4);
                         //Wait for input
                         this.messageParsingHandle.Reset();
                         this.messageParsingHandle.WaitOne(Timeout.Infinite);
@@ -1920,7 +1927,7 @@ namespace PRoConEvents
                     //Loop through all messages in order that they came in
                     while (inboundMessages != null && inboundMessages.Count > 0)
                     {
-                        this.DebugWrite("begin reading message", 6);
+                        this.DebugWrite("MESSAGE: begin reading message", 6);
                         //Dequeue the first/next message
                         KeyValuePair<String, String> messagePair = inboundMessages.Dequeue();
                         string speaker = messagePair.Key;
@@ -1933,10 +1940,10 @@ namespace PRoConEvents
                             lock (playersMutex)
                             {
                                 //Check if the player is muted
-                                this.DebugWrite("Checking for mute case.", 7);
+                                this.DebugWrite("MESSAGE: Checking for mute case.", 7);
                                 if (this.round_mutedPlayers.ContainsKey(speaker))
                                 {
-                                    this.DebugWrite("Player is muted. Acting.", 7);
+                                    this.DebugWrite("MESSAGE: Player is muted. Acting.", 7);
                                     //Increment the muted chat count
                                     this.round_mutedPlayers[speaker] = this.round_mutedPlayers[speaker] + 1;
                                     //Get player info
@@ -1986,13 +1993,13 @@ namespace PRoConEvents
                         else
                         {
                             //If the message does not cause either of the above clauses, then ignore it.
-                            this.DebugWrite("Message is regular chat. Ignoring.", 7);
+                            this.DebugWrite("MESSAGE: Message is regular chat. Ignoring.", 7);
                             continue;
                         }
                         this.queueCommandForParsing(speaker, message);
                     }
                 }
-                this.DebugWrite("Ending Messaging Thread", 2);
+                this.DebugWrite("MESSAGE: Ending Messaging Thread", 2);
             }
             catch (Exception e)
             {
@@ -2041,14 +2048,14 @@ namespace PRoConEvents
             Queue<CPlayerInfo> movingQueue;
             try
             {
-                this.DebugWrite("Starting TeamSwap Thread", 2);
+                this.DebugWrite("TSWAP: Starting TeamSwap Thread", 2);
                 Thread.CurrentThread.Name = "teamswap";
                 while (true)
                 {
-                    this.DebugWrite("Entering TeamSwap Thread Loop", 7);
+                    this.DebugWrite("TSWAP: Entering TeamSwap Thread Loop", 7);
                     if (!this.isEnabled)
                     {
-                        this.DebugWrite("Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
+                        this.DebugWrite("TSWAP: Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
                         break;
                     }
 
@@ -2071,10 +2078,10 @@ namespace PRoConEvents
                     //Get players who died that need moving
                     if ((this.teamswapOnDeathMoveDic.Count > 0 && this.teamswapOnDeathCheckingQueue.Count > 0) || this.teamswapForceMoveQueue.Count > 0)
                     {
-                        this.DebugWrite("Preparing to lock teamswap queues", 4);
+                        this.DebugWrite("TSWAP: Preparing to lock teamswap queues", 4);
                         lock (teamswapMutex)
                         {
-                            this.DebugWrite("Players in ready for teamswap. Grabbing.", 6);
+                            this.DebugWrite("TSWAP: Players in ready for teamswap. Grabbing.", 6);
                             //Grab all messages in the queue
                             movingQueue = new Queue<CPlayerInfo>(this.teamswapForceMoveQueue.ToArray());
                             checkingQueue = new Queue<CPlayerInfo>(this.teamswapOnDeathCheckingQueue.ToArray());
@@ -2162,21 +2169,21 @@ namespace PRoConEvents
                     }
                     else
                     {
-                        this.DebugWrite("No players to swap. Waiting for input.", 4);
+                        this.DebugWrite("TSWAP: No players to swap. Waiting for input.", 4);
                         //There are no players to swap, wait.
                         this.teamswapHandle.Reset();
                         this.teamswapHandle.WaitOne(Timeout.Infinite);
                         continue;
                     }
                 }
-                this.DebugWrite("Ending TeamSwap Thread", 2);
+                this.DebugWrite("TSWAP: Ending TeamSwap Thread", 2);
             }
             catch (Exception e)
             {
-                this.ConsoleException(e.ToString());
+                this.ConsoleException("TSWAP: " + e.ToString());
                 if (typeof(ThreadAbortException).Equals(e.GetType()))
                 {
-                    this.DebugWrite("Thread Exception", 4);
+                    this.DebugWrite("TSWAP: Thread Exception", 4);
                     Thread.ResetAbort();
                     return;
                 }
@@ -2245,14 +2252,14 @@ namespace PRoConEvents
         {
             try
             {
-                this.DebugWrite("Starting Parsing Thread", 2);
-                Thread.CurrentThread.Name = "parsing";
+                this.DebugWrite("COMMAND: Starting Command Parsing Thread", 2);
+                Thread.CurrentThread.Name = "Command";
                 while (true)
                 {
-                    this.DebugWrite("Entering Parsing Thread Loop", 7);
+                    this.DebugWrite("COMMAND: Entering Command Parsing Thread Loop", 7);
                     if (!this.isEnabled)
                     {
-                        this.DebugWrite("Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
+                        this.DebugWrite("COMMAND: Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
                         break;
                     }
 
@@ -2263,10 +2270,10 @@ namespace PRoConEvents
                     Queue<KeyValuePair<String, String>> unparsedCommands;
                     if (this.unparsedCommandQueue.Count > 0)
                     {
-                        this.DebugWrite("Preparing to lock command queue to retrive new commands", 7);
+                        this.DebugWrite("COMMAND: Preparing to lock command queue to retrive new commands", 7);
                         lock (unparsedCommandMutex)
                         {
-                            this.DebugWrite("Inbound commands found. Grabbing.", 6);
+                            this.DebugWrite("COMMAND: Inbound commands found. Grabbing.", 6);
                             //Grab all messages in the queue
                             unparsedCommands = new Queue<KeyValuePair<string, string>>(this.unparsedCommandQueue.ToArray());
                             //Clear the queue for next run
@@ -2276,7 +2283,7 @@ namespace PRoConEvents
                         //Loop through all commands in order that they came in
                         while (unparsedCommands != null && unparsedCommands.Count > 0)
                         {
-                            this.DebugWrite("begin reading command", 6);
+                            this.DebugWrite("COMMAND: begin reading command", 6);
                             //Dequeue the first/next command
                             KeyValuePair<String, String> commandPair = unparsedCommands.Dequeue();
                             string speaker = commandPair.Key;
@@ -2291,21 +2298,21 @@ namespace PRoConEvents
                     }
                     else
                     {
-                        this.DebugWrite("No inbound commands, ready.", 7);
+                        this.DebugWrite("COMMAND: No inbound commands, ready.", 7);
                         //No commands to parse, ready.
                         this.commandParsingHandle.Reset();
                         this.commandParsingHandle.WaitOne(Timeout.Infinite);
                         continue;
                     }
                 }
-                this.DebugWrite("Ending Parsing Thread", 2);
+                this.DebugWrite("COMMAND: Ending Command Thread", 2);
             }
             catch (Exception e)
             {
                 this.ConsoleException(e.ToString());
                 if (typeof(ThreadAbortException).Equals(e.GetType()))
                 {
-                    this.DebugWrite("Thread Exception", 4);
+                    this.DebugWrite("COMMAND: Thread Exception", 4);
                     Thread.ResetAbort();
                     return;
                 }
@@ -3669,28 +3676,27 @@ namespace PRoConEvents
         {
             try
             {
-                this.DebugWrite("Starting Action Thread", 2);
+                this.DebugWrite("ACTION: Starting Action Thread", 2);
                 Thread.CurrentThread.Name = "action";
                 Queue<ADKAT_Record> unprocessedActions;
                 while (true)
                 {
-                    this.DebugWrite("Entering Action Thread Loop", 7);
+                    this.DebugWrite("ACTION: Entering Action Thread Loop", 7);
                     if (!this.isEnabled)
                     {
-                        this.DebugWrite("Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
+                        this.DebugWrite("ACTION: Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
                         break;
                     }
 
                     //Sleep for 10ms
                     Thread.Sleep(10);
 
-                    //Handle Inbound Records
+                    //Handle Inbound Actions
                     if (this.unprocessedActionQueue.Count > 0)
                     {
-                        this.DebugWrite("Preparing to lock inbound action queue to retrive new action records", 7);
                         lock (unprocessedActionMutex)
                         {
-                            this.DebugWrite("Inbound records found. Grabbing.", 6);
+                            this.DebugWrite("ACTION: Inbound actions found. Grabbing.", 6);
                             //Grab all messages in the queue
                             unprocessedActions = new Queue<ADKAT_Record>(this.unprocessedActionQueue.ToArray());
                             //Clear the queue for next run
@@ -3699,7 +3705,7 @@ namespace PRoConEvents
                         //Loop through all records in order that they came in
                         while (unprocessedActions != null && unprocessedActions.Count > 0)
                         {
-                            this.DebugWrite("Preparing to Run Actions for record", 6);
+                            this.DebugWrite("ACTION: Preparing to Run Actions for record", 6);
                             //Dequeue the record
                             ADKAT_Record record = unprocessedActions.Dequeue();
                             //Run the appropriate action
@@ -3710,20 +3716,20 @@ namespace PRoConEvents
                     }
                     else
                     {
-                        this.DebugWrite("No inbound actions. Waiting.", 6);
+                        this.DebugWrite("ACTION: No inbound actions. Waiting.", 6);
                         //Wait for new actions
                         this.actionHandlingHandle.Reset();
                         this.actionHandlingHandle.WaitOne(Timeout.Infinite);
                     }
                 }
-                this.DebugWrite("Ending Action Handling Thread", 2);
+                this.DebugWrite("ACTION: Ending Action Handling Thread", 2);
             }
             catch (Exception e)
             {
                 this.ConsoleException(e.ToString());
                 if (typeof(ThreadAbortException).Equals(e.GetType()))
                 {
-                    this.DebugWrite("Thread Exception", 4);
+                    this.DebugWrite("ACTION: Thread Exception", 4);
                     Thread.ResetAbort();
                     return;
                 }
@@ -3944,9 +3950,12 @@ namespace PRoConEvents
             }
             //Set additional message
             string additionalMessage = "(" + points + " infraction points)";
-
+            
+            Boolean isLowPop = this.onlyKillOnLowPop && (this.playerList.Count < this.lowPopPlayerCount);
+            Boolean IROOverride = record.isIRO && this.IROOverridesLowPop;
+            
             //Call correct action
-            if (action.Equals("kill") || (!record.isIRO && (this.onlyKillOnLowPop && this.playerList.Count < this.lowPopPlayerCount)))
+            if (action.Equals("kill") || (isLowPop && !IROOverride))
             {
                 record.command_action = ADKAT_CommandType.KillPlayer;
                 message = this.killTarget(record, additionalMessage);
@@ -4259,7 +4268,7 @@ namespace PRoConEvents
         {
             try
             {
-                this.DebugWrite("Starting Database Comm Thread", 2);
+                this.DebugWrite("DBCOMM: Starting Database Comm Thread", 2);
                 Thread.CurrentThread.Name = "databasecomm";
 
                 Queue<ADKAT_Record> inboundRecords;
@@ -4267,10 +4276,10 @@ namespace PRoConEvents
                 Queue<String> inboundAccessRemoval;
                 while (true)
                 {
-                    this.DebugWrite("Entering Database Comm Thread Loop", 7);
+                    this.DebugWrite("DBCOMM: Entering Database Comm Thread Loop", 7);
                     if (!this.isEnabled)
                     {
-                        this.DebugWrite("Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
+                        this.DebugWrite("DBCOMM: Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
                         break;
                     }
 
@@ -4280,10 +4289,10 @@ namespace PRoConEvents
                     //Check if database connection settings have changed
                     if (this.dbSettingsChanged)
                     {
-                        this.DebugWrite("DB Settings have changed, calling test.", 6);
+                        this.DebugWrite("DBCOMM: DB Settings have changed, calling test.", 6);
                         if (this.testDatabaseConnection())
                         {
-                            this.DebugWrite("Database Connection Good. Continuing Thread.", 6);
+                            this.DebugWrite("DBCOMM: Database Connection Good. Continuing Thread.", 6);
                         }
                         else
                         {
@@ -4291,7 +4300,7 @@ namespace PRoConEvents
                             this.databaseSettingHandle.Reset();
                             //The database connection failed, wait for settings to change again
                             this.databaseSettingHandle.WaitOne(Timeout.Infinite);
-                            this.DebugWrite("Settings changed, attempting new connection.", 3);
+                            this.DebugWrite("DBCOMM: Settings changed, attempting new connection.", 3);
                             continue;
                         }
                     }
@@ -4303,16 +4312,16 @@ namespace PRoConEvents
                     }
                     else
                     {
-                        this.DebugWrite("Skipping DB action fetch", 7);
+                        this.DebugWrite("DBCOMM: Skipping DB action fetch", 7);
                     }
 
                     //Handle access updates
                     if (this.playerAccessUpdateQueue.Count > 0 || this.playerAccessRemovalQueue.Count > 0)
                     {
-                        this.DebugWrite("Preparing to lock inbound access queues to retrive access changes", 7);
+                        this.DebugWrite("DBCOMM: Preparing to lock inbound access queues to retrive access changes", 7);
                         lock (playerAccessMutex)
                         {
-                            this.DebugWrite("Inbound access changes found. Grabbing.", 6);
+                            this.DebugWrite("DBCOMM: Inbound access changes found. Grabbing.", 6);
                             //Grab all in the queue
                             inboundAccessUpdates = new Queue<KeyValuePair<string, int>>(this.playerAccessUpdateQueue.ToArray());
                             inboundAccessRemoval = new Queue<String>(this.playerAccessRemovalQueue.ToArray());
@@ -4345,16 +4354,16 @@ namespace PRoConEvents
                     }
                     else
                     {
-                        this.DebugWrite("No inbound access changes.", 7);
+                        this.DebugWrite("DBCOMM: No inbound access changes.", 7);
                     }
 
                     //Handle Inbound Records
                     if (this.unprocessedRecordQueue.Count > 0)
                     {
-                        this.DebugWrite("Preparing to lock inbound record queue to retrive new records", 7);
+                        this.DebugWrite("DBCOMM: Preparing to lock inbound record queue to retrive new records", 7);
                         lock (unprocessedRecordMutex)
                         {
-                            this.DebugWrite("Inbound records found. Grabbing.", 6);
+                            this.DebugWrite("DBCOMM: Inbound records found. Grabbing.", 6);
                             //Grab all messages in the queue
                             inboundRecords = new Queue<ADKAT_Record>(this.unprocessedRecordQueue.ToArray());
                             //Clear the queue for next run
@@ -4366,31 +4375,35 @@ namespace PRoConEvents
                             ADKAT_Record record = inboundRecords.Dequeue();
 
                             //Only run action if the record needs action
-                            if(this.handleRecordUpload(record))
+                            if (this.handleRecordUpload(record))
                             {
                                 //Action is only called after initial upload, not after update
-                                this.DebugWrite("Upload success. Attempting to add to action queue.", 6);
+                                this.DebugWrite("DBCOMM: Upload success. Attempting to add to action queue.", 6);
                                 this.queueRecordForActionHandling(record);
+                            }
+                            else
+                            {
+                                this.DebugWrite("DBCOMM: Record does not need action handling.", 6);
                             }
                         }
                     }
                     else
                     {
-                        this.DebugWrite("No inbound records.", 7);
+                        this.DebugWrite("DBCOMM: No unprocessed records. Waiting for input", 7);
                         this.dbCommHandle.Reset();
                         if (!this.fetchActionsFromDB)
                         {
-                            //Can only pause this thread infinitely if we aren't ready for database input
-                            this.dbCommHandle.WaitOne(Timeout.Infinite);
+                            //Maximum wait time is DB access fetch time
+                            this.dbCommHandle.WaitOne(this.dbAccessFetchFrequency * 1000);
                         }
                         else
                         {
-                            //If ready on DB input, the maximum time we can wait is "db action frequency"
+                            //If waiting on DB input, the maximum time we can wait is "db action frequency"
                             this.dbCommHandle.WaitOne(this.dbActionFrequency * 1000);
                         }
                     }
                 }
-                this.DebugWrite("Ending Database Comm Thread", 2);
+                this.DebugWrite("DBCOMM: Ending Database Comm Thread", 2);
             }
             catch (Exception e)
             {
@@ -4628,7 +4641,7 @@ namespace PRoConEvents
         {
             Boolean recordNeedsAction = false;
             //Check whether to call update, or full upload
-            if (record.record_id > 0)
+            if (record.record_id != -1)
             {
                 //Record already has a record ID, it can only be updated
                 if (this.ADKAT_LoggingSettings[record.command_type])
@@ -4646,7 +4659,6 @@ namespace PRoConEvents
             {
                 recordNeedsAction = true;
                 //No record ID. Perform full upload
-                this.DebugWrite("calling upload on record", 6);
                 switch (record.command_type)
                 {
                     case ADKAT_CommandType.PunishPlayer:
@@ -4661,6 +4673,7 @@ namespace PRoConEvents
                                 record.isIRO = true;
                                 record.record_message += " [IRO]";
                                 //Upload record twice
+                                this.DebugWrite("UPLOADING IRO record for " + record.command_type, 6);
                                 this.uploadRecord(record);
                                 this.uploadRecord(record);
                             }
@@ -4672,12 +4685,14 @@ namespace PRoConEvents
                         else
                         {
                             //Upload record once
+                            this.DebugWrite("UPLOADING record for " + record.command_type, 6);
                             this.uploadRecord(record);
                         }
                         break;
                     case ADKAT_CommandType.ForgivePlayer:
                         //Upload for forgive is required
                         //No restriction on forgives/minute
+                        this.DebugWrite("UPLOADING record for " + record.command_type, 6);
                         this.uploadRecord(record);
                         break;
                     default:
