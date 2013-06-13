@@ -1613,9 +1613,9 @@ namespace PRoConEvents
                         TimeSpan duration = TimeSpan.MinValue;
                         while (!this.allThreadsReady())
                         {
-                            Thread.Sleep(1000);
+                            Thread.Sleep(10);
                             duration = DateTime.Now.Subtract(startTime);
-                            if (duration.Seconds > 5)
+                            if (duration.TotalSeconds > 5)
                             {
                                 //Inform the user
                                 this.ConsoleError("Failed to enable in 5 seconds. Shutting down. Inform ColColonCleaner.");
@@ -1627,7 +1627,7 @@ namespace PRoConEvents
 
                         this.threadsReady = true;
                         this.updateSettingPage();
-                        this.ConsoleWrite("^b^2Enabled!^n^0 Version: " + this.GetPluginVersion() + " in " + duration.Milliseconds + "ms.");
+                        this.ConsoleWrite("^b^2Enabled!^n^0 Version: " + this.GetPluginVersion() + " in " + duration.TotalMilliseconds + "ms.");
                     }
                     catch (Exception e)
                     {
