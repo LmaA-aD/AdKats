@@ -176,9 +176,11 @@ fine for performance). Right now only Punish and Forgive are required to be logg
 <h4>0.2.7.0 (13-JUNE-2013)</h4>
 <b>Changes</b> <br/>
 <ul>
-  <li><b>Performance.</b> All actions, parsing, and database communications take place on their own threads now, 
-  increasing performance greatly.</li>
-  <li><b>Punishment Enhancements.</b> IRO punishments will now override the low population count and act normally.</li>
+  <li><b>PERFORMANCE.</b> All actions, parsing, and database communications take place on their own threads now, 
+  increasing performance greatly. However, this needs testing to optimize, a lot of testing.</li>
+  <li><b>Punishment Enhancements.</b> IRO punishments can now override the low population count and act normally.</li>
+  <li><b>Ban Messages Fixed.</b> Frostbite has a 80 character limit for ban/kick messages, and the new ban/kick messages 
+  comply with that.</li>
   <li><b>Small bug-fixes and enhancements.</b> Messages for errors, player information, and commands, are more 
   informative to the users now. Small bugs fixed.</li>
 </ul>
