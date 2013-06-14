@@ -2332,9 +2332,9 @@ namespace PRoConEvents
                     this.sendMessageToSource(record, "You entered a completely blank command.");
                     return;
                 }
-                String commandString = splitMessage[0];
+                String commandString = splitMessage[0].ToLower();
                 DebugWrite("Raw Command: " + commandString, 6);
-                String remainingMessage = message.TrimStart(commandString.ToCharArray()).Trim();
+                String remainingMessage = message.TrimStart(splitMessage[0].ToCharArray()).Trim();
 
                 //GATE 1: Add general data
                 record.server_id = this.server_id;
@@ -3876,8 +3876,14 @@ namespace PRoConEvents
         {
             Int32 seconds = record.record_durationMinutes * 60;
             additionalMessage = (additionalMessage != null && additionalMessage.Length > 0) ? (" " + additionalMessage) : ("");
-            string banReason = "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + " - " + ((this.useBanAppend) ? (this.banAppend) : (""));
-            this.DebugWrite("Ban Message: '" + banReason + "'", 6);
+            string banReason = record.source_name + " - " + record.record_message + additionalMessage + ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
+            int cutLength = banReason.Length - 80;
+            if (cutLength > 0)
+            {
+                string cutReason = record.record_message.Substring(0, record.record_message.Length - cutLength);
+                banReason = record.source_name + " - " + cutReason + additionalMessage + ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
+            }
+            this.DebugWrite("Ban Message: '" + banReason + "'", 3);
             //Perform Actions
             switch (this.m_banMethod)
             {
@@ -3906,7 +3912,13 @@ namespace PRoConEvents
         public string permaBanTarget(ADKAT_Record record, string additionalMessage)
         {
             additionalMessage = (additionalMessage != null && additionalMessage.Length > 0) ? (" " + additionalMessage) : ("");
-            string banReason = "(" + record.source_name + ") " + record.record_message + " " + additionalMessage + " - " + ((this.useBanAppend) ? (this.banAppend) : (""));
+            string banReason = record.source_name + " - " + record.record_message + additionalMessage + ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
+            int cutLength = banReason.Length - 80;
+            if (cutLength > 0)
+            {
+                string cutReason = record.record_message.Substring(0, record.record_message.Length - cutLength);
+                banReason = record.source_name + " - " + cutReason + additionalMessage + ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
+            }
             this.DebugWrite("Ban Message: '" + banReason + "'", 6);
             //Perform Actions
             switch (this.m_banMethod)
@@ -3949,11 +3961,11 @@ namespace PRoConEvents
                 action = this.punishmentHierarchy[points - 1];
             }
             //Set additional message
-            string additionalMessage = "(" + points + " infraction points)";
-            
+            string additionalMessage = "(" + points + "pts)";
+
             Boolean isLowPop = this.onlyKillOnLowPop && (this.playerList.Count < this.lowPopPlayerCount);
             Boolean IROOverride = record.isIRO && this.IROOverridesLowPop;
-            
+
             //Call correct action
             if (action.Equals("kill") || (isLowPop && !IROOverride))
             {
@@ -4639,25 +4651,27 @@ namespace PRoConEvents
          */
         private Boolean handleRecordUpload(ADKAT_Record record)
         {
-            Boolean recordNeedsAction = false;
+            this.DebugWrite("DBCOMM: Entering handle record upload", 6);
+            Boolean recordNeedsAction = true;
             //Check whether to call update, or full upload
             if (record.record_id != -1)
             {
+                recordNeedsAction = false;
                 //Record already has a record ID, it can only be updated
                 if (this.ADKAT_LoggingSettings[record.command_type])
                 {
-                    this.DebugWrite("UPDATING record for " + record.command_type, 6);
+                    this.DebugWrite("DBCOMM: UPDATING record for " + record.command_type, 6);
                     //Update Record
                     this.updateRecord(record);
                 }
                 else
                 {
-                    this.DebugWrite("Skipping record UPDATE for " + record.command_type, 6);
+                    this.DebugWrite("DBCOMM: Skipping record UPDATE for " + record.command_type, 6);
                 }
             }
             else
             {
-                recordNeedsAction = true;
+                this.DebugWrite("DBCOMM: Record needs full upload, checking.", 6);
                 //No record ID. Perform full upload
                 switch (record.command_type)
                 {
@@ -4666,6 +4680,7 @@ namespace PRoConEvents
                         //Check if the punish will be double counted
                         if (this.isDoubleCounted(record))
                         {
+                            this.DebugWrite("DBCOMM: Punish is double counted.", 6);
                             //Check if player is on timeout
                             if (this.canPunish(record))
                             {
@@ -4673,26 +4688,27 @@ namespace PRoConEvents
                                 record.isIRO = true;
                                 record.record_message += " [IRO]";
                                 //Upload record twice
-                                this.DebugWrite("UPLOADING IRO record for " + record.command_type, 6);
+                                this.DebugWrite("DBCOMM: UPLOADING IRO Punish", 6);
                                 this.uploadRecord(record);
                                 this.uploadRecord(record);
                             }
                             else
                             {
                                 this.sendMessageToSource(record, record.target_name + " already punished in the last 20 seconds.");
+                                recordNeedsAction = false;
                             }
                         }
                         else
                         {
                             //Upload record once
-                            this.DebugWrite("UPLOADING record for " + record.command_type, 6);
+                            this.DebugWrite("DBCOMM: UPLOADING Punish", 6);
                             this.uploadRecord(record);
                         }
                         break;
                     case ADKAT_CommandType.ForgivePlayer:
                         //Upload for forgive is required
                         //No restriction on forgives/minute
-                        this.DebugWrite("UPLOADING record for " + record.command_type, 6);
+                        this.DebugWrite("DBCOMM: UPLOADING Forgive", 6);
                         this.uploadRecord(record);
                         break;
                     default:
