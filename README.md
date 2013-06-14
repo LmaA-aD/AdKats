@@ -184,12 +184,12 @@ no reason is given. Players (even the most atrocious in some cases) should know 
 </p>
 <h3>Performance</h3>
 <p>
-This plugin has been tested on a 64 player Operation Metro server that is full nearly 24/7 and does not cause any 
-noticable lag. AdKats is designed to be rather heavy when changing settings, but much lighter when in use. All commands 
-are stored in dictionaries so command meanings are parsed instantly when entered. During command parsing there is a 
-hierarchy of checks the command goes through (specific to each command), if any of them fail the process ends 
-immediately and informs the calling player of the error they made. Database connections are fast and do not cause any 
-noticable lag even when logging everything on a very active server.
+This plugin has been multi-threaded for performance in the latest version, and still needs a lot of testing in this area. 
+The speed of commands depends on how much database interaction needs to happen for each. Preliminary thread testing 
+shows small commands like kill which require 2 or fewer database round-trips run around 150ms to completion. Large 
+commands like punish which can sometimes require 7 database round-trips to complete can run around 1000ms. These values 
+are from one day of testing and still need to be optimized after I get feedback on performance. Use "Debug Soldier Name" 
+to get the speed of commands on your server.
 </p>
 <h3>Database Usage</h3>
 <p>
