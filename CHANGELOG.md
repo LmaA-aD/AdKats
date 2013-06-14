@@ -183,5 +183,7 @@ fine for performance). Right now only Punish and Forgive are required to be logg
   comply with that.</li>
   <li><b>Small bug-fixes and enhancements.</b> Messages for errors, player information, and commands, are more 
   informative to the users now. Small bugs fixed.</li>
+  <li><b>Debug Soldier Added.</b> Set the debug soldier name in settings to get the speed of commands on your server 
+  sent to you in-game.</li>
 </ul>
 </blockquote>
