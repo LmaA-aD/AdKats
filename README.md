@@ -2,7 +2,7 @@
 New in version 0.2.7.0 at the bottom of this document. Download link available.
 <h1>AdKats</h1>
 <p>
-A Threaded, MySQL reflected admin toolset that includes editable in-game commands, an out-of-game controller, database 
+A MySQL reflected admin toolset that includes editable in-game commands, an out-of-game controller, database 
 reflected punishment and forgiveness, proper player report and admin call handling, player name completion, 
 player muting, yell/say pre-recording, and internal implementation of TeamSwap.<br/><br/>
 
@@ -24,16 +24,16 @@ for small servers.
 <b>NOTE:</b> This is NOT the player-based punish/forgive system normally used for teamkilling, and is only usable by
 admins.<br/>
 <br/>
-<B>TLDR:</b> Use of punish and forgive commands takes the load off admins remembering what players have broken 
+Use of punish and forgive commands takes the load off admins remembering what players have broken 
 server rules, and how many times. Each time a player is punished it's logged in the database, and the more punishes 
 they get the more  severe the punishment. Available punishments include kill, kick, temp-ban 60 minutes, temp-ban 1 day, 
 temp-ban 1 week, temp-ban 2 weeks, temp-ban 1 month, and permaban. The order that punishments are given in can be 
 configured to your needs.<br/>
 <br/>
 After a player is 'punished' (and the Punish log is made in the database), their total points are calculated using 
-this basic formula:<br/>
-<b>(Punishment Count - Forgiveness Count = Total Points)</b></center><br/>
-Then an action is decided using total points from the punishment hierarchy. Punishments should get more harsh as the
+this very basic formula:<br/>
+<b>(Punishment Points - Forgiveness Points) = Total Points</b></center><br/>
+Then an action is decided using Total Points from the punishment hierarchy. Punishments should get more harsh as the
 player gets more points. A player cannot be punished more than once every 20 seconds, this prevents multiple admins from 
 accidentally punishing a player multiple times for the same thing. When a player is punished, and has already been 
 punished in the past 5 minutes, the new punish counts for 2 points instead of 1, as the player is immediately breaking 
