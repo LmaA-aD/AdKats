@@ -1603,14 +1603,14 @@ namespace PRoConEvents
                 ConsoleError("Cannot enable plugin while it is shutting down. Please Wait.");
                 return;
             }
-            if (!this.connectionCapable())
+            /*if (!this.connectionCapable())
             {
                 //Inform the user
                 this.ConsoleError("Cannot enable AdKats without database variables entered.");
                 //Disable the plugin
                 this.ExecuteCommand("procon.protected.plugins.enable", "AdKats", "False");
                 return;
-            }
+            }*/
             try
             {
                 this.activator = new Thread(new ThreadStart(delegate()
@@ -1633,10 +1633,10 @@ namespace PRoConEvents
                         {
                             Thread.Sleep(10);
                             duration = DateTime.Now.Subtract(startTime);
-                            if (duration.TotalSeconds > 5)
+                            if (duration.TotalSeconds > 30)
                             {
                                 //Inform the user
-                                this.ConsoleError("Failed to enable in 5 seconds. Shutting down. Inform ColColonCleaner.");
+                                this.ConsoleError("Failed to enable in 30 seconds. Shutting down. Inform ColColonCleaner.");
                                 //Disable the plugin
                                 this.ExecuteCommand("procon.protected.plugins.enable", "AdKats", "False");
                                 return;
@@ -3982,7 +3982,7 @@ namespace PRoConEvents
                 action = this.punishmentHierarchy[points - 1];
             }
             //Set additional message
-            string additionalMessage = "[" + ((record.isIRO)?("IRO "):("")) + points + "pts]";
+            string additionalMessage = "[" + ((record.isIRO) ? ("IRO ") : ("")) + points + "pts]";
 
             Boolean isLowPop = this.onlyKillOnLowPop && (this.playerList.Count < this.lowPopPlayerCount);
             Boolean IROOverride = record.isIRO && this.IROOverridesLowPop;
