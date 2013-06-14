@@ -136,6 +136,7 @@ namespace PRoConEvents
         private volatile bool threadsReady;
         //Current debug level
         private volatile int debugLevel;
+        private String debugSoldierName = "ColColonCleaner";
         //IDs of the two teams as the server understands it
         private static int USTeamId = 1;
         private static int RUTeamId = 2;
@@ -174,7 +175,7 @@ namespace PRoConEvents
         private string m_strBanTypeOption = "Frostbite - EA GUID";
         private ADKAT_BanType m_banMethod;
         private Boolean useBanAppend = false;
-        private string banAppend = "Appeal at www.your_site.com";
+        private string banAppend = "Appeal at your_site.com";
 
         //Command Strings for Input
         private DateTime commandStartTime = DateTime.Now;
@@ -682,6 +683,7 @@ namespace PRoConEvents
 
                 //Debug settings
                 lstReturn.Add(new CPluginVariable("A13. Debugging|Debug level", typeof(int), this.debugLevel));
+                lstReturn.Add(new CPluginVariable("A13. Debugging|Debug Soldier Name", typeof(string), this.debugSoldierName));
                 lstReturn.Add(new CPluginVariable("A13. Debugging|Command Entry", typeof(string), ""));
             }
             catch (Exception e)
@@ -729,6 +731,10 @@ namespace PRoConEvents
                 int.TryParse(strValue, out tmp);
                 this.debugLevel = tmp;
             }
+            else if (Regex.Match(strVariable, @"Debug Soldier Name").Success)
+            {
+                this.debugSoldierName = strValue;
+            }
             #endregion
             #region HTTP settings
             else if (Regex.Match(strVariable, @"External Access Key").Success)
@@ -775,6 +781,11 @@ namespace PRoConEvents
             }
             else if (Regex.Match(strVariable, @"Additional Ban Message").Success)
             {
+                if (strValue.Length > 30)
+                {
+                    strValue = strValue.Substring(0, 30);
+                    this.ConsoleError("Ban append cannot be more than 30 characters.");
+                }
                 this.banAppend = strValue;
             }
             #endregion
@@ -1821,7 +1832,7 @@ namespace PRoConEvents
             if (isEnabled)
             {
                 //Performance testing area
-                if (speaker == "ColColonCleaner")
+                if (speaker == this.debugSoldierName)
                 {
                     this.commandStartTime = DateTime.Now;
                 }
@@ -3413,7 +3424,7 @@ namespace PRoConEvents
                     List<CPlayerInfo> substringMatches = ExactNameMatches(record.target_name);
                     if (substringMatches.Count == 1)
                     {
-                        //Only one substring match, call processing without confirmation
+                        //Only one substring match, call processing without confirmation if able
                         record.target_name = substringMatches[0].SoldierName;
                         record.target_guid = substringMatches[0].GUID;
                         record.target_playerInfo = substringMatches[0];
@@ -3858,17 +3869,27 @@ namespace PRoConEvents
 
         public string killTarget(ADKAT_Record record, string additionalMessage)
         {
+            additionalMessage = (additionalMessage != null && additionalMessage.Length > 0) ? (" " + additionalMessage) : ("");
             //Perform actions
             ExecuteCommand("procon.protected.send", "admin.killPlayer", record.target_name);
-            this.playerSayMessage(record.target_name, "Killed by admin for: " + record.record_message + " " + additionalMessage);
-            return this.sendMessageToSource(record, "You KILLED " + record.target_name + " for " + record.record_message + ". " + additionalMessage);
+            this.playerSayMessage(record.target_name, "Killed by admin for " + record.record_message + " " + additionalMessage);
+            return this.sendMessageToSource(record, "You KILLED " + record.target_name + " for " + record.record_message + additionalMessage);
         }
 
         public string kickTarget(ADKAT_Record record, string additionalMessage)
         {
+            additionalMessage = (additionalMessage != null && additionalMessage.Length > 0) ? (" " + additionalMessage) : ("");
+            string kickReason = record.source_name + " - " + record.record_message + additionalMessage;
+            int cutLength = kickReason.Length - 80;
+            if (cutLength > 0)
+            {
+                string cutReason = record.record_message.Substring(0, record.record_message.Length - cutLength);
+                kickReason = record.source_name + " - " + cutReason + additionalMessage + ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
+            }
+            this.DebugWrite("Kick Message: '" + kickReason + "'", 3);
             //Perform Actions
-            ExecuteCommand("procon.protected.send", "admin.kickPlayer", record.target_name, "(" + record.source_name + ") " + record.record_message + " " + additionalMessage);
-            this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was KICKED by admin: " + record.record_message + " " + additionalMessage, "all");
+            ExecuteCommand("procon.protected.send", "admin.kickPlayer", record.target_name, kickReason);
+            this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was KICKED by admin for " + record.record_message + " " + additionalMessage, "all");
             return this.sendMessageToSource(record, "You KICKED " + record.target_name + " for " + record.record_message + ". " + additionalMessage);
         }
 
@@ -3961,7 +3982,7 @@ namespace PRoConEvents
                 action = this.punishmentHierarchy[points - 1];
             }
             //Set additional message
-            string additionalMessage = "(" + points + "pts)";
+            string additionalMessage = "[" + ((record.isIRO)?("IRO "):("")) + points + "pts]";
 
             Boolean isLowPop = this.onlyKillOnLowPop && (this.playerList.Count < this.lowPopPlayerCount);
             Boolean IROOverride = record.isIRO && this.IROOverridesLowPop;
@@ -4686,11 +4707,14 @@ namespace PRoConEvents
                             {
                                 //IRO - Immediate Repeat Offence
                                 record.isIRO = true;
-                                record.record_message += " [IRO]";
+                                string IROAppend = " [IRO]";
+                                record.record_message += IROAppend;
                                 //Upload record twice
                                 this.DebugWrite("DBCOMM: UPLOADING IRO Punish", 6);
                                 this.uploadRecord(record);
                                 this.uploadRecord(record);
+                                //Trim off the IRO again
+                                record.record_message = record.record_message.TrimEnd(IROAppend.ToCharArray());
                             }
                             else
                             {
@@ -4840,10 +4864,10 @@ namespace PRoConEvents
                 ConsoleError(temp + " UPDATE for player '" + record.target_name + " by " + record.source_name + " FAILED!");
             }
 
-            if (record.source_name == "ColColonCleaner")
+            if (record.source_name == this.debugSoldierName)
             {
                 TimeSpan commandTime = DateTime.Now.Subtract(this.commandStartTime);
-                this.playerSayMessage("ColColonCleaner", "Duration: " + commandTime.TotalMilliseconds + "ms");
+                this.playerSayMessage(this.debugSoldierName, "Duration: " + commandTime.TotalMilliseconds + "ms");
             }
 
             DebugWrite("updateRecord finished!", 6);
