@@ -1,5 +1,7 @@
 <h2 style="color:#009933;">Version 0.2.7.0 released! Your version is listed above (Procon Only).</h2>
-New in version 0.2.7.0 at the bottom of this document. Download link available.
+View new in 0.2.7.0 in the changelog 
+<a href="https://github.com/ColColonCleaner/AdKats/blob/dev/CHANGELOG.md" target="_blank">HERE</a>. 
+Download link below.
 <h1>AdKats</h1>
 <p>
 A MySQL reflected admin toolset that includes editable in-game commands, an out-of-game controller, database 
