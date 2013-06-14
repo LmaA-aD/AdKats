@@ -630,6 +630,7 @@ Valid 'command_type's that can be acted on include the following:<br/>
 <ul>
   <li><b>'Yell display time seconds'</b> - The integer time in seconds that yell messages will be displayed.</li>
   <li><b>'Pre-Message List'</b> - List of messages for use in pre-say and pre-yell commands.</li>
+  <li><b>'Require Use of Pre-Messages'</b> - Whether using pre-messages in commands is required instead of custom messages.</li>
 </ul>
 <h3>A11. Banning Settings:</h3>
 <ul>
@@ -637,13 +638,15 @@ Valid 'command_type's that can be acted on include the following:<br/>
   <li><b>'Use Additional Ban Message'</b> - Whether to have an additional message append on each ban.</li>
   <li><b>'Additional Ban Message'</b> - Additional ban message to append on each ban. e.g. "Dispute at www.yourclansite.com"</li>
 </ul>
-<h3>A12. HTTP Command Settings:</h3>
+<h3>A12. External Command Settings:</h3>
 <ul>
-  <li><b>'External Access Key'</b> - The access key required to use any HTTP commands, can be changed to whatever is desired, but the default is a random 64Bit hashcode generated when the plugin first runs.<br/></li>
+  <li><b>'External Access Key'</b> - The access key required to use any HTTP commands, can be changed to whatever is desired, but the default is a random 64Bit hashcode generated when the plugin first runs.</li>
+  <li><b>'Fetch Actions from Database'</b> - Whether to use the database as a source for new commands.</li>
 </ul>
 <h3>A13. Debug Settings:</h3>
 <ul>
   <li><b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step. Don't edit unless you really wanna be spammed with console logs, it will also slow down the plugin when turned up.</li>
+  <li><b>'Debug Soldier Name'</b> - When this soldier issues commands in your server, the time for any command to complete is told in-game. Duration is from the time you entered the message, until all aspects of the command have been completed.</li>
   <li><b>'Command Entry'</b> - Enter commands here just like in game, mainly for debug purposes. Don't let more than one person use this at any time.</li>
 </ul>
 </p>
