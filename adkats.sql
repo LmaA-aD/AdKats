@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS `adkat_records` (
 `adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
 PRIMARY KEY (`record_id`)
 );
+
 CREATE TABLE IF NOT EXISTS `adkat_accesslist` ( 
 `player_name` varchar(45) NOT NULL DEFAULT "NoPlayer", 
 `player_guid` varchar(100) NOT NULL DEFAULT 'WAITING ON USE FOR GUID', 
@@ -34,65 +35,39 @@ GROUP BY `adkat_records`.`target_guid`,
          `adkat_records`.`server_id`
 ORDER BY `adkat_records`.`target_name`;
 
-
 CREATE OR REPLACE VIEW `adkat_playerpoints` AS
-SELECT `adkat_playerlist`.`player_name` AS `playername`,
-       `adkat_playerlist`.`player_guid` AS `playerguid`,
-       `adkat_playerlist`.`server_id` AS `serverid`,
-
-  (SELECT count(`adkat_records`.`target_guid`)
-   FROM `adkat_records`
-   WHERE ((`adkat_records`.`command_type` = 'Punish')
-          AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-          AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`))) AS `punishpoints`,
-
-  (SELECT count(`adkat_records`.`target_guid`)
-   FROM `adkat_records`
-   WHERE ((`adkat_records`.`command_type` = 'Forgive')
-          AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-          AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`))) AS `forgivepoints`,
-       (
-          (SELECT count(`adkat_records`.`target_guid`)
-           FROM `adkat_records`
-           WHERE ((`adkat_records`.`command_type` = 'Punish')
-                  AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-                  AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`))) -
-          (SELECT count(`adkat_records`.`target_guid`)
-           FROM `adkat_records`
-           WHERE ((`adkat_records`.`command_type` = 'Forgive')
-                  AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-                  AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`)))) AS `totalpoints`
-FROM `adkat_playerlist`;
-
+SELECT
+  `adkat_playerlist`.`player_name` AS `playername`,
+  `adkat_playerlist`.`player_guid` AS `playerguid`,
+  `adkat_playerlist`.`server_id` AS `serverid`,
+  ((SELECT
+    COUNT(`adkat_records`.`target_guid`)
+  FROM `adkat_records`
+  WHERE ((`adkat_records`.`command_type` = 'Punish') AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`) AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`))) - (SELECT
+    COUNT(`adkat_records`.`target_guid`)
+  FROM `adkat_records`
+  WHERE ((`adkat_records`.`command_type` = 'Forgive') AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`) AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`)))) AS `totalpoints`
+FROM `adkat_playerlist` ORDER BY `totalpoints` DESC;
 
 CREATE OR REPLACE VIEW `adkat_weeklyplayerpoints` AS
-SELECT `adkat_playerlist`.`player_name` AS `playername`, `adkat_playerlist`.`player_guid` AS `playerguid`, `adkat_playerlist`.`server_id` AS `serverid`,
-  (SELECT count(`adkat_records`.`target_guid`)
-   FROM `adkat_records`
-   WHERE ((`adkat_records`.`command_type` = 'Punish')
-          AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-          AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`)
-          AND (`adkat_records`.`record_time` BETWEEN date_sub(now(),INTERVAL 7 DAY) AND now())) ) AS `punishpoints`,
-  (SELECT count(`adkat_records`.`target_guid`)
-   FROM `adkat_records`
-   WHERE ((`adkat_records`.`command_type` = 'Forgive')
-          AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-          AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`)
-          AND (`adkat_records`.`record_time` BETWEEN date_sub(now(),INTERVAL 7 DAY) AND now())) ) AS `forgivepoints`, ( (
-SELECT count(`adkat_records`.`target_guid`)
-          FROM `adkat_records`
-          WHERE (    (`adkat_records`.`command_type` = 'Punish')
-                       AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-                       AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`)
-              AND (`adkat_records`.`record_time` between date_sub(now(),INTERVAL 7 DAY) and now()))) -
-         (SELECT count(`adkat_records`.`target_guid`)
-          FROM `adkat_records`
-          WHERE (    (`adkat_records`.`command_type` = 'Forgive')
-                       AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
-              	  AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`)
-              AND (`adkat_records`.`record_time` between date_sub(now(),INTERVAL 7 DAY) and now())))
-       ) AS `totalpoints`
-FROM `adkat_playerlist`;
+SELECT 
+`adkat_playerlist`.`player_name` AS `playername`, 
+`adkat_playerlist`.`player_guid` AS `playerguid`, 
+`adkat_playerlist`.`server_id` AS `serverid`, 
+  ( (SELECT count(`adkat_records`.`target_guid`)
+  FROM `adkat_records`
+  WHERE (    (`adkat_records`.`command_type` = 'Punish')
+               AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
+               AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`)
+      AND (`adkat_records`.`record_time` between date_sub(now(),INTERVAL 7 DAY) and now()))) -
+ (SELECT count(`adkat_records`.`target_guid`)
+  FROM `adkat_records`
+  WHERE (    (`adkat_records`.`command_type` = 'Forgive')
+               AND (`adkat_records`.`target_guid` = `adkat_playerlist`.`player_guid`)
+      	  AND (`adkat_records`.`server_id` = `adkat_playerlist`.`server_id`)
+      AND (`adkat_records`.`record_time` between date_sub(now(),INTERVAL 7 DAY) and now())))
+   ) AS `totalpoints`
+FROM `adkat_playerlist` ORDER BY `totalpoints` DESC;
 
 CREATE OR REPLACE VIEW `adkat_reports` AS
 SELECT `adkat_records`.`record_id` AS `record_id`,
