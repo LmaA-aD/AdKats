@@ -26,6 +26,17 @@ CREATE TABLE IF NOT EXISTS `adkat_accesslist` (
 `access_level` int(11) NOT NULL DEFAULT 6, 
 PRIMARY KEY (`player_name`), UNIQUE KEY `player_name_UNIQUE` (`player_name`));
 
+CREATE TABLE IF NOT EXISTS `adkat_banlist` ( 
+`ban_id` int(11) NOT NULL AUTO_INCREMENT, 
+`admin_name` varchar(45) NOT NULL DEFAULT "NoNameAdmin", 
+`player_name` varchar(45) NOT NULL DEFAULT "NoPlayer", 
+`player_ip` varchar(45) NOT NULL DEFAULT "NoIP", 
+`player_guid` varchar(100) NOT NULL DEFAULT 'EA_NoGUID', 
+`ban_reason` varchar(100) NOT NULL DEFAULT 'NoReason', 
+`ban_durationMinutes` int(11) UNSIGNED NOT NULL DEFAULT 0, 
+`ban_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+PRIMARY KEY (`ban_id`), UNIQUE KEY `player_name_UNIQUE` (`ban_id`));
+
 CREATE OR REPLACE VIEW `adkat_playerlist` AS
 SELECT `adkat_records`.`target_name` AS `player_name`,
        `adkat_records`.`target_guid` AS `player_guid`,
