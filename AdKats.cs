@@ -349,6 +349,9 @@ namespace PRoConEvents
         //Delayed move checking queue
         Queue<CPlayerInfo> teamswapOnDeathCheckingQueue = new Queue<CPlayerInfo>();
 
+        //Ban Lists
+        private Dictionary<string, ADKAT_Ban> ADKAT_BanList = new Dictionary<string, ADKAT_Ban>();
+
         #endregion
 
         public AdKats()
@@ -538,7 +541,7 @@ namespace PRoConEvents
             {
                 lstReturn = new List<CPluginVariable>();
 
-                lstReturn.Add(new CPluginVariable("0. Complete these settings before enabling.", typeof(string), "Once enabled, more settings will appear."));
+                lstReturn.Add(new CPluginVariable("Complete these settings before enabling.", typeof(string), "Once enabled, more settings will appear."));
                 //Server Settings
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID", typeof(int), this.server_id));
                 //SQL Settings
@@ -1593,7 +1596,7 @@ namespace PRoConEvents
 
         public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion)
         {
-            this.RegisterEvents(this.GetType().Name, "OnVersion", "OnServerInfo", "OnResponseError", "OnListPlayers", "OnPlayerKilled", "OnPlayerSpawned", "OnPlayerTeamChange", "OnGlobalChat", "OnTeamChat", "OnSquadChat", "OnRoundOverPlayers", "OnRoundOver", "OnRoundOverTeamScores", "OnLoadingLevel", "OnLevelStarted", "OnLevelLoaded");
+            this.RegisterEvents(this.GetType().Name, "OnVersion", "OnServerInfo", "OnListPlayers", "OnPlayerKilled", "OnPlayerSpawned", "OnPlayerTeamChange", "OnGlobalChat", "OnTeamChat", "OnSquadChat", "OnLevelLoaded", "OnBanAdded", "OnBanRemoved", "OnBanListClear", "OnBanListSave", "OnBanListLoad", "OnBanList");
         }
 
         public void OnPluginEnable()
@@ -1823,6 +1826,277 @@ namespace PRoConEvents
             }
         }
 
+        public override void OnBanAdded(CBanInfo ban)
+        {
+            this.DebugWrite("OnBanAdded fired", 6);
+
+            if (ban.BanLength.Subset == TimeoutSubset.TimeoutSubsetType.Permanent || (ban.BanLength.Subset == TimeoutSubset.TimeoutSubsetType.Seconds && ban.BanLength.Seconds >= 43200))
+            {
+                //Create ban
+                ADKAT_Ban aBan = new ADKAT_Ban();
+                //Do not set ban_id
+                aBan.admin_name = "PRoConAdmin";
+                aBan.player_name = ban.SoldierName;
+                aBan.player_ip = ban.IpAddress;
+                aBan.player_guid = ban.Guid;
+                aBan.ban_reason = ban.Reason;
+                aBan.ban_status = 0;
+                aBan.ban_sync = "";
+                //Do not set ban_time
+
+                if (ban.BanLength.Subset == TimeoutSubset.TimeoutSubsetType.Permanent)
+                {
+                    aBan.ban_durationMinutes = 999*360*24*60;
+                }
+                else
+                {
+                    aBan.ban_durationMinutes = ban.BanLength.Seconds / 60;
+                }
+
+                this.ExecuteCommand("procon.protected.send", "banList.list");
+            }
+        }
+
+        public override void OnBanRemoved(CBanInfo ban)
+        {
+            this.ScaledDebugInfo(1, "OnBanRemoved Fired");
+
+            if (ban.BanLength.Subset == TimeoutSubset.TimeoutSubsetType.Permanent || (ban.BanLength.Subset == TimeoutSubset.TimeoutSubsetType.Seconds && ban.BanLength.Seconds >= 43200))
+            {
+                CRemoteBanInfo aBan = new CRemoteBanInfo();
+                aBan.SoldierName = ban.SoldierName;
+                aBan.Reason = ban.Reason;
+
+                if (ban.BanLength.Subset == TimeoutSubset.TimeoutSubsetType.Permanent)
+                {
+                    aBan.Length = BanLength.Permanent;
+                }
+                else if (ban.BanLength.Subset == TimeoutSubset.TimeoutSubsetType.Seconds)
+                {
+                    aBan.Length = BanLength.Seconds;
+                    aBan.Duration = ban.BanLength.Seconds.ToString();
+                }
+
+                if (this.dicCPlayerInfo.ContainsKey(ban.SoldierName) && this.dicCPunkbusterInfo.ContainsKey(ban.SoldierName))
+                {
+                    lock (this.dicCPlayerInfo)
+                    {
+                        aBan.EAGUID = this.dicCPlayerInfo[ban.SoldierName].GUID;
+                    }
+                    lock (this.dicCPunkbusterInfo)
+                    {
+                        aBan.PBGUID = this.dicCPunkbusterInfo[ban.SoldierName].GUID;
+                        if (!String.IsNullOrEmpty(this.dicCPunkbusterInfo[ban.SoldierName].Ip) && this.dicCPunkbusterInfo[ban.SoldierName].Ip.CompareTo("") != 0 && this.dicCPunkbusterInfo[ban.SoldierName].Ip.Contains(":"))
+                        {
+                            String[] ipPort = this.dicCPunkbusterInfo[ban.SoldierName].Ip.Split(':');
+                            aBan.IP = ipPort[0];
+                        }
+                        else
+                        {
+                            aBan.IP = this.dicCPunkbusterInfo[ban.SoldierName].Ip;
+                        }
+                    }
+                }
+                else
+                {
+                    if (!String.IsNullOrEmpty(ban.IpAddress) && ban.IpAddress.CompareTo("") != 0 && ban.IpAddress.Contains(":"))
+                    {
+                        String[] ipPort = ban.IpAddress.Split(':');
+                        aBan.IP = ipPort[0];
+                    }
+                    else
+                    {
+                        aBan.IP = ban.IpAddress;
+                    }
+                    aBan.EAGUID = ban.Guid;
+                }
+
+                this.RemoveBan(rBan);
+            }
+        }
+
+        public override void OnBanList(List<CBanInfo> banList)
+        {
+
+
+            /*foreach (CBanInfo ban in this.lstBanList)
+            {
+                this.ScaledDebugInfo(3, "Entering OnBanList (Name: " + ban.SoldierName + ", GUID: " + ban.Guid + ", IP: " + ban.IpAddress + ", IdType: " + ban.IdType + ", BanLength: " + ban.BanLength.Subset + ", BanSeconds: " + ban.BanLength.Seconds + ", Reason: " + ban.Reason + ")...");
+
+                // only store the ban if it's permanent or longer than 12 hours
+                if (ban.BanLength.Subset == TimeoutSubset.TimeoutSubsetType.Permanent || (ban.BanLength.Subset == TimeoutSubset.TimeoutSubsetType.Seconds && ban.BanLength.Seconds >= 43200))
+                {
+                    CRemoteBanInfo aBan = new CRemoteBanInfo();
+                    aBan.SoldierName = ban.SoldierName;
+                    aBan.Reason = ban.Reason;
+
+                    if (ban.BanLength.Subset == TimeoutSubset.TimeoutSubsetType.Permanent)
+                    {
+                        aBan.Length = BanLength.Permanent;
+                    }
+                    else if (ban.BanLength.Subset == TimeoutSubset.TimeoutSubsetType.Seconds)
+                    {
+                        aBan.Length = BanLength.Seconds;
+                        aBan.Duration = ban.BanLength.Seconds.ToString();
+                    }
+
+                    switch (ban.IdType.ToLower())
+                    {
+                        case "name":
+                            aBan.Type = BanType.Name;
+                            break;
+                        case "guid":
+                            aBan.Type = BanType.EAGUID;
+                            break;
+                        case "pb guid":
+                            aBan.Type = BanType.PBGUID;
+                            break;
+                        case "ip":
+                            aBan.Type = BanType.IP;
+                            break;
+                        default:
+                            aBan.Type = BanType.Name;
+                            break;
+                    }
+
+                    if (rBan.Type == BanType.Name && (this.dicCPlayerInfo.ContainsKey(ban.SoldierName) && this.dicCPunkbusterInfo.ContainsKey(ban.SoldierName)))
+                    {
+                        lock (this.dicCPlayerInfo)
+                        {
+                            aBan.EAGUID = this.dicCPlayerInfo[ban.SoldierName].GUID;
+                        }
+                        lock (this.dicCPunkbusterInfo)
+                        {
+                            aBan.PBGUID = this.dicCPunkbusterInfo[ban.SoldierName].GUID;
+                            if (!String.IsNullOrEmpty(this.dicCPunkbusterInfo[ban.SoldierName].Ip) && this.dicCPunkbusterInfo[ban.SoldierName].Ip.CompareTo("") != 0 && this.dicCPunkbusterInfo[ban.SoldierName].Ip.Contains(":"))
+                            {
+                                String[] ipPort = this.dicCPunkbusterInfo[ban.SoldierName].Ip.Split(':');
+                                aBan.IP = ipPort[0];
+                            }
+                            else
+                            {
+                                aBan.IP = this.dicCPunkbusterInfo[ban.SoldierName].Ip;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (!String.IsNullOrEmpty(ban.IpAddress) && ban.IpAddress.CompareTo("") != 0 && ban.IpAddress.Contains(":"))
+                        {
+                            String[] ipPort = ban.IpAddress.Split(':');
+                            aBan.IP = ipPort[0];
+                        }
+                        else
+                        {
+                            aBan.IP = ban.IpAddress;
+                        }
+                        if (rBan.Type == BanType.PBGUID)
+                        {
+                            aBan.PBGUID = ban.Guid;
+                        }
+                        else
+                        {
+                            aBan.EAGUID = ban.Guid;
+                        }
+                    }
+
+
+                    this.ScaledDebugInfo(6, "Ban reason Cleanup - original " + aBan.Reason);
+                    aBan.Reason = SQLcleanup(rBan.Reason);
+                    this.ScaledDebugInfo(6, "Ban reason Cleanup - New      " + aBan.Reason);
+
+
+                    this.AddBan(rBan);
+
+                    // LEIBHOLD HACK ADDED
+                    this.ScaledDebugInfo(3, "Ban Added - now check");
+
+                    if (this.CheckBan(rBan))
+                    {
+                        this.ScaledDebugInfo(3, "Checkban shows good");
+                        //So now we remove the ban from the server
+
+                        if (this.ebTestrun == enumBoolYesNo.Yes)
+                        {
+                            switch (ban.IdType.ToLower())
+                            {
+                                case "name":
+                                    this.ScaledDebugInfo(4, "banList.remove type " + ban.IdType + " name " + aBan.SoldierName);
+                                    break;
+                                case "guid":
+                                    this.ScaledDebugInfo(4, "banList.remove type " + ban.IdType + " name " + aBan.EAGUID);
+                                    break;
+                                case "pb guid":
+                                    this.ScaledDebugInfo(4, "banList.remove type " + ban.IdType + " name " + aBan.PBGUID);
+                                    break;
+                                case "ip":
+                                    this.ScaledDebugInfo(4, "banList.remove type " + ban.IdType + " info " + aBan.IP);
+                                    break;
+                                default:
+                                    this.ScaledDebugInfo(4, "DEAFULTED banList.remove type " + ban.IdType + " info " + aBan.SoldierName);
+                                    break;
+                            }
+                        }
+                        else
+                        {
+                            if (this.ebEmptyServerBanlist == enumBoolYesNo.Yes)
+                            {
+
+                                switch (ban.IdType.ToLower())
+                                {
+                                    case "name":
+                                        this.ExecuteCommand("procon.protected.tasks.add", "RemoveBan", "0", "1", "1", "procon.protected.send", "banList.remove", ban.IdType, aBan.SoldierName);
+                                        this.ScaledDebugInfo(4, "REM ban shows name --------------- done");
+                                        break;
+                                    case "guid":
+                                        this.ExecuteCommand("procon.protected.tasks.add", "RemoveBan", "0", "1", "1", "procon.protected.send", "banList.remove", ban.IdType, aBan.EAGUID);
+                                        this.ScaledDebugInfo(4, "REM ban shows GUID --------------- done");
+                                        break;
+                                    case "pb guid":
+                                        this.ExecuteCommand("procon.protected.tasks.add", "RemoveBan", "0", "1", "1", "procon.protected.send", "punkBuster.pb_sv_command pb_sv_unbanguid", ban.IdType, aBan.PBGUID);
+                                        this.ScaledDebugInfo(4, "REMban shows pbguid --------------- done");
+                                        break;
+                                    case "ip":
+                                        this.ExecuteCommand("procon.protected.tasks.add", "RemoveBan", "0", "1", "1", "procon.protected.send", "banList.remove", ban.IdType, aBan.IP);
+                                        this.ScaledDebugInfo(4, "REM ban shows  IP --------------- done");
+                                        break;
+                                    default:
+                                        this.ScaledDebugInfo(4, "REM ban shows NAME DEFAULT --------------- done");
+                                        break;
+                                }
+                            }
+                        }
+
+                    }
+                    else
+                    {
+                        this.ScaledDebugInfo(3, "Checkban shows ban wasnt added to the database to leave it alone");
+                    }
+
+                }
+
+                this.ScaledDebugInfo(1, "Leaving OnBanList (Name: " + ban.SoldierName + ", GUID: " + ban.Guid + ", IP: " + ban.IpAddress + ", IdType: " + ban.IdType + ", BanLength: " + ban.BanLength.Subset + ", BanSeconds: " + ban.BanLength.Seconds + ", Reason: " + ban.Reason + ")...");
+            }*/
+
+        }
+
+        public override void OnBanListClear()
+        {
+            this.DebugWrite("Ban list cleared", 5);
+        }
+        public override void OnBanListSave()
+        {
+            this.DebugWrite("Ban list saved", 5);
+        }
+        public override void OnBanListLoad()
+        {
+            this.DebugWrite("Ban list loaded", 5);
+        }
+        public override void OnBanList(List<CBanInfo> banList)
+        {
+            this.DebugWrite("Bans listed", 5);
+        }
+
         #endregion
 
         #region Messaging
@@ -1980,7 +2254,7 @@ namespace PRoConEvents
                                     {
                                         record.record_message = mutedPlayerKillMessage;
                                         record.command_type = ADKAT_CommandType.KillPlayer;
-                                        record.command_action = ADKAT_CommandType.KickPlayer;
+                                        record.command_action = ADKAT_CommandType.KillPlayer;
                                     }
                                     this.queueRecordForProcessing(record);
                                     continue;
@@ -4561,7 +4835,18 @@ namespace PRoConEvents
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkat_playerlist"))
+                if (!this.confirmTable("adkat_banlist"))
+                {
+                    ConsoleError("Ban List not present in the database.");
+                    this.runDBSetupScript();
+                    if (!this.confirmTable("adkat_accesslist"))
+                    {
+                        this.ConsoleError("After running setup script banlist still not present.");
+                        confirmed = false;
+                    }
+                }
+                //These not needed right now, but will be later
+                /*if (!this.confirmTable("adkat_playerlist"))
                 {
                     ConsoleError("adkat_playerlist not present in the database. AdKats will not function properly.");
                     confirmed = false;
@@ -4570,7 +4855,7 @@ namespace PRoConEvents
                 {
                     ConsoleError("adkat_playerpoints not present in the database. AdKats will not function properly.");
                     confirmed = false;
-                }
+                }*/
                 if (confirmed)
                 {
                     this.DebugWrite("SUCCESS. Database confirmed functional for AdKats use.", 3);
@@ -4830,7 +5115,7 @@ namespace PRoConEvents
                     {
                         //Convert enum to DB string
                         string action;
-                        if (record.command_action != ADKAT_CommandType.Default)
+                        if (record.command_action == ADKAT_CommandType.Default)
                         {
                             action = this.ADKAT_RecordTypes[record.command_type];
                         }
@@ -4934,6 +5219,74 @@ namespace PRoConEvents
             }
 
             DebugWrite("updatePlayerAccess finished!", 6);
+        }
+
+        private Boolean fetchBans()
+        {
+            DebugWrite("canPunish starting!", 6);
+
+            try
+            {
+                using (MySqlConnection databaseConnection = this.getDatabaseConnection())
+                {
+                    using (MySqlCommand command = databaseConnection.CreateCommand())
+                    {
+                        command.CommandText = @"
+                        SELECT 
+                            `ban_id`, 
+	                        `admin_name`, 
+	                        `player_name`, 
+	                        `player_ip`, 
+	                        `player_guid`, 
+	                        `ban_reason`, 
+	                        `ban_durationMinutes`, 
+	                        `ban_status`, 
+	                        `ban_sync`, 
+	                        `ban_time`, 
+                        FROM
+	                        `adkat_banlist` ";
+                        //WHERE 
+                        //    `ban_sync` NOT LIKE '/" + this.server_id + "/'";
+
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+                            //Success fetching bans
+                            Boolean success = false;
+                            //Loop through all incoming bans
+                            while (reader.Read())
+                            {
+                                success = true;
+
+                                ADKAT_Ban ban = new ADKAT_Ban();
+                                ban.ban_id = reader.GetInt32("ban_id");
+                                ban.admin_name = reader.GetString("admin_name");
+                                ban.player_name = reader.GetString("player_name");
+                                ban.player_ip = reader.GetString("player_ip");
+                                ban.player_guid = reader.GetString("player_guid");
+                                ban.ban_reason = reader.GetString("ban_reason");
+                                ban.ban_durationMinutes = reader.GetInt32("ban_durationMinutes");
+                                ban.ban_status = reader.GetInt32("ban_status");
+                                ban.ban_sync = reader.GetString("ban_sync");
+                                ban.ban_time = reader.GetDateTime("ban_time");
+
+                            }
+
+                            if (success)
+                            {
+
+                                //Clear the ban list
+                                this.ADKAT_BanList.Clear();
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                DebugWrite(e.ToString(), 3);
+            }
+            DebugWrite("ERROR in fetchBans!", 6);
+            return false;
         }
 
         private Boolean canPunish(ADKAT_Record record)
@@ -5502,22 +5855,34 @@ namespace PRoConEvents
         #endregion
 
         #region Helper Methods and Classes
+        
+        //Decode and encode from CPlayerInfo
+        public static string[] DecodeStringArray(string strValue) {
+            string[] a_strReturn = new string[] { };
 
-        /*public void setEnabled(Boolean enabled)
-        {
-            lock (this.enableMutex)
-            {
-                this.isEnabled = enabled;
+            a_strReturn = strValue.Split(new char[] { '|' });
+
+            for (int i = 0; i < a_strReturn.Length; i++) {
+                a_strReturn[i] = Decode(a_strReturn[i]);
             }
+
+            return a_strReturn;
         }
+        public static string EncodeStringArray(string[] a_strValue) {
 
-        public Boolean getEnabled()
-        {
-            lock (this.enableMutex)
-            {
-                return this.isEnabled;
+            StringBuilder encodedString = new StringBuilder();
+
+            for (int i = 0; i < a_strValue.Length; i++) {
+                if (i > 0) {
+                    encodedString.Append("|");
+                    //strReturn += "|";
+                }
+                encodedString.Append(Encode(a_strValue[i]));
+                //strReturn += Encode(a_strValue[i]);
             }
-        }*/
+
+            return encodedString.ToString();
+        }
 
         public void setServerInfo(CServerInfo info)
         {
@@ -5614,6 +5979,24 @@ namespace PRoConEvents
             public Int32 record_durationMinutes = 0;
 
             public ADKAT_Record()
+            {
+            }
+        }
+
+        public class ADKAT_Ban
+        {
+            public long ban_id = -1;
+            public string admin_name = null;
+            public string player_name = null;
+            public string player_ip = null;
+            public string player_guid = null;
+            public string ban_reason = null;
+            public int ban_durationMinutes = 0;
+            public int ban_status = 0;
+            public string ban_sync = null;
+            public DateTime ban_time;
+
+            public ADKAT_Ban()
             {
             }
         }
