@@ -194,26 +194,4 @@ ALTER TABLE `adkat_records` MODIFY `source_name` varchar(45) NOT NULL DEFAULT "N
 ALTER TABLE `adkat_records` MODIFY `record_message` varchar(100) NOT NULL DEFAULT "NoMessage"; 
 ALTER TABLE `adkat_records` MODIFY `adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N';
 
-DELIMITER $$
-
-DROP PROCEDURE IF EXISTS upgrade_database_2_0_to_2_5 $$
-CREATE PROCEDURE upgrade_database_2_0_to_2_5()
-BEGIN
--- add server_ip and command_action columns safely
-IF NOT EXISTS( (SELECT * FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()
-	AND COLUMN_NAME='server_ip' AND TABLE_NAME='adkat_records') ) THEN
-		ALTER TABLE `adkat_records` ADD `server_ip` varchar(45) NOT NULL DEFAULT "0.0.0.0:0000"; 
-END IF; 
--- add server_ip and command_action columns safely
-IF NOT EXISTS( (SELECT * FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()
-	AND COLUMN_NAME='command_action' AND TABLE_NAME='adkat_records') ) THEN 
-		ALTER TABLE `adkat_records` ADD `command_action` varchar(45) NOT NULL DEFAULT "DefaultAction"; 
-END IF; 
-
-END $$
-
-CALL upgrade_database_2_0_to_2_5() $$
-
-DELIMITER ;
-
 DROP TABLE IF EXISTS `adkat_teamswapwhitelist`;
