@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS `adkat_banlist` (
 `player_guid` varchar(100) NOT NULL DEFAULT 'EA_NoGUID', 
 `ban_reason` varchar(100) NOT NULL DEFAULT 'NoReason', 
 `ban_durationMinutes` int(11) UNSIGNED NOT NULL DEFAULT 0, 
-`ban_status` int(1) UNSIGNED NOT NULL DEFAULT 0, --0 is banned, 1 is unbanned 
+`ban_status` int(1) UNSIGNED NOT NULL DEFAULT 0, 
 `ban_sync` varchar(45) NOT NULL DEFAULT "-sync-", 
 `ban_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
 PRIMARY KEY (`ban_id`), UNIQUE KEY `player_name_UNIQUE` (`ban_id`)
