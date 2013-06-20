@@ -314,6 +314,7 @@ namespace PRoConEvents
 
         //Mutexes
         public Object playersMutex = new Object();
+        public Object banListMutex = new Object();
         public Object reportsMutex = new Object();
         public Object actionConfirmMutex = new Object();
         public Object playerAccessMutex = new Object();
@@ -326,7 +327,6 @@ namespace PRoConEvents
         public Object unprocessedActionMutex = new Object();
 
         //Handles
-        EventWaitHandle databaseSettingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
         EventWaitHandle teamswapHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
         EventWaitHandle listPlayersHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
         EventWaitHandle messageParsingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
@@ -344,6 +344,8 @@ namespace PRoConEvents
         Queue<KeyValuePair<String, int>> playerAccessUpdateQueue = new Queue<KeyValuePair<String, int>>();
         Queue<String> playerAccessRemovalQueue = new Queue<String>();
 
+        Queue<CPlayerInfo> banEnforcementQueue = new Queue<CPlayerInfo>();
+
         //Force move action queue
         Queue<CPlayerInfo> teamswapForceMoveQueue = new Queue<CPlayerInfo>();
         //Delayed move list
@@ -352,7 +354,10 @@ namespace PRoConEvents
         Queue<CPlayerInfo> teamswapOnDeathCheckingQueue = new Queue<CPlayerInfo>();
 
         //Ban Lists
-        private Dictionary<string, AdKat_Ban> AdKat_BanList = new Dictionary<string, AdKat_Ban>();
+        //Bans will be enforced by Name, GUID, and IP
+        private Dictionary<string, AdKat_Ban> AdKat_BanList_Name = new Dictionary<string, AdKat_Ban>();
+        private Dictionary<string, AdKat_Ban> AdKat_BanList_GUID = new Dictionary<string, AdKat_Ban>();
+        private Dictionary<string, AdKat_Ban> AdKat_BanList_IP = new Dictionary<string, AdKat_Ban>();
 
         #endregion
 
@@ -1190,7 +1195,7 @@ namespace PRoConEvents
             {
                 mySqlHostname = strValue;
                 this.dbSettingsChanged = true;
-                this.databaseSettingHandle.Set();
+                this.dbCommHandle.Set();
             }
             else if (Regex.Match(strVariable, @"MySQL Port").Success)
             {
@@ -1205,25 +1210,25 @@ namespace PRoConEvents
                     ConsoleException("Invalid value for MySQL Port: '" + strValue + "'. Must be number between 1 and 65535!");
                 }
                 this.dbSettingsChanged = true;
-                this.databaseSettingHandle.Set();
+                this.dbCommHandle.Set();
             }
             else if (Regex.Match(strVariable, @"MySQL Database").Success)
             {
                 this.mySqlDatabaseName = strValue;
                 this.dbSettingsChanged = true;
-                this.databaseSettingHandle.Set();
+                this.dbCommHandle.Set();
             }
             else if (Regex.Match(strVariable, @"MySQL Username").Success)
             {
                 mySqlUsername = strValue;
                 this.dbSettingsChanged = true;
-                this.databaseSettingHandle.Set();
+                this.dbCommHandle.Set();
             }
             else if (Regex.Match(strVariable, @"MySQL Password").Success)
             {
                 mySqlPassword = strValue;
                 this.dbSettingsChanged = true;
-                this.databaseSettingHandle.Set();
+                this.dbCommHandle.Set();
             }
             #endregion
             #region email settings
@@ -1507,7 +1512,6 @@ namespace PRoConEvents
 
         public void InitWaitHandles()
         {
-            this.databaseSettingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             this.teamswapHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             this.listPlayersHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             this.messageParsingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
@@ -1518,7 +1522,6 @@ namespace PRoConEvents
 
         public void setAllHandles()
         {
-            this.databaseSettingHandle.Set();
             this.teamswapHandle.Set();
             this.listPlayersHandle.Set();
             this.messageParsingHandle.Set();
@@ -1598,7 +1601,26 @@ namespace PRoConEvents
 
         public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion)
         {
-            this.RegisterEvents(this.GetType().Name, "OnVersion", "OnServerInfo", "OnListPlayers", "OnPlayerKilled", "OnPlayerSpawned", "OnPlayerTeamChange", "OnGlobalChat", "OnTeamChat", "OnSquadChat", "OnLevelLoaded", "OnBanAdded", "OnBanRemoved", "OnBanListClear", "OnBanListSave", "OnBanListLoad", "OnBanList");
+            this.RegisterEvents(this.GetType().Name, 
+                "OnVersion", 
+                "OnServerInfo", 
+                "OnListPlayers", 
+                "OnPunkbusterPlayerInfo", 
+                "OnPlayerKilled", 
+                "OnPlayerSpawned", 
+                "OnPlayerTeamChange", 
+                "OnPlayerJoin", 
+                "OnPlayerLeft", 
+                "OnGlobalChat", 
+                "OnTeamChat", 
+                "OnSquadChat", 
+                "OnLevelLoaded", 
+                "OnBanAdded", 
+                "OnBanRemoved", 
+                //"OnBanListClear", 
+                //"OnBanListSave", 
+                //"OnBanListLoad", 
+                "OnBanList");
         }
 
         public void OnPluginEnable()
@@ -1725,26 +1747,50 @@ namespace PRoConEvents
         {
             if (isEnabled)
             {
+                //Player list and ban list need to be locked for this operation
                 lock (playersMutex)
                 {
-                    Dictionary<String, CPlayerInfo> playerDictionary = new Dictionary<String, CPlayerInfo>();
-                    //Reset the player counts of both sides and recount everything
-                    this.USPlayerCount = 0;
-                    this.RUPlayerCount = 0;
-                    foreach (CPlayerInfo player in players)
+                    lock (this.banListMutex)
                     {
-                        if (player.TeamID == USTeamId)
+                        Dictionary<String, CPlayerInfo> playerDictionary = new Dictionary<String, CPlayerInfo>();
+                        //Reset the player counts of both sides and recount everything
+                        this.USPlayerCount = 0;
+                        this.RUPlayerCount = 0;
+                        foreach (CPlayerInfo player in players)
                         {
-                            this.USPlayerCount++;
+                            //Check with ban enforcer
+                            AdKat_Ban ban = null;
+                            if( this.AdKat_BanList_Name.TryGetValue(player.SoldierName, out ban) || 
+                                this.AdKat_BanList_GUID.TryGetValue(player.GUID, out ban))
+                            {
+                                //Create the record
+                                AdKat_Record record = new AdKat_Record();
+                                record.source_name = "BanEnforcer";
+                                record.target_name = player.SoldierName;
+                                //Use the IP as guid for the record
+                                record.target_guid = player.GUID;
+                                record.command_source = AdKat_CommandSource.InGame;
+                                record.command_type = AdKat_CommandType.KickPlayer;
+                                record.record_message = ban.ban_reason;
+                                //Queue record for handling
+                                this.queueRecordForActionHandling(record);
+                                //Don't add the player to player counts as they are about to be kicked
+                                continue;
+                            }
+
+                            if (player.TeamID == USTeamId)
+                            {
+                                this.USPlayerCount++;
+                            }
+                            else
+                            {
+                                this.RUPlayerCount++;
+                            }
+                            playerDictionary.Add(player.SoldierName, player);
                         }
-                        else
-                        {
-                            this.RUPlayerCount++;
-                        }
-                        playerDictionary.Add(player.SoldierName, player);
+                        this.playerDictionary = playerDictionary;
+                        this.playerList = players;
                     }
-                    this.playerDictionary = playerDictionary;
-                    this.playerList = players;
                 }
 
                 //Set the handle for teamswap
@@ -1754,7 +1800,7 @@ namespace PRoConEvents
 
         public override void OnServerInfo(CServerInfo serverInfo)
         {
-            if (isEnabled)
+            if (this.isEnabled)
             {
                 //Get the team scores
                 this.setServerInfo(serverInfo);
@@ -1766,9 +1812,35 @@ namespace PRoConEvents
             }
         }
 
+        public override void OnPunkbusterPlayerInfo(CPunkbusterInfo cPunkbusterInfo)
+        {
+            if (this.isEnabled)
+            {
+                lock (this.banListMutex)
+                {
+                    //PB info only used for IP Bans
+                    AdKat_Ban ban = null;
+                    if(this.AdKat_BanList_IP.TryGetValue(cPunkbusterInfo.Ip, out ban))
+                    {
+                        //Create the record
+                        AdKat_Record record = new AdKat_Record();
+                        record.source_name = "BanEnforcer";
+                        record.target_name = cPunkbusterInfo.SoldierName;
+                        //Use the IP as guid for the record
+                        record.target_guid = cPunkbusterInfo.Ip;
+                        record.command_source = AdKat_CommandSource.InGame;
+                        record.command_type = AdKat_CommandType.KickPlayer;
+                        record.record_message = ban.ban_reason;
+                        //Queue record for handling
+                        this.queueRecordForActionHandling(record);
+                    }
+                }
+            }
+        }
+
         public override void OnLevelLoaded(string strMapFileName, string strMapMode, int roundsPlayed, int roundsTotal)
         {
-            if (isEnabled)
+            if (this.isEnabled)
             {
                 this.round_reports = new Dictionary<string, AdKat_Record>();
                 this.round_mutedPlayers = new Dictionary<string, int>();
@@ -1828,11 +1900,30 @@ namespace PRoConEvents
             }
         }
 
+        public override void OnPlayerJoin(String soldierName)
+        {
+            //Do nothing here
+        }
+
+        public override void OnPlayerLeft(CPlayerInfo playerInfo)
+        {
+            /*Optional Removal, dictionary is recreated on player listing
+             * 
+            if (this.playerDictionary.ContainsKey(playerInfo.SoldierName))
+            {
+                lock (this.playersMutex)
+                {
+                    this.playerDictionary.Remove(playerInfo.SoldierName);
+                }
+            }*/
+        }
+
         public override void OnBanAdded(CBanInfo ban)
         {
             this.DebugWrite("OnBanAdded fired", 6);
 
             AdKat_Ban aBan = AdKats.createABanFromCBan(ban);
+
 
             //Queue ban for Addition
 
@@ -4548,13 +4639,16 @@ namespace PRoConEvents
                         else
                         {
                             //Reset the handle
-                            this.databaseSettingHandle.Reset();
+                            this.dbCommHandle.Reset();
                             //The database connection failed, wait for settings to change again
-                            this.databaseSettingHandle.WaitOne(Timeout.Infinite);
+                            this.dbCommHandle.WaitOne(Timeout.Infinite);
                             this.DebugWrite("DBCOMM: Settings changed, attempting new connection.", 3);
                             continue;
                         }
                     }
+
+                    //Database access is successful, sync all bans
+                    this.ExecuteCommand("procon.protected.send", "banList.list");
 
                     //Check for new actions from the database at given interval
                     if (this.fetchActionsFromDB && (DateTime.Now > this.lastDBActionFetch.AddSeconds(this.dbActionFrequency)))
@@ -5200,6 +5294,7 @@ namespace PRoConEvents
 	                                `player_name`, 
 	                                `player_ip`, 
 	                                `player_guid`, 
+	                                `ban_status`, 
 	                                `ban_reason`, 
 	                                `ban_notes`, 
 	                                `ban_sync`, 
@@ -5345,7 +5440,7 @@ namespace PRoConEvents
                                     ban.ban_notes = reader.GetString("ban_notes");
                                     string[] tempSync = AdKats.DecodeStringArray(reader.GetString("ban_sync"));
                                     ban.ban_sync = new List<string>();
-                                    foreach(string sync in tempSync)
+                                    foreach (string sync in tempSync)
                                     {
                                         ban.ban_sync.Add(sync);
                                     }
