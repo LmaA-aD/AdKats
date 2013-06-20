@@ -33,12 +33,14 @@ CREATE TABLE IF NOT EXISTS `adkat_banlist` (
 `player_name` varchar(45) NOT NULL DEFAULT "NoPlayer", 
 `player_ip` varchar(45) NOT NULL DEFAULT "NoIP", 
 `player_guid` varchar(100) NOT NULL DEFAULT 'NoGUID', 
+`ban_status` enum('Enabled', 'Disabled') NOT NULL DEFAULT 'Enabled';
 `ban_reason` varchar(100) NOT NULL DEFAULT 'NoReason', 
 `ban_notes` varchar(150) NOT NULL DEFAULT 'NoNotes', 
 `ban_sync` varchar(45) NOT NULL DEFAULT "-sync-", 
-`ban_startTime` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  
+`ban_startTime` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
 `ban_endTime` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-PRIMARY KEY (`ban_id`), UNIQUE KEY `player_name_UNIQUE` (`ban_id`)
+`ban_displayDurationMinutes` int(11) NOT NULL DEFAULT 0, 
+PRIMARY KEY (`ban_id`)
 );
 
 CREATE OR REPLACE VIEW `adkat_playerlist` AS
