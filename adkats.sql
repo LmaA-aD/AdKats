@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS `adkat_banlist` (
 `ban_status` enum('Enabled', 'Disabled') NOT NULL DEFAULT 'Enabled';
 `ban_reason` varchar(100) NOT NULL DEFAULT 'NoReason', 
 `ban_notes` varchar(150) NOT NULL DEFAULT 'NoNotes', 
-`ban_sync` varchar(45) NOT NULL DEFAULT "-sync-", 
+`ban_sync` varchar(100) NOT NULL DEFAULT "-sync-", 
 `ban_startTime` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
 `ban_endTime` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
 `ban_displayDurationMinutes` int(11) NOT NULL DEFAULT 0, 
