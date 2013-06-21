@@ -5,19 +5,27 @@
 
 -- If the tables needed are not in the database yet, the below two queries will be success
 CREATE TABLE IF NOT EXISTS `adkat_records` ( 
-       `record_id` INT(11) NOT NULL AUTO_INCREMENT, 
-       `server_id` INT(11) NOT NULL DEFAULT -1, 
-       `server_ip` VARCHAR(45) NOT NULL DEFAULT "0.0.0.0:0000", 
+       `record_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
+       `server_id` INT(11) UNSIGNED NOT NULL, 
        `command_type` VARCHAR(45) NOT NULL DEFAULT "DefaultCommand", 
        `command_action` VARCHAR(45) NOT NULL DEFAULT "DefaultAction", 
        `record_durationMinutes` INT(11) NOT NULL DEFAULT 0, 
-       `target_guid` VARCHAR(100) NOT NULL DEFAULT "NoGUID", 
-       `target_name` VARCHAR(45) NOT NULL DEFAULT "NoTarget", 
+       `player_id` INT(11) UNSIGNED NOT NULL, 
        `source_name` VARCHAR(45) NOT NULL DEFAULT "NoNameAdmin", 
        `record_message` VARCHAR(100) NOT NULL DEFAULT "NoMessage", 
        `record_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
        `adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
-       PRIMARY KEY (`record_id`)
+       PRIMARY KEY (`record_id`), 
+       CONSTRAINT `fk_server_id` 
+              FOREIGN KEY (`server_id` ) 
+              REFERENCES `tbl_server`.`ServerID` 
+              ON DELETE CASCADE 
+              ON UPDATE NO ACTION, 
+       CONSTRAINT `fk_player_id` 
+              FOREIGN KEY (`player_id` ) 
+              REFERENCES `tbl_playerdata`.`PlayerID` 
+              ON DELETE CASCADE 
+              ON UPDATE NO ACTION
 );
 
 CREATE TABLE IF NOT EXISTS `adkat_accesslist` ( 
@@ -28,9 +36,10 @@ CREATE TABLE IF NOT EXISTS `adkat_accesslist` (
 );
 
 CREATE TABLE IF NOT EXISTS `adkat_banlist` ( 
-       `ban_id` INT(11) NOT NULL AUTO_INCREMENT, 
-       `record_id` INT(11) NOT NULL, 
-       `player_id` INT UNSIGNED NOT NULL, 
+       `ban_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
+       `record_id` INT(11) UNSIGNED NOT NULL, 
+       `player_id` INT(11) UNSIGNED NOT NULL, 
+       `server_id` INT(11) UNSIGNED NOT NULL, 
        `ban_status` enum('Enabled', 'Disabled') NOT NULL DEFAULT 'Enabled',
        `ban_reason` VARCHAR(100) NOT NULL DEFAULT 'NoReason', 
        `ban_notes` VARCHAR(150) NOT NULL DEFAULT 'NoNotes', 
@@ -44,6 +53,11 @@ CREATE TABLE IF NOT EXISTS `adkat_banlist` (
        CONSTRAINT `fk_player_id` 
               FOREIGN KEY (`player_id` ) 
               REFERENCES `tbl_playerdata`.`PlayerID` 
+              ON DELETE CASCADE 
+              ON UPDATE NO ACTION, 
+       CONSTRAINT `fk_server_id` 
+              FOREIGN KEY (`server_id` ) 
+              REFERENCES `tbl_server`.`ServerID` 
               ON DELETE CASCADE 
               ON UPDATE NO ACTION, 
        CONSTRAINT `fk_record_id` 
