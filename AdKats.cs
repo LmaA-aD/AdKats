@@ -312,6 +312,7 @@ namespace PRoConEvents
         Thread DatabaseCommThread;
         Thread ActionHandlingThread;
         Thread TeamSwapThread;
+        Thread BanEnforcerThread;
         Thread activator;
         Thread finalizer;
 
@@ -328,6 +329,7 @@ namespace PRoConEvents
         public Object unparsedCommandMutex = new Object();
         public Object unprocessedRecordMutex = new Object();
         public Object unprocessedActionMutex = new Object();
+        public Object banEnforcerMutex = new Object();
 
         //Handles
         EventWaitHandle teamswapHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
@@ -336,6 +338,8 @@ namespace PRoConEvents
         EventWaitHandle commandParsingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
         EventWaitHandle dbCommHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
         EventWaitHandle actionHandlingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        EventWaitHandle banEnforcerHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        EventWaitHandle serverInfoHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
 
         //Threading Queues
         Queue<KeyValuePair<String, String>> unparsedMessageQueue = new Queue<KeyValuePair<String, String>>();
@@ -347,7 +351,7 @@ namespace PRoConEvents
         Queue<KeyValuePair<String, int>> playerAccessUpdateQueue = new Queue<KeyValuePair<String, int>>();
         Queue<String> playerAccessRemovalQueue = new Queue<String>();
 
-        Queue<CPlayerInfo> banEnforcementQueue = new Queue<CPlayerInfo>();
+        private Queue<KeyValuePair<String, DateTime>> banEnforcerCheckingQueue = new Queue<KeyValuePair<string, DateTime>>();
 
         //Force move action queue
         Queue<CPlayerInfo> teamswapForceMoveQueue = new Queue<CPlayerInfo>();
@@ -1521,6 +1525,8 @@ namespace PRoConEvents
             this.commandParsingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             this.dbCommHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             this.actionHandlingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            this.banEnforcerHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            this.serverInfoHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
         }
 
         public void setAllHandles()
@@ -1531,6 +1537,8 @@ namespace PRoConEvents
             this.commandParsingHandle.Set();
             this.dbCommHandle.Set();
             this.actionHandlingHandle.Set();
+            this.banEnforcerHandle.Set();
+            this.serverInfoHandle.Set();
         }
 
         public void InitThreads()
@@ -1548,9 +1556,12 @@ namespace PRoConEvents
 
                 this.ActionHandlingThread = new Thread(new ThreadStart(actionHandlingThreadLoop));
                 this.ActionHandlingThread.IsBackground = true;
-
+                
                 this.TeamSwapThread = new Thread(new ThreadStart(teamswapThreadLoop));
                 this.TeamSwapThread.IsBackground = true;
+
+                this.BanEnforcerThread = new Thread(new ThreadStart(banEnforcerThreadLoop));
+                this.BanEnforcerThread.IsBackground = true;
             }
             catch (Exception e)
             {
@@ -1565,6 +1576,7 @@ namespace PRoConEvents
             this.DatabaseCommThread.Start();
             this.ActionHandlingThread.Start();
             this.TeamSwapThread.Start();
+            this.BanEnforcerThread.Start();
         }
 
         public Boolean allThreadsReady()
@@ -1593,6 +1605,11 @@ namespace PRoConEvents
             if (this.actionHandlingHandle.WaitOne(0))
             {
                 this.DebugWrite("action handling not ready.", 6);
+                ready = false;
+            }
+            if (this.banEnforcerHandle.WaitOne(0))
+            {
+                this.DebugWrite("ban enforcer not ready.", 6);
                 ready = false;
             }
             return ready;
@@ -1648,6 +1665,17 @@ namespace PRoConEvents
                     try
                     {
                         ConsoleWrite("Enabling command functionality. Please Wait.");
+
+                        if(!this.isStatLoggerEnabled())
+                        {
+                            //Inform the user
+                            this.ConsoleError("^1^bCChatGUIDStatsLoggerBF3^n plugin not found or disabled; installing/updating and enabling that plugin is required for AdKats!");
+                            //Disable the plugin
+                            this.ExecuteCommand("procon.protected.plugins.enable", "AdKats", "False");
+                            return;
+                        }
+                        this.ConsoleWrite("SUCCESS ^bCChatGUIDStatsLoggerBF3^n plugin found and running!");
+                        
                         //Set the enabled variable
                         this.isEnabled = true;
 
@@ -1715,6 +1743,7 @@ namespace PRoConEvents
                         JoinWith(this.DatabaseCommThread);
                         JoinWith(this.ActionHandlingThread);
                         JoinWith(this.TeamSwapThread);
+                        JoinWith(this.BanEnforcerThread);
 
                         this.playerAccessRemovalQueue.Clear();
                         this.playerAccessUpdateQueue.Clear();
@@ -1725,6 +1754,7 @@ namespace PRoConEvents
                         this.unparsedMessageQueue.Clear();
                         this.unprocessedActionQueue.Clear();
                         this.unprocessedRecordQueue.Clear();
+                        this.banEnforcerCheckingQueue.Clear();
 
                         this.threadsReady = false;
                         this.updateSettingPage();
@@ -1905,7 +1935,7 @@ namespace PRoConEvents
 
         public override void OnPlayerJoin(String soldierName)
         {
-            //Do nothing here
+            this.queuePlayerForBanCheck(soldierName);
         }
 
         public override void OnPlayerLeft(CPlayerInfo playerInfo)
@@ -1919,6 +1949,159 @@ namespace PRoConEvents
                     this.playerDictionary.Remove(playerInfo.SoldierName);
                 }
             }*/
+        }
+
+        #endregion
+
+        #region Ban Enforcer
+
+        private void queuePlayerForBanCheck(String playerName)
+        {
+            this.DebugWrite("Preparing to queue player for ban check", 6);
+            lock (banEnforcerMutex)
+            {
+                this.banEnforcerCheckingQueue.Enqueue(new KeyValuePair<String, DateTime>(playerName, DateTime.Now));
+                this.DebugWrite("Player queued for checking", 6);
+                this.banEnforcerHandle.Set();
+            }
+        }
+
+        private void banEnforcerThreadLoop()
+        {
+            try
+            {
+                this.DebugWrite("BANENF: Starting Ban Enforcer Thread", 2);
+                Thread.CurrentThread.Name = "BanEnforcer";
+                while (true)
+                {
+                    this.DebugWrite("BANENF: Entering Ban Enforcer Thread Loop", 7);
+                    if (!this.isEnabled)
+                    {
+                        this.DebugWrite("BANENF: Detected AdKats not enabled. Exiting thread " + Thread.CurrentThread.Name, 6);
+                        break;
+                    }
+
+                    if (this.banEnforcerCheckingQueue.Count > 0)
+                    {
+                        this.DebugWrite("BANENF: Preparing to lock ban enforcer to get new checks", 7);
+                        lock (this.banEnforcerMutex)
+                        {
+                            lock(this.playersMutex)
+                            {
+                            this.DebugWrite("BANENF: Inbound checking found. Grabbing.", 6);
+
+                            KeyValuePair<String, DateTime> playerCheck = this.banEnforcerCheckingQueue.Peek();
+                            CPlayerInfo player = null;
+                            do
+                            {
+                                playerCheck = this.banEnforcerCheckingQueue.Peek();
+                                //Check for the player in the player dictionary
+                                if(this.playerDictionary.TryGetValue(playerCheck.Key, out player))
+                                {
+                                    //TODO finish
+                                }
+                            } while (true);
+                            //Clear the queue for next run
+                            //this.banEnforcerCheckingQueue.Clear();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        this.DebugWrite("BANENF: No inbound ban checks. Waiting for Input.", 4);
+                        //Wait for input
+                        this.messageParsingHandle.Reset();
+                        this.messageParsingHandle.WaitOne(Timeout.Infinite);
+                        continue;
+                    }
+
+                    //Loop through all messages in order that they came in
+                    while (inboundMessages != null && inboundMessages.Count > 0)
+                    {
+                        this.DebugWrite("BANENF: begin reading message", 6);
+                        //Dequeue the first/next message
+                        KeyValuePair<String, String> messagePair = inboundMessages.Dequeue();
+                        string speaker = messagePair.Key;
+                        string message = messagePair.Value;
+
+                        //check for player mute case
+                        //ignore if it's a server call
+                        if (speaker != "Server")
+                        {
+                            lock (playersMutex)
+                            {
+                                //Check if the player is muted
+                                this.DebugWrite("BANENF: Checking for mute case.", 7);
+                                if (this.round_mutedPlayers.ContainsKey(speaker))
+                                {
+                                    this.DebugWrite("BANENF: Player is muted. Acting.", 7);
+                                    //Increment the muted chat count
+                                    this.round_mutedPlayers[speaker] = this.round_mutedPlayers[speaker] + 1;
+                                    //Get player info
+                                    CPlayerInfo player_info = this.playerDictionary[speaker];
+                                    //Create record
+                                    AdKat_Record record = new AdKat_Record();
+                                    record.command_source = AdKat_CommandSource.InGame;
+                                    record.server_id = this.server_id;
+                                    record.server_ip = this.getServerInfo().ExternalGameIpandPort;
+                                    record.record_time = DateTime.Now;
+                                    record.record_durationMinutes = 0;
+                                    record.source_name = "PlayerMuteSystem";
+                                    record.target_guid = player_info.GUID;
+                                    record.target_name = speaker;
+                                    record.target_playerInfo = player_info;
+                                    if (this.round_mutedPlayers[speaker] > this.mutedPlayerChances)
+                                    {
+                                        record.record_message = this.mutedPlayerKickMessage;
+                                        record.command_type = AdKat_CommandType.KickPlayer;
+                                        record.command_action = AdKat_CommandType.KickPlayer;
+                                    }
+                                    else
+                                    {
+                                        record.record_message = mutedPlayerKillMessage;
+                                        record.command_type = AdKat_CommandType.KillPlayer;
+                                        record.command_action = AdKat_CommandType.KillPlayer;
+                                    }
+                                    this.queueRecordForProcessing(record);
+                                    continue;
+                                }
+                            }
+                        }
+
+                        //Check if the message is a command
+                        if (message.StartsWith("@") || message.StartsWith("!"))
+                        {
+                            message = message.Substring(1);
+                        }
+                        else if (message.StartsWith("/@") || message.StartsWith("/!"))
+                        {
+                            message = message.Substring(2);
+                        }
+                        else if (message.StartsWith("/"))
+                        {
+                            message = message.Substring(1);
+                        }
+                        else
+                        {
+                            //If the message does not cause either of the above clauses, then ignore it.
+                            this.DebugWrite("MESSAGE: Message is regular chat. Ignoring.", 7);
+                            continue;
+                        }
+                        this.queueCommandForParsing(speaker, message);
+                    }
+                }
+                this.DebugWrite("BANENF: Ending Ban Enforcer Thread", 2);
+            }
+            catch (Exception e)
+            {
+                this.ConsoleException(e.ToString());
+                if (typeof(ThreadAbortException).Equals(e.GetType()))
+                {
+                    this.DebugWrite("Thread Exception", 4);
+                    Thread.ResetAbort();
+                    return;
+                }
+            }
         }
 
         public override void OnBanAdded(CBanInfo ban)
@@ -5340,7 +5523,7 @@ namespace PRoConEvents
                                 `ban_reason` = " + aBan.ban_reason + @", 
                                 `ban_notes` = " + aBan.ban_notes + @", 
                                 `ban_sync` = " + AdKats.EncodeStringArray(aBan.ban_sync.ToArray()) + @", 
-                                `ban_endTime` = " + matchingDBBan.ban_time.AddMinutes(aBan.ban_durationMinutes) + @", 
+                                `ban_endTime` = " + matchingDBBan.ban_startTime.AddMinutes(aBan.ban_durationMinutes) + @", 
                                 WHERE 
                                 `ban_id` = " + matchingDBBan.ban_id;
 
@@ -5364,6 +5547,86 @@ namespace PRoConEvents
 
             DebugWrite("checkBan finished!", 6);
             return success;
+        }
+
+        private int getPlayerID(String EA_GUID, String PB_GUID, String IP)
+        {
+            DebugWrite("getPlayerID starting!", 6);
+            //Create return list
+            int player_id = -1;
+            if (String.IsNullOrEmpty(EA_GUID) && String.IsNullOrEmpty(PB_GUID) && String.IsNullOrEmpty(IP))
+            {
+                this.ConsoleError("invalid inputs to getPlayerID");
+            }
+            else
+            {
+                try
+                {
+                    using (MySqlConnection databaseConnection = this.getDatabaseConnection())
+                    {
+                        using (MySqlCommand command = databaseConnection.CreateCommand())
+                        {
+                            String sql = @"SELECT `PlayerID` as `player_id` FROM `" + this.mySqlDatabaseName + @"`.`tbl_playerdata` ";
+                            bool sqlender = true;
+                            if (!String.IsNullOrEmpty(EA_GUID))
+                            {
+                                if (sqlender)
+                                {
+                                    sql += " WHERE (";
+                                    sqlender = false;
+                                }
+                                sql += " `EAGUID` LIKE '" + EA_GUID + "'";
+                            }
+                            if (!String.IsNullOrEmpty(PB_GUID))
+                            {
+                                if (sqlender)
+                                {
+                                    sql += " WHERE (";
+                                    sqlender = false;
+                                }
+                                else
+                                {
+                                    sql += " OR ";
+                                }
+                                sql += " `PBGUID` LIKE '" + PB_GUID + "'";
+                            }
+                            if (!String.IsNullOrEmpty(IP))
+                            {
+                                if (sqlender)
+                                {
+                                    sql += " WHERE (";
+                                    sqlender = false;
+                                }
+                                else
+                                {
+                                    sql += " OR ";
+                                }
+                                sql += " `IP_Address` LIKE '" + IP + "'";
+                            }
+                            sql += ") AND `ban_endTime` > NOW()";
+
+                            this.DebugWrite("QUERY: " + sql, 6);
+                            using (MySqlDataReader reader = command.ExecuteReader())
+                            {
+                                if (reader.Read())
+                                {
+                                    player_id = reader.GetInt32("player_id");
+                                }
+                                else
+                                {
+                                    this.ConsoleError("No player matching search information. Is stat logger running?");
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    ConsoleException(e.ToString());
+                }
+            }
+            DebugWrite("getPlayerID finished!", 6);
+            return player_id;
         }
 
         private AdKat_Ban getMatchingDBBan(AdKat_Ban aBan)
@@ -5476,14 +5739,6 @@ namespace PRoConEvents
             }
 
             DebugWrite("getMatchinDBBans finished!", 6);
-            if (tempBanList.Count > 0)
-            {
-                return tempBanList[0];
-            }
-            else
-            {
-                return null;
-            }
         }
 
         private Boolean fetchBans()
@@ -5905,7 +6160,49 @@ namespace PRoConEvents
             DebugWrite("fetchAdminAssistants finished!", 6);
         }
 
-        #endregion
+        private int fetchServerID(CServerInfo serverInfo)
+        {
+            DebugWrite("fetchServerID starting!", 6);
+
+            int returnVal = -1;
+
+            try
+            {
+                using (MySqlConnection databaseConnection = this.getDatabaseConnection())
+                {
+                    using (MySqlCommand command = databaseConnection.CreateCommand())
+                    {
+                        command.CommandText = @"SELECT `ServerID` as `server_id` FROM `tbl_server` WHERE IP_Address = @IP_Address";
+                        command.Parameters.AddWithValue("@IP_Address", serverInfo.ExternalGameIpandPort);
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                returnVal = reader.GetInt32("server_id");
+                                if(this.server_id != -1)
+                                {
+                                    this.ConsoleError("Attempted server ID updated after ID already chosen.");
+                                }
+                                this.server_id = returnVal;
+                                this.DebugWrite("Server ID fetched: " + this.server_id, 1);
+                            }
+                            else
+                            {
+                                this.ConsoleError("Server not found in database, make sure Stat Logger is Running.");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                DebugWrite(e.ToString(), 3);
+            }
+
+            DebugWrite("fetchServerID finished!", 6);
+
+            return returnVal;
+        }
 
         #endregion
 
@@ -6044,6 +6341,8 @@ namespace PRoConEvents
 
         #endregion
 
+        #endregion
+
         #region Mailing Functions
 
         private void sendAdminCallEmail(AdKat_Record record)
@@ -6128,6 +6427,19 @@ namespace PRoConEvents
 
         #region Helper Methods and Classes
 
+        public bool isStatLoggerEnabled()
+        {
+            List<MatchCommand> registered = this.GetRegisteredCommands();
+            foreach (MatchCommand command in registered)
+            {
+                if (command.RegisteredClassname.CompareTo("CChatGUIDStatsLoggerBF3") == 0)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         //Decode and encode from CPlayerInfo
         public static string[] DecodeStringArray(string strValue)
         {
@@ -6142,6 +6454,7 @@ namespace PRoConEvents
 
             return a_strReturn;
         }
+
         public static string EncodeStringArray(string[] a_strValue)
         {
 
@@ -6195,11 +6508,11 @@ namespace PRoConEvents
 
             if (ban.BanLength.Subset == TimeoutSubset.TimeoutSubsetType.Permanent)
             {
-                aBan.ban_durationMinutes = 999 * 360 * 24 * 60;
+                aBan.ban_displayDurationMinutes = 999 * 360 * 24 * 60;
             }
             else
             {
-                aBan.ban_durationMinutes = ban.BanLength.Seconds / 60;
+                aBan.ban_displayDurationMinutes = ban.BanLength.Seconds / 60;
             }
             return aBan;
         }
@@ -6289,34 +6602,34 @@ namespace PRoConEvents
 
         public class AdKat_Ban
         {
-            /*
-            `ban_id` int(11) NOT NULL AUTO_INCREMENT, 
-            `admin_name` varchar(45) NOT NULL DEFAULT "NoNameAdmin", 
-            `player_name` varchar(45) NOT NULL DEFAULT "NoPlayer", 
-            `player_ip` varchar(45) NOT NULL DEFAULT "NoIP", 
-            `player_guid` varchar(100) NOT NULL DEFAULT 'NoGUID', 
-            `ban_status` enum('Enabled', 'Disabled') NOT NULL DEFAULT 'Enabled';
-            `ban_reason` varchar(100) NOT NULL DEFAULT 'NoReason', 
-            `ban_notes` varchar(150) NOT NULL DEFAULT 'NoNotes', 
-            `ban_sync` varchar(100) NOT NULL DEFAULT "-sync-", 
-            `ban_startTime` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-            `ban_endTime` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-            `ban_displayDurationMinutes` int(11) NOT NULL DEFAULT 0, 
-            */
             public long ban_id = -1;
-            public string admin_name = null;
-            public string player_name = null;
-            public string player_ip = null;
-            public string player_guid = null;
+            public long record_id = -1;
+            public long player_id = -1;
+            public string ban_status = "Enabled";
             public string ban_reason = null;
             public string ban_notes = null;
             public List<string> ban_sync = null;
+            public int ban_displayDurationMinutes = 0;
+            //startTime and endTime are not set by AdKats, they are set in the database.
             public DateTime ban_startTime;
-            //ban_endTime is calculated from startTime and durationMinutes
-            public int ban_durationMinutes = 0;
+            public DateTime ban_endTime;
 
             public AdKat_Ban()
             {
+            }
+        }
+
+        public class AdKat_Player
+        {
+            public int player_id = -1;
+            public string player_name = null;
+            public string player_guid = null;
+            public string player_pbguid = null;
+            public string player_ip = null;
+
+            public AdKat_Player()
+            {
+
             }
         }
 
