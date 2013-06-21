@@ -10,7 +10,7 @@
  * 
  * AdKats was inspired by the gaming community A Different Kind (ADK). With help from the BF3 Admins within the community the plugin was born. 
  * Visit http://www.adkgamers.com/ to say thanks for the awesome plugin.
- *
+ * 
  * Code Credit:
  * Modded Levenshtein Distance algorithm from Micovery's InsaneLimits
  * Threading Examples from Micovery's InsaneLimits
@@ -1604,22 +1604,22 @@ namespace PRoConEvents
 
         public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion)
         {
-            this.RegisterEvents(this.GetType().Name, 
-                "OnVersion", 
-                "OnServerInfo", 
-                "OnListPlayers", 
-                "OnPunkbusterPlayerInfo", 
-                "OnPlayerKilled", 
-                "OnPlayerSpawned", 
-                "OnPlayerTeamChange", 
-                "OnPlayerJoin", 
-                "OnPlayerLeft", 
-                "OnGlobalChat", 
-                "OnTeamChat", 
-                "OnSquadChat", 
-                "OnLevelLoaded", 
-                "OnBanAdded", 
-                "OnBanRemoved", 
+            this.RegisterEvents(this.GetType().Name,
+                "OnVersion",
+                "OnServerInfo",
+                "OnListPlayers",
+                "OnPunkbusterPlayerInfo",
+                "OnPlayerKilled",
+                "OnPlayerSpawned",
+                "OnPlayerTeamChange",
+                "OnPlayerJoin",
+                "OnPlayerLeft",
+                "OnGlobalChat",
+                "OnTeamChat",
+                "OnSquadChat",
+                "OnLevelLoaded",
+                "OnBanAdded",
+                "OnBanRemoved",
                 //"OnBanListClear", 
                 //"OnBanListSave", 
                 //"OnBanListLoad", 
@@ -1763,7 +1763,7 @@ namespace PRoConEvents
                         {
                             //Check with ban enforcer
                             AdKat_Ban ban = null;
-                            if( this.AdKat_BanList_Name.TryGetValue(player.SoldierName, out ban) || 
+                            if (this.AdKat_BanList_Name.TryGetValue(player.SoldierName, out ban) ||
                                 this.AdKat_BanList_GUID.TryGetValue(player.GUID, out ban))
                             {
                                 //Create the record
@@ -1823,7 +1823,7 @@ namespace PRoConEvents
                 {
                     //PB info only used for IP Bans
                     AdKat_Ban ban = null;
-                    if(this.AdKat_BanList_IP.TryGetValue(cPunkbusterInfo.Ip, out ban))
+                    if (this.AdKat_BanList_IP.TryGetValue(cPunkbusterInfo.Ip, out ban))
                     {
                         //Create the record
                         AdKat_Record record = new AdKat_Record();
@@ -6289,6 +6289,20 @@ namespace PRoConEvents
 
         public class AdKat_Ban
         {
+            /*
+            `ban_id` int(11) NOT NULL AUTO_INCREMENT, 
+            `admin_name` varchar(45) NOT NULL DEFAULT "NoNameAdmin", 
+            `player_name` varchar(45) NOT NULL DEFAULT "NoPlayer", 
+            `player_ip` varchar(45) NOT NULL DEFAULT "NoIP", 
+            `player_guid` varchar(100) NOT NULL DEFAULT 'NoGUID', 
+            `ban_status` enum('Enabled', 'Disabled') NOT NULL DEFAULT 'Enabled';
+            `ban_reason` varchar(100) NOT NULL DEFAULT 'NoReason', 
+            `ban_notes` varchar(150) NOT NULL DEFAULT 'NoNotes', 
+            `ban_sync` varchar(100) NOT NULL DEFAULT "-sync-", 
+            `ban_startTime` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+            `ban_endTime` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+            `ban_displayDurationMinutes` int(11) NOT NULL DEFAULT 0, 
+            */
             public long ban_id = -1;
             public string admin_name = null;
             public string player_name = null;
@@ -6296,9 +6310,10 @@ namespace PRoConEvents
             public string player_guid = null;
             public string ban_reason = null;
             public string ban_notes = null;
-            public int ban_durationMinutes = 0;
             public List<string> ban_sync = null;
-            public DateTime ban_time;
+            public DateTime ban_startTime;
+            //ban_endTime is calculated from startTime and durationMinutes
+            public int ban_durationMinutes = 0;
 
             public AdKat_Ban()
             {
