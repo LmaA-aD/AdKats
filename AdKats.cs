@@ -8,6 +8,9 @@
  * Requires a MySQL Database connection for proper use. Will set up needed tables in the database if they are 
  * not there already.
  * 
+ * AdKats was inspired by the gaming community A Different Kind (ADK). With help from the BF3 Admins within the community the plugin was born. 
+ * Visit http://www.adkgamers.com/ to say thanks for the awesome plugin.
+ *
  * Code Credit:
  * Modded Levenshtein Distance algorithm from Micovery's InsaneLimits
  * Threading Examples from Micovery's InsaneLimits
