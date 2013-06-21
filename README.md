@@ -4,10 +4,6 @@ View new in 0.2.7.0 in the changelog
 Download link below.
 <h1>AdKats</h1>
 <p>
-AdKats was inspired by the gaming community A Different Kind (ADK). With help from the BF3 Admins within the community the plugin was born.
-Visit <a href="http://www.adkgamers.com/" target="_blank">http://www.adkgamers.com/</a> to say thanks for the awesome plugin.
-</p>
-<p>
 A MySQL reflected admin toolset that includes editable in-game commands, an out-of-game controller, database 
 reflected punishment and forgiveness, proper player report and admin call handling, player name completion, 
 player muting, yell/say pre-recording, and internal implementation of TeamSwap.<br/><br/>
@@ -18,6 +14,10 @@ to submit bugs or wanted features.<br/><br/>
 
 Download the latest version here: 
 <a href="http://sourceforge.net/projects/adkats/files/AdKats_v0.2.7.0.zip/download" target="_blank">Version 2.7.0</a>
+</p>
+<p>
+AdKats was inspired by the gaming community A Different Kind (ADK). With help from the BF3 Admins within the community the plugin was born.
+Visit <a href="http://www.adkgamers.com/" target="_blank">http://www.adkgamers.com/</a> to say thanks for the awesome plugin!
 </p>
 <h2>Features</h2>
 <h3>Main</h3>
