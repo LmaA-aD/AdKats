@@ -5,42 +5,50 @@
 
 -- If the tables needed are not in the database yet, the below two queries will be success
 CREATE TABLE IF NOT EXISTS `adkat_records` ( 
-`record_id` int(11) NOT NULL AUTO_INCREMENT, 
-`server_id` int(11) NOT NULL DEFAULT -1, 
-`server_ip` varchar(45) NOT NULL DEFAULT "0.0.0.0:0000", 
-`command_type` varchar(45) NOT NULL DEFAULT "DefaultCommand", 
-`command_action` varchar(45) NOT NULL DEFAULT "DefaultAction", 
-`record_durationMinutes` int(11) NOT NULL DEFAULT 0, 
-`target_guid` varchar(100) NOT NULL DEFAULT "NoGUID", 
-`target_name` varchar(45) NOT NULL DEFAULT "NoTarget", 
-`source_name` varchar(45) NOT NULL DEFAULT "NoNameAdmin", 
-`record_message` varchar(100) NOT NULL DEFAULT "NoMessage", 
-`record_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-`adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
-PRIMARY KEY (`record_id`)
+       `record_id` int(11) NOT NULL AUTO_INCREMENT, 
+       `server_id` int(11) NOT NULL DEFAULT -1, 
+       `server_ip` varchar(45) NOT NULL DEFAULT "0.0.0.0:0000", 
+       `command_type` varchar(45) NOT NULL DEFAULT "DefaultCommand", 
+       `command_action` varchar(45) NOT NULL DEFAULT "DefaultAction", 
+       `record_durationMinutes` int(11) NOT NULL DEFAULT 0, 
+       `target_guid` varchar(100) NOT NULL DEFAULT "NoGUID", 
+       `target_name` varchar(45) NOT NULL DEFAULT "NoTarget", 
+       `source_name` varchar(45) NOT NULL DEFAULT "NoNameAdmin", 
+       `record_message` varchar(100) NOT NULL DEFAULT "NoMessage", 
+       `record_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+       `adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
+       PRIMARY KEY (`record_id`)
 );
 
 CREATE TABLE IF NOT EXISTS `adkat_accesslist` ( 
-`player_name` varchar(45) NOT NULL DEFAULT "NoPlayer", 
-`player_guid` varchar(100) NOT NULL DEFAULT 'WAITING ON USE FOR GUID', 
-`access_level` int(11) NOT NULL DEFAULT 6, 
-PRIMARY KEY (`player_name`), UNIQUE KEY `player_name_UNIQUE` (`player_name`)
+       `player_name` varchar(45) NOT NULL DEFAULT "NoPlayer", 
+       `player_guid` varchar(100) NOT NULL DEFAULT 'WAITING ON USE FOR GUID', 
+       `access_level` int(11) NOT NULL DEFAULT 6, 
+       PRIMARY KEY (`player_name`), UNIQUE KEY `player_name_UNIQUE` (`player_name`)
 );
 
 CREATE TABLE IF NOT EXISTS `adkat_banlist` ( 
-`ban_id` int(11) NOT NULL AUTO_INCREMENT, 
-`admin_name` varchar(45) NOT NULL DEFAULT "NoNameAdmin", 
-`player_name` varchar(45) NOT NULL DEFAULT "NoPlayer", 
-`player_ip` varchar(45) NOT NULL DEFAULT "NoIP", 
-`player_guid` varchar(100) NOT NULL DEFAULT 'NoGUID', 
-`ban_status` enum('Enabled', 'Disabled') NOT NULL DEFAULT 'Enabled';
-`ban_reason` varchar(100) NOT NULL DEFAULT 'NoReason', 
-`ban_notes` varchar(150) NOT NULL DEFAULT 'NoNotes', 
-`ban_sync` varchar(100) NOT NULL DEFAULT "-sync-", 
-`ban_startTime` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-`ban_endTime` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-`ban_displayDurationMinutes` int(11) NOT NULL DEFAULT 0, 
-PRIMARY KEY (`ban_id`)
+       `ban_id` int(11) NOT NULL AUTO_INCREMENT, 
+       `record_id` int(11) NOT NULL, 
+       `player_id` INT UNSIGNED NOT NULL, 
+       `ban_status` enum('Enabled', 'Disabled') NOT NULL DEFAULT 'Enabled',
+       `ban_reason` varchar(100) NOT NULL DEFAULT 'NoReason', 
+       `ban_notes` varchar(150) NOT NULL DEFAULT 'NoNotes', 
+       `ban_sync` varchar(100) NOT NULL DEFAULT "-sync-", 
+       `ban_startTime` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
+       `ban_endTime` DATETIME NOT NULL, 
+       `ban_displayDurationMinutes` int(11) NOT NULL DEFAULT 0, 
+       PRIMARY KEY (`ban_id`), 
+       CONSTRAINT `fk_player_id` 
+              FOREIGN KEY (`player_id` ) 
+              REFERENCES `tbl_playerdata`.`PlayerID` 
+              ON DELETE CASCADE 
+              ON UPDATE NO ACTION, 
+       CONSTRAINT `fk_record_id` 
+              FOREIGN KEY (`record_id` ) 
+              REFERENCES `adkat_records`.`record_id` 
+              ON DELETE CASCADE 
+              ON UPDATE NO ACTION
 );
 
 CREATE OR REPLACE VIEW `adkat_playerlist` AS
