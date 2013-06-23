@@ -39,9 +39,9 @@ CREATE TABLE IF NOT EXISTS `adkat_records` (
 CREATE TABLE IF NOT EXISTS `adkat_serverPlayerPoints` (
 	`player_id` INT(11) UNSIGNED NOT NULL, 
 	`server_id` INT(11) UNSIGNED NOT NULL, 
-	`punish_points` INT(11) UNSIGNED NOT NULL, 
-	`forgive_points` INT(11) UNSIGNED NOT NULL, 
-	`total_points` INT(11) UNSIGNED NOT NULL, 
+	`punish_points` INT(11) NOT NULL, 
+	`forgive_points` INT(11) NOT NULL, 
+	`total_points` INT(11) NOT NULL, 
 	PRIMARY KEY (`player_id`, `server_id`), 
 	CONSTRAINT `fk_server_id` 
 		FOREIGN KEY (`server_id` ) 
@@ -57,9 +57,9 @@ CREATE TABLE IF NOT EXISTS `adkat_serverPlayerPoints` (
 
 CREATE TABLE IF NOT EXISTS `adkat_globalPlayerPoints` (
 	`player_id` INT(11) UNSIGNED NOT NULL, 
-	`punish_points` INT(11) UNSIGNED NOT NULL, 
-	`forgive_points` INT(11) UNSIGNED NOT NULL, 
-	`total_points` INT(11) UNSIGNED NOT NULL, 
+	`punish_points` INT(11) NOT NULL, 
+	`forgive_points` INT(11) NOT NULL, 
+	`total_points` INT(11) NOT NULL, 
 	PRIMARY KEY (`player_id`), 
 	CONSTRAINT `fk_player_id` 
 		FOREIGN KEY (`player_id` ) 
