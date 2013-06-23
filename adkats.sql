@@ -67,9 +67,8 @@ CREATE TABLE IF NOT EXISTS `adkat_globalPlayerPoints` (
 
 CREATE TABLE IF NOT EXISTS `adkat_banlist` ( 
 	`ban_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
-	`record_id` INT(11) UNSIGNED NOT NULL, 
 	`player_id` INT(11) UNSIGNED NOT NULL, 
-	`server_id` INT(11) UNSIGNED NOT NULL, 
+	`record_id` INT(11) UNSIGNED NOT NULL, 
 	`ban_status` enum('Enabled', 'Disabled') NOT NULL DEFAULT 'Enabled',
 	`ban_reason` VARCHAR(100) NOT NULL DEFAULT 'NoReason', 
 	`ban_notes` VARCHAR(150) NOT NULL DEFAULT 'NoNotes', 
@@ -83,11 +82,6 @@ CREATE TABLE IF NOT EXISTS `adkat_banlist` (
 	CONSTRAINT `fk_player_id` 
 		FOREIGN KEY (`player_id` ) 
 		REFERENCES `tbl_playerdata`.`PlayerID` 
-		ON DELETE CASCADE 
-		ON UPDATE NO ACTION, 
-	CONSTRAINT `fk_server_id` 
-		FOREIGN KEY (`server_id` ) 
-		REFERENCES `tbl_server`.`ServerID` 
 		ON DELETE CASCADE 
 		ON UPDATE NO ACTION, 
 	CONSTRAINT `fk_record_id` 
