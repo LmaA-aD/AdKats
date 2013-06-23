@@ -118,7 +118,7 @@ CREATE TRIGGER update_points_trigger AFTER INSERT ON `adkat_records`
 			ON DUPLICATE KEY UPDATE 
 				`punish_points` = `punish_points` + 1, 
 				`total_points` = `total_points` + 1;
-		ELSE 
+		ELSEIF (command_type = 'Forgive') THEN
 			INSERT INTO `adkat_serverPlayerPoints` 
 				(`player_id`, `server_id`, `punish_points`, `forgive_points`, `total_points`) 
 			VALUES 
