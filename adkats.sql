@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS `adkat_banlist` (
 DROP TRIGGER IF EXISTS update_point_insert_trigger;
 DROP TRIGGER IF EXISTS update_point_delete_trigger;
 delimiter |
-CREATE TRIGGER update_point_insert_trigger AFTER INSERT ON `adkat_records`
+CREATE TRIGGER update_point_insert_trigger BEFORE INSERT ON `adkat_records`
 	FOR EACH ROW 
 	BEGIN 
 		DECLARE command_type VARCHAR(45);
