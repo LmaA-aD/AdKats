@@ -93,9 +93,10 @@ CREATE TABLE IF NOT EXISTS `adkat_banlist` (
 		ON UPDATE NO ACTION
 );
 
-DROP TRIGGER IF EXISTS update_points_trigger;
+DROP TRIGGER IF EXISTS update_point_insert_trigger;
+DROP TRIGGER IF EXISTS update_point_delete_trigger;
 delimiter |
-CREATE TRIGGER update_points_trigger AFTER INSERT ON `adkat_records`
+CREATE TRIGGER update_point_insert_trigger AFTER INSERT ON `adkat_records`
 	FOR EACH ROW 
 	BEGIN 
 		DECLARE command_type VARCHAR(45);
@@ -135,6 +136,49 @@ CREATE TRIGGER update_points_trigger AFTER INSERT ON `adkat_records`
 			ON DUPLICATE KEY UPDATE 
 				`forgive_points` = `forgive_points` + 1, 
 				`total_points` = `total_points` - 1;
+		END IF;
+	END;
+|
+CREATE TRIGGER update_point_delete_trigger AFTER DELETE ON `adkat_records`
+	FOR EACH ROW 
+	BEGIN 
+		DECLARE command_type VARCHAR(45);
+		DECLARE server_id INT(11);
+		DECLARE player_id INT(11);
+		SET command_type = OLD.command_type;
+		SET server_id = OLD.server_id;
+		SET player_id = OLD.player_id;
+
+		IF(command_type = 'Punish') THEN
+			INSERT INTO `adkat_serverPlayerPoints` 
+				(`player_id`, `server_id`, `punish_points`, `forgive_points`, `total_points`) 
+			VALUES 
+				(player_id, server_id, 0, 0, 0) 
+			ON DUPLICATE KEY UPDATE 
+				`punish_points` = `punish_points` - 1, 
+				`total_points` = `total_points` - 1;
+			INSERT INTO `adkat_globalPlayerPoints` 
+				(`player_id`, `punish_points`, `forgive_points`, `total_points`) 
+			VALUES 
+				(player_id, 0, 0, 0) 
+			ON DUPLICATE KEY UPDATE 
+				`punish_points` = `punish_points` - 1, 
+				`total_points` = `total_points` - 1;
+		ELSEIF (command_type = 'Forgive') THEN
+			INSERT INTO `adkat_serverPlayerPoints` 
+				(`player_id`, `server_id`, `punish_points`, `forgive_points`, `total_points`) 
+			VALUES 
+				(player_id, server_id, 0, 0, 0) 
+			ON DUPLICATE KEY UPDATE 
+				`forgive_points` = `forgive_points` - 1, 
+				`total_points` = `total_points` + 1;
+			INSERT INTO `adkat_globalPlayerPoints` 
+				(`player_id`, `punish_points`, `forgive_points`, `total_points`) 
+			VALUES 
+				(player_id, 0, 0, 0) 
+			ON DUPLICATE KEY UPDATE 
+				`forgive_points` = `forgive_points` - 1, 
+				`total_points` = `total_points` + 1;
 		END IF;
 	END;
 |
