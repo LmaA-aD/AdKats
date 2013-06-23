@@ -3,6 +3,9 @@
 -- This is run automatically if AdKats senses the database is not set up properly.
 -- If you don't want the plugin changing tables/views in your database, you must run this beforehand.
 
+-- Scheduling is needed for update events
+SET GLOBAL event_scheduler = ON;
+
 CREATE TABLE IF NOT EXISTS `adkat_accesslist` ( 
        `player_name` VARCHAR(45) NOT NULL DEFAULT "NoPlayer", 
        `player_guid` VARCHAR(100) NOT NULL DEFAULT 'WAITING ON USE FOR GUID', 
