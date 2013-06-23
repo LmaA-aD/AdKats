@@ -75,7 +75,6 @@ CREATE TABLE IF NOT EXISTS `adkat_banlist` (
 	`ban_sync` VARCHAR(100) NOT NULL DEFAULT "-sync-", 
 	`ban_startTime` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
 	`ban_endTime` DATETIME NOT NULL, 
-	`ban_displayDurationMinutes` int(11) NOT NULL DEFAULT 0, 
 	PRIMARY KEY (`ban_id`), 
 	UNIQUE KEY `ban_id_UNIQUE` (`ban_id`), 
 	UNIQUE KEY `player_id_UNIQUE` (`player_id`), 
