@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS `adkat_banlist` (
 	`ban_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
 	`player_id` INT(11) UNSIGNED NOT NULL, 
 	`record_id` INT(11) UNSIGNED NOT NULL, 
-	`ban_status` enum('Enabled', 'Disabled') NOT NULL DEFAULT 'Enabled',
+	`ban_status` enum('Active', 'Expired', 'Disabled') NOT NULL DEFAULT 'Enabled',
 	`ban_reason` VARCHAR(100) NOT NULL DEFAULT 'NoReason', 
 	`ban_notes` VARCHAR(150) NOT NULL DEFAULT 'NoNotes', 
 	`ban_sync` VARCHAR(100) NOT NULL DEFAULT "-sync-", 
