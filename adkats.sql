@@ -14,12 +14,13 @@ CREATE TABLE IF NOT EXISTS `adkat_accesslist` (
 );
 
 CREATE TABLE IF NOT EXISTS `adkat_records` ( 
-       `record_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
+	`record_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
 	`server_id` INT(11) UNSIGNED NOT NULL, 
 	`command_type` VARCHAR(45) NOT NULL DEFAULT "DefaultCommand", 
 	`command_action` VARCHAR(45) NOT NULL DEFAULT "DefaultAction", 
 	`command_numeric` INT(11) NOT NULL DEFAULT 0, 
-	`player_id` INT(11) UNSIGNED NOT NULL, 
+	`target_name` VARCHAR(45) NOT NULL DEFAULT "NoTarget", 
+	`target_id` INT(11) UNSIGNED DEFAULT NULL, 
 	`source_name` VARCHAR(45) NOT NULL DEFAULT "NoNameAdmin", 
 	`record_message` VARCHAR(100) NOT NULL DEFAULT "NoMessage", 
 	`record_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
