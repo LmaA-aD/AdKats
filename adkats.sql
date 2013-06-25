@@ -6,7 +6,7 @@
 -- Scheduling is needed for update events
 SET GLOBAL event_scheduler = ON;
 
-CREATE TABLE IF NOT EXISTS `adkat_accesslist` ( 
+CREATE TABLE IF NOT EXISTS `adkats_accesslist` ( 
 	`player_name` VARCHAR(20) NOT NULL, 
 	`member_id` INT(11) UNSIGNED NOT NULL DEFAULT 0, 
 	`player_email` VARCHAR(254) NOT NULL DEFAULT "test@gmail.com", 
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS `adkat_accesslist` (
 	PRIMARY KEY (`player_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Access List';
 
-CREATE TABLE IF NOT EXISTS `adkat_records` ( 
+CREATE TABLE IF NOT EXISTS `adkats_records` ( 
 	`record_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
 	`server_id` INT(11) UNSIGNED NOT NULL, 
 	`command_type` VARCHAR(45) NOT NULL DEFAULT "DefaultCommand", 
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS `adkat_records` (
 		ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Records';
 
-CREATE TABLE IF NOT EXISTS `adkat_serverPlayerPoints` (
+CREATE TABLE IF NOT EXISTS `adkats_serverPlayerPoints` (
 	`player_id` INT(11) UNSIGNED NOT NULL, 
 	`server_id` INT(11) UNSIGNED NOT NULL, 
 	`punish_points` INT(11) NOT NULL, 
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS `adkat_serverPlayerPoints` (
 		ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Server Specific Player Points';
 
-CREATE TABLE IF NOT EXISTS `adkat_globalPlayerPoints` (
+CREATE TABLE IF NOT EXISTS `adkats_globalPlayerPoints` (
 	`player_id` INT(11) UNSIGNED NOT NULL, 
 	`punish_points` INT(11) NOT NULL, 
 	`forgive_points` INT(11) NOT NULL, 
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS `adkat_globalPlayerPoints` (
 		ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Global Player Points';
 
-CREATE TABLE IF NOT EXISTS `adkat_banlist` ( 
+CREATE TABLE IF NOT EXISTS `adkats_banlist` ( 
 	`ban_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
 	`record_id` INT(11) UNSIGNED NOT NULL, 
 	`ban_status` enum('Active', 'Expired', 'Disabled') NOT NULL DEFAULT 'Active',
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS `adkat_banlist` (
 		ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Ban Enforcer List';
 
-CREATE TABLE IF NOT EXISTS `adkat_settings` ( 
+CREATE TABLE IF NOT EXISTS `adkats_settings` ( 
 	`server_id` INT(11) UNSIGNED NOT NULL, 
 	`setting_name` VARCHAR(45) NOT NULL DEFAULT "SettingName", 
 	`setting_value` VARCHAR(45) NOT NULL DEFAULT "SettingValue", 
@@ -109,10 +109,10 @@ CREATE TABLE IF NOT EXISTS `adkat_settings` (
 		ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Setting Sync';
 
-DROP TRIGGER IF EXISTS update_point_insert_trigger;
-DROP TRIGGER IF EXISTS update_point_delete_trigger;
+DROP TRIGGER IF EXISTS adkats_update_point_insert;
+DROP TRIGGER IF EXISTS adkats_update_point_delete;
 delimiter |
-CREATE TRIGGER update_point_insert_trigger BEFORE INSERT ON `adkat_records`
+CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkat_records`
 	FOR EACH ROW 
 	BEGIN 
 		DECLARE command_type VARCHAR(45);
@@ -155,7 +155,7 @@ CREATE TRIGGER update_point_insert_trigger BEFORE INSERT ON `adkat_records`
 		END IF;
 	END;
 |
-CREATE TRIGGER update_point_delete_trigger AFTER DELETE ON `adkat_records`
+CREATE TRIGGER adkats_update_point_delete AFTER DELETE ON `adkat_records`
 	FOR EACH ROW 
 	BEGIN 
 		DECLARE command_type VARCHAR(45);
@@ -200,7 +200,7 @@ CREATE TRIGGER update_point_delete_trigger AFTER DELETE ON `adkat_records`
 |
 delimiter ;
 
-CREATE OR REPLACE VIEW `adkat_totalcmdissued` AS
+CREATE OR REPLACE VIEW `adkats_totalcmdissued` AS
 SELECT
   (SELECT COUNT(*)
    FROM adkat_records
