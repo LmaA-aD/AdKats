@@ -7,10 +7,15 @@
 SET GLOBAL event_scheduler = ON;
 
 CREATE TABLE IF NOT EXISTS `adkat_accesslist` ( 
-       `player_name` VARCHAR(45) NOT NULL DEFAULT "NoPlayer", 
-       `player_guid` VARCHAR(100) NOT NULL DEFAULT 'WAITING ON USE FOR GUID', 
-       `access_level` INT(11) NOT NULL DEFAULT 6, 
-       PRIMARY KEY (`player_name`), UNIQUE KEY `player_name_UNIQUE` (`player_name`)
+	`player_id` INT(11) UNSIGNED NOT NULL, 
+	`member_id` INT(11) UNSIGNED NOT NULL DEFAULT 0, 
+	`player_email` VARCHAR(254) NOT NULL DEFAULT "test@gmail.com", 
+	`access_level` INT(11) NOT NULL DEFAULT 6, 
+	PRIMARY KEY (`player_id`), 
+	CONSTRAINT `fk_player_id` 
+		FOREIGN KEY (`player_id`) 
+		REFERENCES `tbl_playerdata`.`PlayerID` 
+		ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS `adkat_records` ( 
@@ -84,7 +89,6 @@ CREATE TABLE IF NOT EXISTS `adkat_banlist` (
 	`ban_sync` VARCHAR(100) NOT NULL DEFAULT "-sync-", 
 	PRIMARY KEY (`ban_id`), 
 	UNIQUE KEY `ban_id_UNIQUE` (`ban_id`), 
-	UNIQUE KEY `player_id_UNIQUE` (`player_id`), 
 	CONSTRAINT `fk_player_id` 
 		FOREIGN KEY (`player_id` ) 
 		REFERENCES `tbl_playerdata`.`PlayerID` 
