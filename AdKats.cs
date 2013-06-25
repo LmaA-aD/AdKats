@@ -1637,9 +1637,9 @@ namespace PRoConEvents
                 "OnLevelLoaded",
                 "OnBanAdded",
                 "OnBanRemoved",
-                "OnBanListClear", 
-                "OnBanListSave", 
-                "OnBanListLoad", 
+                "OnBanListClear",
+                "OnBanListSave",
+                "OnBanListLoad",
                 "OnBanList");
         }
 
@@ -5564,19 +5564,6 @@ namespace PRoConEvents
                                     sql += " OR ";
                                 }
                                 sql += " `EAGUID` LIKE '" + player_guid + "'";
-                            }
-                            if (!String.IsNullOrEmpty(player_ip))
-                            {
-                                if (sqlender)
-                                {
-                                    sql += " WHERE (";
-                                    sqlender = false;
-                                }
-                                else
-                                {
-                                    sql += " OR ";
-                                }
-                                sql += " `IP_Address` LIKE '" + player_ip + "'";
                             }
                             sql += ")";
 
