@@ -72,14 +72,16 @@ CREATE TABLE IF NOT EXISTS `adkat_globalPlayerPoints` (
 
 CREATE TABLE IF NOT EXISTS `adkat_banlist` ( 
 	`ban_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
-	`player_id` INT(11) UNSIGNED NOT NULL, 
 	`record_id` INT(11) UNSIGNED NOT NULL, 
 	`ban_status` enum('Active', 'Expired', 'Disabled') NOT NULL DEFAULT 'Active',
 	`ban_reason` VARCHAR(100) NOT NULL DEFAULT 'NoReason', 
 	`ban_notes` VARCHAR(150) NOT NULL DEFAULT 'NoNotes', 
-	`ban_sync` VARCHAR(100) NOT NULL DEFAULT "-sync-", 
 	`ban_startTime` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
 	`ban_endTime` DATETIME NOT NULL, 
+	`ban_enforceName` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
+	`ban_enforceGUID` ENUM('Y', 'N') NOT NULL DEFAULT 'Y', 
+	`ban_enforceIP` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
+	`ban_sync` VARCHAR(100) NOT NULL DEFAULT "-sync-", 
 	PRIMARY KEY (`ban_id`), 
 	UNIQUE KEY `ban_id_UNIQUE` (`ban_id`), 
 	UNIQUE KEY `player_id_UNIQUE` (`player_id`), 
@@ -91,6 +93,18 @@ CREATE TABLE IF NOT EXISTS `adkat_banlist` (
 	CONSTRAINT `fk_record_id` 
 		FOREIGN KEY (`record_id` ) 
 		REFERENCES `adkat_records`.`record_id` 
+		ON DELETE CASCADE 
+		ON UPDATE NO ACTION
+);
+
+CREATE TABLE IF NOT EXISTS `adkat_settings` ( 
+	`server_id` INT(11) UNSIGNED NOT NULL, 
+	`setting_name` VARCHAR(45) NOT NULL DEFAULT "SettingName", 
+	`setting_value` VARCHAR(45) NOT NULL DEFAULT "SettingValue", 
+	PRIMARY KEY (`server_id`, `setting_name`), 
+	CONSTRAINT `fk_server_id` 
+		FOREIGN KEY (`server_id` ) 
+		REFERENCES `tbl_server`.`ServerID` 
 		ON DELETE CASCADE 
 		ON UPDATE NO ACTION
 );
