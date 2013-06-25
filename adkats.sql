@@ -7,15 +7,11 @@
 SET GLOBAL event_scheduler = ON;
 
 CREATE TABLE IF NOT EXISTS `adkat_accesslist` ( 
-	`player_id` INT(11) UNSIGNED NOT NULL, 
+	`player_name` VARCHAR(20) NOT NULL, 
 	`member_id` INT(11) UNSIGNED NOT NULL DEFAULT 0, 
 	`player_email` VARCHAR(254) NOT NULL DEFAULT "test@gmail.com", 
 	`access_level` INT(11) NOT NULL DEFAULT 6, 
-	PRIMARY KEY (`player_id`), 
-	CONSTRAINT `fk_player_id` 
-		FOREIGN KEY (`player_id`) 
-		REFERENCES `tbl_playerdata`.`PlayerID` 
-		ON DELETE CASCADE
+	PRIMARY KEY (`player_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Access List';
 
 CREATE TABLE IF NOT EXISTS `adkat_records` ( 
