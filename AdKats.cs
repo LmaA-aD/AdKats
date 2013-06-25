@@ -121,13 +121,6 @@ namespace PRoConEvents
             Database,
             HTTP
         }
-        //Player ban types
-        public enum AdKat_BanType
-        {
-            FrostbiteName,
-            FrostbiteEaGuid,
-            PunkbusterGuid
-        };
 
         // General settings
         private int server_id = -1;
@@ -143,8 +136,8 @@ namespace PRoConEvents
         private volatile int debugLevel;
         private String debugSoldierName = "ColColonCleaner";
         //IDs of the two teams as the server understands it
-        private static int USTeamId = 1;
-        private static int RUTeamId = 2;
+        private static int USTeamID = 1;
+        private static int RUTeamID = 2;
         //last time a manual call to listplayers was made
         private DateTime lastListPlayersRequest = DateTime.Now;
         //All server info
@@ -157,7 +150,7 @@ namespace PRoConEvents
         private int RUPlayerCount = 0;
 
         // Admin Settings
-        private Dictionary<string, int> playerAccessCache = new Dictionary<string, int>();
+        private Dictionary<string, AdKat_Access> playerAccessCache = new Dictionary<string, AdKat_Access>();
         private Boolean toldCol = false;
 
         // MySQL Settings
@@ -167,8 +160,8 @@ namespace PRoConEvents
         private string mySqlDatabaseName = "";
         private string mySqlUsername = "";
         private string mySqlPassword = "";
-        //frequency in seconds to fetch at
-        private DateTime lastDBAccessFetch = DateTime.Now;
+        //frequency in seconds to fetch access changes at
+        private DateTime lastDBAccessFetch = DateTime.Now;        
         private int dbAccessFetchFrequency = 300;
         //Action fetch from database settings
         private Boolean fetchActionsFromDB = false;
@@ -177,7 +170,6 @@ namespace PRoConEvents
 
         //current ban type
         private string m_strBanTypeOption = "Frostbite - EA GUID";
-        private AdKat_BanType m_banMethod;
         private Boolean useBanAppend = false;
         private string banAppend = "Appeal at your_site.com";
 
@@ -347,7 +339,7 @@ namespace PRoConEvents
         Queue<AdKat_Record> unprocessedRecordQueue = new Queue<AdKat_Record>();
         Queue<AdKat_Record> unprocessedActionQueue = new Queue<AdKat_Record>();
 
-        Queue<KeyValuePair<String, int>> playerAccessUpdateQueue = new Queue<KeyValuePair<String, int>>();
+        Queue<AdKat_Access> playerAccessUpdateQueue = new Queue<AdKat_Access>();
         Queue<String> playerAccessRemovalQueue = new Queue<String>();
 
         private Queue<AdKat_Player> banEnforcerCheckingQueue = new Queue<AdKat_Player>();
@@ -361,7 +353,10 @@ namespace PRoConEvents
         Queue<CPlayerInfo> teamswapOnDeathCheckingQueue = new Queue<CPlayerInfo>();
 
         //Ban Settings
-        //Bans will be enforced by GUID, and IP
+        private Boolean useBanEnforcer = false;
+        private DateTime lastDBBanFetch = DateTime.Now;
+        private int dbBanFetchFrequency = 60;
+        private Dictionary<string, AdKat_Ban> AdKat_BanList_Name = new Dictionary<string, AdKat_Ban>();
         private Dictionary<string, AdKat_Ban> AdKat_BanList_GUID = new Dictionary<string, AdKat_Ban>();
         private Dictionary<string, AdKat_Ban> AdKat_BanList_IP = new Dictionary<string, AdKat_Ban>();
         private DateTime permaBanEndTime = DateTime.Now.AddYears(1000);
@@ -775,23 +770,6 @@ namespace PRoConEvents
             }
             #endregion
             #region ban settings
-            else if (Regex.Match(strVariable, @"Ban Type").Success)
-            {
-                this.m_strBanTypeOption = strValue;
-
-                if (String.Compare("Frostbite - Name", this.m_strBanTypeOption, true) == 0)
-                {
-                    this.m_banMethod = AdKat_BanType.FrostbiteName;
-                }
-                else if (String.Compare("Frostbite - EA GUID", this.m_strBanTypeOption, true) == 0)
-                {
-                    this.m_banMethod = AdKat_BanType.FrostbiteEaGuid;
-                }
-                else if (String.Compare("Punkbuster - GUID", this.m_strBanTypeOption, true) == 0)
-                {
-                    this.m_banMethod = AdKat_BanType.PunkbusterGuid;
-                }
-            }
             else if (Regex.Match(strVariable, @"Use Additional Ban Message").Success)
             {
                 this.useBanAppend = Boolean.Parse(strValue);
@@ -1167,7 +1145,7 @@ namespace PRoConEvents
             {
                 if (this.isEnabled)
                 {
-                    this.queuePlayerForAccessUpdate(strValue, 6);
+                    this.queueAccessUpdate(strValue, 6);
                 }
                 else
                 {
@@ -1178,7 +1156,7 @@ namespace PRoConEvents
             {
                 if (this.isEnabled)
                 {
-                    this.queuePlayerForAccessRemoval(strValue);
+                    this.queueAccessRemoval(strValue);
                 }
                 else
                 {
@@ -1189,7 +1167,7 @@ namespace PRoConEvents
             {
                 if (this.isEnabled)
                 {
-                    this.queuePlayerForAccessUpdate(strVariable, Int32.Parse(strValue));
+                    this.queueAccessUpdate(strVariable, Int32.Parse(strValue));
                 }
                 else
                 {
@@ -1772,7 +1750,7 @@ namespace PRoConEvents
 
         public virtual void OnPlayerTeamChange(string soldierName, int teamId, int squadId)
         {
-            if (teamId == USTeamId)
+            if (teamId == USTeamID)
             {
                 this.USPlayerCount++;
                 this.RUPlayerCount--;
@@ -1808,11 +1786,14 @@ namespace PRoConEvents
                             aPlayer.frostbitePlayerInfo = player;
                             this.playerDictionary.Add(player.SoldierName, aPlayer);
 
+                            //In case of quick name-change, update their IGN
+                            aPlayer.player_name = player.SoldierName;
+
                             //Check with ban enforcer
                             this.queuePlayerForBanCheck(aPlayer);
                         }
 
-                        if (player.TeamID == USTeamId)
+                        if (player.TeamID == USTeamID)
                         {
                             this.USPlayerCount++;
                         }
@@ -1844,12 +1825,13 @@ namespace PRoConEvents
 
         public override void OnPunkbusterPlayerInfo(CPunkbusterInfo cPunkbusterInfo)
         {
-            //TODO use
             if (this.isEnabled)
             {
-                AdKat_Player player = new AdKat_Player();
-                player.PBPlayerInfo = cPunkbusterInfo;
-                this.queuePlayerForBanCheck(player);
+                //Do check for banned player IP, report to admins
+
+                //AdKat_Player player = new AdKat_Player();
+                //player.PBPlayerInfo = cPunkbusterInfo;
+                //this.queuePlayerForBanCheck(player);
             }
         }
 
@@ -1861,6 +1843,8 @@ namespace PRoConEvents
                 this.round_mutedPlayers = new Dictionary<string, int>();
                 this.teamswapRoundWhitelist = new Dictionary<string, Boolean>();
                 this.autoWhitelistPlayers();
+                this.USMoveQueue.Clear();
+                this.RUMoveQueue.Clear();
 
                 //Reset whether they have been informed
                 foreach (string assistantName in this.adminAssistantCache.Keys)
@@ -1924,7 +1908,7 @@ namespace PRoConEvents
                 {
                     this.playerDictionary.Remove(playerInfo.SoldierName);
 
-                    if (playerInfo.TeamID == USTeamId)
+                    if (playerInfo.TeamID == USTeamID)
                     {
                         this.USPlayerCount--;
                     }
@@ -2014,7 +1998,7 @@ namespace PRoConEvents
 
                         AdKat_Ban ban = null;
                         if (this.AdKat_BanList_GUID.TryGetValue(aPlayer.player_guid, out ban) ||
-                            this.AdKat_BanList_IP.TryGetValue(aPlayer.player_guid, out ban))
+                            this.AdKat_BanList_IP.TryGetValue(aPlayer.player_ip, out ban))
                         {
                             //Create the new record
                             AdKat_Record record = new AdKat_Record();
@@ -2401,7 +2385,7 @@ namespace PRoConEvents
                             while (movingQueue != null && movingQueue.Count > 0)
                             {
                                 CPlayerInfo player = movingQueue.Dequeue();
-                                if (player.TeamID == USTeamId)
+                                if (player.TeamID == USTeamID)
                                 {
                                     if (!this.containsCPlayerInfo(this.USMoveQueue, player.SoldierName))
                                     {
@@ -2441,7 +2425,7 @@ namespace PRoConEvents
                                 if (this.USPlayerCount < maxPlayerCount)
                                 {
                                     CPlayerInfo player = this.RUMoveQueue.Dequeue();
-                                    ExecuteCommand("procon.protected.send", "admin.movePlayer", player.SoldierName, USTeamId.ToString(), "1", "true");
+                                    ExecuteCommand("procon.protected.send", "admin.movePlayer", player.SoldierName, USTeamID.ToString(), "1", "true");
                                     this.playerSayMessage(player.SoldierName, "Swapping you from team RU to team US");
                                     movedPlayer = true;
                                     this.USPlayerCount++;
@@ -2452,7 +2436,7 @@ namespace PRoConEvents
                                 if (this.RUPlayerCount < maxPlayerCount)
                                 {
                                     CPlayerInfo player = this.USMoveQueue.Dequeue();
-                                    ExecuteCommand("procon.protected.send", "admin.movePlayer", player.SoldierName, RUTeamId.ToString(), "1", "true");
+                                    ExecuteCommand("procon.protected.send", "admin.movePlayer", player.SoldierName, RUTeamID.ToString(), "1", "true");
                                     this.playerSayMessage(player.SoldierName, "Swapping you from team US to team RU");
                                     movedPlayer = true;
                                     this.RUPlayerCount++;
@@ -2906,7 +2890,7 @@ namespace PRoConEvents
                                         this.sendMessageToSource(record, "Invalid time given, unable to submit.");
                                         return;
                                     }
-                                    record.record_durationMinutes = record_duration;
+                                    record.command_numeric = record_duration;
                                     //Target is source
                                     record.record_message = "Self-Inflicted";
                                     record.target_name = record.source_name;
@@ -2916,7 +2900,7 @@ namespace PRoConEvents
                                     DebugWrite("Raw Duration: " + parameters[0], 6);
                                     if (Int32.TryParse(parameters[0], out record_duration))
                                     {
-                                        record.record_durationMinutes = record_duration;
+                                        record.command_numeric = record_duration;
 
                                         record.target_name = parameters[1];
                                         DebugWrite("target: " + record.target_name, 6);
@@ -2936,7 +2920,7 @@ namespace PRoConEvents
                                     DebugWrite("Raw Duration: " + parameters[0], 6);
                                     if (Int32.TryParse(parameters[0], out record_duration))
                                     {
-                                        record.record_durationMinutes = record_duration;
+                                        record.command_numeric = record_duration;
 
                                         record.target_name = parameters[1];
                                         DebugWrite("target: " + record.target_name, 6);
@@ -3374,19 +3358,16 @@ namespace PRoConEvents
                                     if (targetTeam.ToLower().Contains("us"))
                                     {
                                         record.target_name = "US Team";
-                                        record.target_guid = "US Team";
                                         record.record_message += " (US Team)";
                                     }
                                     else if (targetTeam.ToLower().Contains("ru"))
                                     {
                                         record.target_name = "RU Team";
-                                        record.target_guid = "RU Team";
                                         record.record_message += " (RU Team)";
                                     }
                                     else if (targetTeam.ToLower().Contains("all"))
                                     {
                                         record.target_name = "Everyone";
-                                        record.target_guid = "Everyone";
                                         record.record_message += " (Everyone)";
                                     }
                                     else
@@ -3407,7 +3388,6 @@ namespace PRoConEvents
                     case AdKat_CommandType.KickAll:
                         this.cancelSourcePendingAction(record);
                         record.target_name = "Non-Admins";
-                        record.target_guid = "Non-Admins";
                         record.record_message = "Kick All Players";
                         this.confirmActionWithSource(record);
                         break;
@@ -3432,13 +3412,13 @@ namespace PRoConEvents
                                     if (targetTeam.ToLower().Contains("us"))
                                     {
                                         record.target_name = "US Team";
-                                        record.target_guid = "US Team";
+                                        record.command_numeric = AdKats.USTeamID;
                                         record.record_message += " (US Win)";
                                     }
                                     else if (targetTeam.ToLower().Contains("ru"))
                                     {
                                         record.target_name = "RU Team";
-                                        record.target_guid = "RU Team";
+                                        record.command_numeric = AdKats.RUTeamID;
                                         record.record_message += " (RU Win)";
                                     }
                                     else
@@ -3459,7 +3439,6 @@ namespace PRoConEvents
                     case AdKat_CommandType.RestartLevel:
                         this.cancelSourcePendingAction(record);
                         record.target_name = "Server";
-                        record.target_guid = "Server";
                         record.record_message = "Restart Round";
                         this.confirmActionWithSource(record);
                         break;
@@ -3468,7 +3447,6 @@ namespace PRoConEvents
                     case AdKat_CommandType.NextLevel:
                         this.cancelSourcePendingAction(record);
                         record.target_name = "Server";
-                        record.target_guid = "Server";
                         record.record_message = "Run Next Map";
                         this.confirmActionWithSource(record);
                         break;
@@ -3522,7 +3500,6 @@ namespace PRoConEvents
                                     record.record_message = this.getPreMessage(parameters[0], false);
                                     DebugWrite("message: " + record.record_message, 6);
                                     record.target_name = "Server";
-                                    record.target_guid = "Server";
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
@@ -3549,7 +3526,6 @@ namespace PRoConEvents
                                     record.record_message = this.getPreMessage(parameters[0], false).ToUpper();
                                     DebugWrite("message: " + record.record_message, 6);
                                     record.target_name = "Server";
-                                    record.target_guid = "Server";
                                     break;
                                 default:
                                     this.sendMessageToSource(record, "Invalid parameters, unable to submit.");
@@ -3704,9 +3680,7 @@ namespace PRoConEvents
                     if (substringMatches.Count == 1)
                     {
                         //Only one substring match, call processing without confirmation if able
-                        record.target_name = substringMatches[0].SoldierName;
-                        record.target_guid = substringMatches[0].GUID;
-                        record.target_playerInfo = substringMatches[0];
+                        record.target_player = substringMatches[0];
                         if (!requireConfirm)
                         {
                             //Process record right away
@@ -3722,20 +3696,20 @@ namespace PRoConEvents
                         //Multiple players matched the query, choose correct one
                         string msg = "'" + record.target_name + "' matches multiple players: ";
                         bool first = true;
-                        CPlayerInfo suggestion = null;
-                        foreach (CPlayerInfo player in substringMatches)
+                        AdKat_Player suggestion = null;
+                        foreach (AdKat_Player player in substringMatches)
                         {
                             if (first)
                             {
-                                msg = msg + player.SoldierName;
+                                msg = msg + player.player_name;
                                 first = false;
                             }
                             else
                             {
-                                msg = msg + ", " + player.SoldierName;
+                                msg = msg + ", " + player.player_name;
                             }
                             //Suggest player names that start with the text admins entered over others
-                            if (player.SoldierName.ToLower().StartsWith(record.target_name.ToLower()))
+                            if (player.player_name.ToLower().StartsWith(record.target_name.ToLower()))
                             {
                                 suggestion = player;
                             }
@@ -3744,9 +3718,9 @@ namespace PRoConEvents
                         {
                             //If no player name starts with what admins typed, suggest substring name with lowest Levenshtein distance
                             int bestDistance = Int32.MaxValue;
-                            foreach (CPlayerInfo player in substringMatches)
+                            foreach (AdKat_Player player in substringMatches)
                             {
-                                int distance = LevenshteinDistance(record.target_name, player.SoldierName);
+                                int distance = LevenshteinDistance(record.target_name, player.player_name);
                                 if (distance < bestDistance)
                                 {
                                     bestDistance = distance;
@@ -3755,26 +3729,25 @@ namespace PRoConEvents
                             }
                         }
                         //If the suggestion is still null, something has failed
-                        if (suggestion == null) { this.DebugWrite("name suggestion system failed with substring matches", 5); };
+                        if (suggestion == null) { this.DebugWrite("name suggestion system failed substring match", 5); };
 
                         //Inform admin of multiple players found
                         this.sendMessageToSource(record, msg);
 
                         //Use suggestion for target
-                        record.target_guid = suggestion.GUID;
-                        record.target_name = suggestion.SoldierName;
-                        record.target_playerInfo = suggestion;
+                        record.target_name = suggestion.player_name;
+                        record.target_player = suggestion;
                         //Send record to attempt list for confirmation
                         return this.confirmActionWithSource(record);
                     }
                     else
                     {
                         //There were no players found, run a fuzzy search using Levenshtein Distance on all players in server
-                        CPlayerInfo fuzzyMatch = null;
+                        AdKat_Player fuzzyMatch = null;
                         int bestDistance = Int32.MaxValue;
-                        foreach (CPlayerInfo player in this.playerList)
+                        foreach (AdKat_Player player in this.playerDictionary.Values)
                         {
-                            int distance = LevenshteinDistance(record.target_name, player.SoldierName);
+                            int distance = LevenshteinDistance(record.target_name, player.player_name);
                             if (distance < bestDistance)
                             {
                                 bestDistance = distance;
@@ -3785,9 +3758,8 @@ namespace PRoConEvents
                         if (fuzzyMatch == null) { this.DebugWrite("name suggestion system failed fuzzy match", 5); return "ERROR"; };
 
                         //Use suggestion for target
-                        record.target_guid = fuzzyMatch.GUID;
-                        record.target_name = fuzzyMatch.SoldierName;
-                        record.target_playerInfo = fuzzyMatch;
+                        record.target_name = fuzzyMatch.player_name;
+                        record.target_player = fuzzyMatch;
                         //Send record to attempt list for confirmation
                         return this.confirmActionWithSource(record);
                     }
@@ -3840,13 +3812,13 @@ namespace PRoConEvents
                     {
                         Random random = new Random();
                         List<string> playerListCopy = new List<string>();
-                        foreach (CPlayerInfo player in this.playerList)
+                        foreach (AdKat_Player player in this.playerDictionary.Values)
                         {
-                            this.DebugWrite("Checking for teamswap access on " + player.SoldierName, 6);
-                            if (!this.hasAccess(player.SoldierName, AdKat_CommandType.Teamswap))
+                            this.DebugWrite("Checking for teamswap access on " + player.player_name, 6);
+                            if (!this.hasAccess(player.player_name, AdKat_CommandType.Teamswap))
                             {
                                 this.DebugWrite("player doesnt have access, adding them to chance list", 6);
-                                playerListCopy.Add(player.SoldierName);
+                                playerListCopy.Add(player.player_name);
                             }
                         }
                         if (playerListCopy.Count > 0)
@@ -3887,11 +3859,10 @@ namespace PRoConEvents
                     this.round_reports.Remove(record.target_name);
                     //Update it in the database
                     reportedRecord.command_action = AdKat_CommandType.ConfirmReport;
-                    this.updateRecord(reportedRecord);
+                    this.uploadRecord(reportedRecord, null);
                     //Get target information
-                    record.target_guid = reportedRecord.target_guid;
                     record.target_name = reportedRecord.target_name;
-                    record.target_playerInfo = reportedRecord.target_playerInfo;
+                    record.target_player = reportedRecord.target_player;
                     //Update record message if needed
                     //attempt to handle via pre-message ID
                     //record.record_message = this.getPreMessage(record.record_message, this.requirePreMessageUse);
@@ -4107,7 +4078,7 @@ namespace PRoConEvents
 
         public string moveTarget(AdKat_Record record)
         {
-            this.queuePlayerForMove(record.target_playerInfo);
+            this.queuePlayerForMove(record.target_player.frostbitePlayerInfo);
             this.playerSayMessage(record.target_name, "On your next death you will be moved to the opposing team.");
             return this.sendMessageToSource(record, record.target_name + " will be sent to teamswap on their next death.");
         }
@@ -4124,7 +4095,7 @@ namespace PRoConEvents
                 {
                     message = "Calling Teamswap on self";
                     this.DebugWrite(message, 6);
-                    this.queuePlayerForForceMove(record.target_playerInfo);
+                    this.queuePlayerForForceMove(record.target_player.frostbitePlayerInfo);
                 }
                 else
                 {
@@ -4138,7 +4109,7 @@ namespace PRoConEvents
                 message = "TeamSwap called on " + record.target_name;
                 this.DebugWrite("Calling Teamswap on target", 6);
                 this.sendMessageToSource(record, "" + record.target_name + " sent to teamswap.");
-                this.queuePlayerForForceMove(record.target_playerInfo);
+                this.queuePlayerForForceMove(record.target_player.frostbitePlayerInfo);
             }
             this.DebugWrite("Exiting forceMoveTarget", 6);
 
@@ -4175,7 +4146,7 @@ namespace PRoConEvents
 
         public string tempBanTarget(AdKat_Record record, string additionalMessage)
         {
-            Int32 seconds = record.record_durationMinutes * 60;
+            Int32 seconds = record.command_numeric * 60;
             additionalMessage = (additionalMessage != null && additionalMessage.Length > 0) ? (" " + additionalMessage) : ("");
             string banReason = record.source_name + " - " + record.record_message + additionalMessage + ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
             int cutLength = banReason.Length - 80;
@@ -4187,28 +4158,12 @@ namespace PRoConEvents
             this.DebugWrite("Ban Message: '" + banReason + "'", 3);
             //Perform Actions
             if (!this.isTesting)
-                switch (this.m_banMethod)
-                {
-                    case AdKat_BanType.FrostbiteName:
-                        this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "seconds", seconds + "", banReason);
-                        this.ExecuteCommand("procon.protected.send", "banList.save");
-                        this.ExecuteCommand("procon.protected.send", "banList.list");
-                        break;
-                    case AdKat_BanType.FrostbiteEaGuid:
-                        this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "seconds", seconds + "", banReason);
-                        this.ExecuteCommand("procon.protected.send", "banList.save");
-                        this.ExecuteCommand("procon.protected.send", "banList.list");
-                        break;
-                    case AdKat_BanType.PunkbusterGuid:
-                        this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_kick \"{0}\" {1} \"{2}\"", record.target_name, record.record_durationMinutes.ToString(), "BC2! " + banReason));
-                        break;
-                    default:
-                        this.ConsoleError("Error, ban type not selected.");
-                        break;
-                }
+            {
+                //Temp ban player here
+            }
             this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was BANNED by admin for " + record.record_message + " " + additionalMessage, "all");
 
-            return this.sendMessageToSource(record, "You TEMP BANNED " + record.target_name + " for " + record.record_durationMinutes + " minutes. " + additionalMessage);
+            return this.sendMessageToSource(record, "You TEMP BANNED " + record.target_name + " for " + record.command_numeric + " minutes. " + additionalMessage);
         }
 
         public string permaBanTarget(AdKat_Record record, string additionalMessage)
@@ -4224,24 +4179,9 @@ namespace PRoConEvents
             this.DebugWrite("Ban Message: '" + banReason + "'", 6);
             //Perform Actions
             if (!this.isTesting)
-                switch (this.m_banMethod)
-                {
-                    case AdKat_BanType.FrostbiteName:
-                        this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_name, "perm", banReason);
-                        this.ExecuteCommand("procon.protected.send", "banList.save");
-                        this.ExecuteCommand("procon.protected.send", "banList.list");
-                        break;
-                    case AdKat_BanType.FrostbiteEaGuid:
-                        this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_guid, "perm", banReason);
-                        this.ExecuteCommand("procon.protected.send", "banList.save");
-                        this.ExecuteCommand("procon.protected.send", "banList.list");
-                        break;
-                    case AdKat_BanType.PunkbusterGuid:
-                        this.ExecuteCommand("procon.protected.send", "punkBuster.pb_sv_command", String.Format("pb_sv_ban \"{0}\" \"{1}\"", record.target_name, "BC2! " + banReason));
-                        break;
-                    default:
-                        break;
-                }
+            {
+                //Permaban player here
+            }
             this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was BANNED by admin for " + record.record_message + additionalMessage, "all");
 
             return this.sendMessageToSource(record, "You PERMA BANNED " + record.target_name + "! Get a vet admin NOW!" + additionalMessage);
@@ -4252,7 +4192,7 @@ namespace PRoConEvents
             this.DebugWrite("punishing target", 6);
             string message = "ERROR";
             //Get number of points the player from server
-            int points = this.fetchPoints(record.target_guid);
+            int points = this.fetchPoints(record.target_player, null);
             //Get the proper action to take for player punishment
             string action = "noaction";
             if (points > (this.punishmentHierarchy.Length - 1))
@@ -4266,7 +4206,7 @@ namespace PRoConEvents
             //Set additional message
             string additionalMessage = "[" + ((record.isIRO) ? ("IRO ") : ("")) + points + "pts]";
 
-            Boolean isLowPop = this.onlyKillOnLowPop && (this.playerList.Count < this.lowPopPlayerCount);
+            Boolean isLowPop = this.onlyKillOnLowPop && (this.playerDictionary.Count < this.lowPopPlayerCount);
             Boolean IROOverride = record.isIRO && this.IROOverridesLowPop;
 
             //Call correct action
@@ -4282,31 +4222,31 @@ namespace PRoConEvents
             }
             else if (action.Equals("tban60"))
             {
-                record.record_durationMinutes = 60;
+                record.command_numeric = 60;
                 record.command_action = AdKat_CommandType.TempBanPlayer;
                 message = this.tempBanTarget(record, additionalMessage);
             }
             else if (action.Equals("tbanday"))
             {
-                record.record_durationMinutes = 1440;
+                record.command_numeric = 1440;
                 record.command_action = AdKat_CommandType.TempBanPlayer;
                 message = this.tempBanTarget(record, additionalMessage);
             }
             else if (action.Equals("tbanweek"))
             {
-                record.record_durationMinutes = 10080;
+                record.command_numeric = 10080;
                 record.command_action = AdKat_CommandType.TempBanPlayer;
                 message = this.tempBanTarget(record, additionalMessage);
             }
             else if (action.Equals("tban2weeks"))
             {
-                record.record_durationMinutes = 20160;
+                record.command_numeric = 20160;
                 record.command_action = AdKat_CommandType.TempBanPlayer;
                 message = this.tempBanTarget(record, additionalMessage);
             }
             else if (action.Equals("tbanmonth"))
             {
-                record.record_durationMinutes = 43200;
+                record.command_numeric = 43200;
                 record.command_action = AdKat_CommandType.TempBanPlayer;
                 message = this.tempBanTarget(record, additionalMessage);
             }
@@ -4327,7 +4267,7 @@ namespace PRoConEvents
 
         public string forgiveTarget(AdKat_Record record)
         {
-            int points = this.fetchPoints(record.target_guid);
+            int points = this.fetchPoints(record.target_player, null);
             this.playerSayMessage(record.target_name, "Forgiven 1 infraction point. You now have " + points + " point(s) against you.");
             return this.sendMessageToSource(record, "Forgive Logged for " + record.target_name + ". They now have " + points + " infraction points.");
         }
@@ -4445,7 +4385,7 @@ namespace PRoConEvents
         public string endLevel(AdKat_Record record)
         {
             string message = "No Message";
-            this.ExecuteCommand("procon.protected.send", "mapList.endRound", record.target_guid);
+            this.ExecuteCommand("procon.protected.send", "mapList.endRound", record.command_numeric + "");
             message = "Ended round with " + record.target_name + " as winner.";
             return message;
         }
@@ -4454,13 +4394,13 @@ namespace PRoConEvents
         {
             //Perform actions
             string message = "No Message";
-            foreach (CPlayerInfo player in this.playerList)
+            foreach (AdKat_Player player in this.playerDictionary.Values)
             {
-                if ((record.target_name == "US Team" && player.TeamID == USTeamId) ||
-                    (record.target_name == "RU Team" && player.TeamID == RUTeamId) ||
+                if ((record.target_name == "US Team" && player.frostbitePlayerInfo.TeamID == AdKats.USTeamID) ||
+                    (record.target_name == "RU Team" && player.frostbitePlayerInfo.TeamID == AdKats.RUTeamID) ||
                     (record.target_name == "Server"))
                 {
-                    ExecuteCommand("procon.protected.send", "admin.killPlayer", player.SoldierName);
+                    ExecuteCommand("procon.protected.send", "admin.killPlayer", player.player_name);
                     this.playerSayMessage(record.target_name, "Killed by admin for: " + record.record_message);
                 }
             }
@@ -4473,11 +4413,11 @@ namespace PRoConEvents
         {
             //Perform Actions
             string message = "No Message";
-            foreach (CPlayerInfo player in this.playerList)
+            foreach (AdKat_Player player in this.playerDictionary.Values)
             {
-                if (!(this.playerAccessCache.ContainsKey(player.SoldierName) && this.playerAccessCache[player.SoldierName] < 5))
+                if (!(this.playerAccessCache.ContainsKey(player.player_name) && this.playerAccessCache[player.player_name] < 5))
                 {
-                    ExecuteCommand("procon.protected.send", "admin.kickPlayer", player.SoldierName, "(" + record.source_name + ") " + record.record_message);
+                    ExecuteCommand("procon.protected.send", "admin.kickPlayer", player.player_name, "(" + record.source_name + ") " + record.record_message);
                     this.playerSayMessage(record.target_name, "Killed by admin for: " + record.record_message);
                 }
             }
@@ -4524,18 +4464,22 @@ namespace PRoConEvents
 
         #region Player Access
 
-        private void queuePlayerForAccessUpdate(String player_name, int access_level)
+        private void queueAccessUpdate(String player_name, String player_email, int access_level)
         {
             this.DebugWrite("Preparing to queue player for access update", 6);
             lock (playerAccessMutex)
             {
-                this.playerAccessUpdateQueue.Enqueue(new KeyValuePair<string, int>(player_name, access_level));
+                AdKat_Access access = new AdKat_Access();
+                access.player_name = player_name;
+                access.access_level = access_level;
+                access.player_email = player_email;
+                this.playerAccessUpdateQueue.Enqueue(access);
                 this.DebugWrite("Player queued for access update", 6);
                 this.dbCommHandle.Set();
             }
         }
 
-        private void queuePlayerForAccessRemoval(String player_name)
+        private void queueAccessRemoval(String player_name)
         {
             this.DebugWrite("Preparing to queue player for access removal", 6);
             lock (playerAccessMutex)
@@ -4606,7 +4550,7 @@ namespace PRoConEvents
                     if (this.dbSettingsChanged)
                     {
                         this.DebugWrite("DBCOMM: DB Settings have changed, calling test.", 6);
-                        if (this.testDatabaseConnection())
+                        if (this.testDatabaseConnection(null))
                         {
                             this.DebugWrite("DBCOMM: Database Connection Good. Continuing Thread.", 6);
                         }
@@ -4627,7 +4571,7 @@ namespace PRoConEvents
                     //Check for new actions from the database at given interval
                     if (this.fetchActionsFromDB && (DateTime.Now > this.lastDBActionFetch.AddSeconds(this.dbActionFrequency)))
                     {
-                        this.runActionsFromDB();
+                        this.runActionsFromDB(null);
                     }
                     else
                     {
@@ -4642,7 +4586,7 @@ namespace PRoConEvents
                         {
                             this.DebugWrite("DBCOMM: Inbound access changes found. Grabbing.", 6);
                             //Grab all in the queue
-                            inboundAccessUpdates = new Queue<KeyValuePair<string, int>>(this.playerAccessUpdateQueue.ToArray());
+                            inboundAccessUpdates = new Queue<KeyValuePair<String, Int32>>(this.playerAccessUpdateQueue.ToArray());
                             inboundAccessRemoval = new Queue<String>(this.playerAccessRemovalQueue.ToArray());
                             //Clear the queue for next run
                             this.playerAccessUpdateQueue.Clear();
@@ -4652,22 +4596,22 @@ namespace PRoConEvents
                         while (inboundAccessUpdates != null && inboundAccessUpdates.Count > 0)
                         {
                             KeyValuePair<String, int> playerAccess = inboundAccessUpdates.Dequeue();
-                            this.updatePlayerAccess(playerAccess.Key, playerAccess.Value);
+                            this.uploadPlayerAccess(playerAccess.Key, playerAccess.Value, null);
                         }
                         //Loop through all records in order that they came in
                         while (inboundAccessRemoval != null && inboundAccessRemoval.Count > 0)
                         {
                             String playerName = inboundAccessRemoval.Dequeue();
-                            this.removePlayerAccess(playerName);
+                            this.removePlayerAccess(playerName, null);
                         }
-                        this.fetchAccessList();
+                        this.fetchAccessList(null);
                         //Update the setting page with new information
                         this.updateSettingPage();
                     }
                     else if (DateTime.Now > this.lastDBAccessFetch.AddMinutes(this.dbAccessFetchFrequency))
                     {
                         //Handle access updates directly from the database
-                        this.fetchAccessList();
+                        this.fetchAccessList(null);
                         //Update the setting page with new information
                         this.updateSettingPage();
                     }
@@ -4699,25 +4643,8 @@ namespace PRoConEvents
                                 //Upload the ban
                                 this.uploadBan(aBan, null);
 
-                                //Update this server's guid ban list
-                                if (this.AdKat_BanList_GUID.ContainsKey(ban.ban_record.target_player.player_guid))
-                                {
-                                    this.AdKat_BanList_GUID[ban.ban_record.target_player.player_guid] = ban;
-                                }
-                                else
-                                {
-                                    this.AdKat_BanList_GUID.Add(ban.ban_record.target_player.player_guid, ban);
-                                }
-
-                                //Update this server's IP ban list
-                                if (this.AdKat_BanList_IP.ContainsKey(ban.ban_record.target_player.player_ip))
-                                {
-                                    this.AdKat_BanList_IP[ban.ban_record.target_player.player_ip] = ban;
-                                }
-                                else
-                                {
-                                    this.AdKat_BanList_IP.Add(ban.ban_record.target_player.player_ip, ban);
-                                }
+                                //Update this server's ban lists
+                                this.updateBanLists(aBan, null);
                             }
 
                             //Call Ban Enforcer thread to enforce any updated bans
@@ -4728,7 +4655,7 @@ namespace PRoConEvents
                     //Check for new bans from the database at given interval
                     if (this.useBanEnforcer && (DateTime.Now > this.lastDBBanFetch.AddSeconds(this.dbBanFetchFrequency)))
                     {
-                        this.fetchDatabaseBans();
+                        this.fetchDatabaseBans(null);
                     }
                     else
                     {
@@ -4753,7 +4680,7 @@ namespace PRoConEvents
                             AdKat_Record record = inboundRecords.Dequeue();
 
                             //Only run action if the record needs action
-                            if (this.handleRecordUpload(record))
+                            if (this.handleRecordUpload(record, null))
                             {
                                 //Action is only called after initial upload, not after update
                                 this.DebugWrite("DBCOMM: Upload success. Attempting to add to action queue.", 6);
@@ -4826,7 +4753,7 @@ namespace PRoConEvents
             }
         }
 
-        private Boolean testDatabaseConnection()
+        private Boolean testDatabaseConnection(MySqlConnection connection)
         {
             Boolean databaseValid = false;
             DebugWrite("testDatabaseConnection starting!", 6);
@@ -4844,7 +4771,7 @@ namespace PRoConEvents
                     {
                         this.ConsoleWrite("Attempting database connection.");
                         //Attempt a ping through the connection
-                        if (databaseConnection.Ping())
+                        if (connection.Ping())
                         {
                             //Connection good
                             this.ConsoleWrite("Database connection SUCCESS.");
@@ -4859,10 +4786,10 @@ namespace PRoConEvents
                     if (success)
                     {
                         //Make sure database structure is good
-                        if (confirmDatabaseSetup())
+                        if (confirmDatabaseSetup(connection))
                         {
                             //If the structure is good, fetch all access lists
-                            this.fetchAccessList();
+                            this.fetchAccessList(connection);
                             databaseValid = true;
                         }
                     }
@@ -4884,53 +4811,72 @@ namespace PRoConEvents
             return databaseValid;
         }
 
-        private Boolean confirmDatabaseSetup()
+        private Boolean confirmDatabaseSetup(MySqlConnection connection)
         {
             this.DebugWrite("Confirming Database Structure.", 3);
             try
             {
                 Boolean confirmed = true;
-                if (!this.confirmTable("adkat_records"))
+                if (!this.confirmTable("adkat_records", connection))
                 {
                     this.ConsoleError("Main Record table not present in the database.");
-                    this.runDBSetupScript();
-                    if (!this.confirmTable("adkat_records"))
+                    this.runDBSetupScript(null);
+                    if (!this.confirmTable("adkat_records", connection))
                     {
                         this.ConsoleError("After running setup script main record table still not present.");
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkat_accesslist"))
+                if (!this.confirmTable("adkat_accesslist", connection))
                 {
                     ConsoleError("Access Table not present in the database.");
-                    this.runDBSetupScript();
-                    if (!this.confirmTable("adkat_accesslist"))
+                    this.runDBSetupScript(null);
+                    if (!this.confirmTable("adkat_accesslist", connection))
                     {
                         this.ConsoleError("After running setup script access table still not present.");
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkat_banlist"))
+                if (!this.confirmTable("adkat_serverPlayerPoints", connection))
+                {
+                    ConsoleError("Server Points Table not present in the database.");
+                    this.runDBSetupScript(null);
+                    if (!this.confirmTable("adkat_serverPlayerPoints", connection))
+                    {
+                        this.ConsoleError("After running setup script Server Points table still not present.");
+                        confirmed = false;
+                    }
+                }
+                if (!this.confirmTable("adkat_globalPlayerPoints", connection))
+                {
+                    ConsoleError("Global Points Table not present in the database.");
+                    this.runDBSetupScript(null);
+                    if (!this.confirmTable("adkat_globalPlayerPoints", connection))
+                    {
+                        this.ConsoleError("After running setup script Global Points table still not present.");
+                        confirmed = false;
+                    }
+                }
+                if (!this.confirmTable("adkat_banlist", connection))
                 {
                     ConsoleError("Ban List not present in the database.");
-                    this.runDBSetupScript();
-                    if (!this.confirmTable("adkat_accesslist"))
+                    this.runDBSetupScript(null);
+                    if (!this.confirmTable("adkat_accesslist", connection))
                     {
                         this.ConsoleError("After running setup script banlist still not present.");
                         confirmed = false;
                     }
                 }
-                //These not needed right now, but will be later
-                /*if (!this.confirmTable("adkat_playerlist"))
+                if (!this.confirmTable("adkat_settings", connection))
                 {
-                    ConsoleError("adkat_playerlist not present in the database. AdKats will not function properly.");
-                    confirmed = false;
+                    ConsoleError("Settings Table not present in the database.");
+                    this.runDBSetupScript(null);
+                    if (!this.confirmTable("adkat_settings", connection))
+                    {
+                        this.ConsoleError("After running setup script Settings Table still not present.");
+                        confirmed = false;
+                    }
                 }
-                if (!this.confirmTable("adkat_playerpoints"))
-                {
-                    ConsoleError("adkat_playerpoints not present in the database. AdKats will not function properly.");
-                    confirmed = false;
-                }*/
                 if (confirmed)
                 {
                     this.DebugWrite("SUCCESS. Database confirmed functional for AdKats use.", 3);
@@ -4948,7 +4894,7 @@ namespace PRoConEvents
             }
         }
 
-        private void runDBSetupScript()
+        private void runDBSetupScript(MySqlConnection connection)
         {
             try
             {
@@ -4992,7 +4938,7 @@ namespace PRoConEvents
             }
         }
 
-        private Boolean confirmTable(string tablename)
+        private Boolean confirmTable(string tablename, MySqlConnection connection)
         {
             try
             {
@@ -5051,7 +4997,7 @@ namespace PRoConEvents
                 {
                     this.DebugWrite("DBCOMM: UPDATING record for " + record.command_type, 6);
                     //Update Record
-                    this.updateRecord(record);
+                    this.uploadRecord(record, connection);
                 }
                 else
                 {
@@ -5067,11 +5013,11 @@ namespace PRoConEvents
                     case AdKat_CommandType.PunishPlayer:
                         //Upload for punish is required
                         //Check if the punish will be double counted
-                        if (this.isDoubleCounted(record))
+                        if (this.isDoubleCounted(record, connection))
                         {
                             this.DebugWrite("DBCOMM: Punish is double counted.", 6);
                             //Check if player is on timeout
-                            if (this.canPunish(record))
+                            if (this.canPunish(record, connection))
                             {
                                 //IRO - Immediate Repeat Offence
                                 record.isIRO = true;
@@ -5079,8 +5025,8 @@ namespace PRoConEvents
                                 record.record_message += IROAppend;
                                 //Upload record twice
                                 this.DebugWrite("DBCOMM: UPLOADING IRO Punish", 6);
-                                this.uploadRecord(record);
-                                this.uploadRecord(record);
+                                this.uploadRecord(record, connection);
+                                this.uploadRecord(record, connection);
                                 //Trim off the IRO again
                                 record.record_message = record.record_message.TrimEnd(IROAppend.ToCharArray());
                             }
@@ -5094,21 +5040,21 @@ namespace PRoConEvents
                         {
                             //Upload record once
                             this.DebugWrite("DBCOMM: UPLOADING Punish", 6);
-                            this.uploadRecord(record);
+                            this.uploadRecord(record, connection);
                         }
                         break;
                     case AdKat_CommandType.ForgivePlayer:
                         //Upload for forgive is required
                         //No restriction on forgives/minute
                         this.DebugWrite("DBCOMM: UPLOADING Forgive", 6);
-                        this.uploadRecord(record);
+                        this.uploadRecord(record, connection);
                         break;
                     default:
                         if (this.AdKat_LoggingSettings[record.command_type])
                         {
                             this.DebugWrite("UPLOADING record for " + record.command_type, 6);
                             //Upload Record
-                            this.uploadRecord(record);
+                            this.uploadRecord(record, connection);
                         }
                         else
                         {
@@ -5136,6 +5082,7 @@ namespace PRoConEvents
                     using (MySqlCommand command = connection.CreateCommand())
                     {
                         Boolean hasRecordID = (record.record_id > 0);
+                        Boolean hasTargetPlayer = (record.record_id > 0);
                         //Set the insert command structure
                         command.CommandText = "INSERT INTO `" + this.mySqlDatabaseName + @"`.`adkat_records` 
                         (
@@ -5143,7 +5090,9 @@ namespace PRoConEvents
                             `server_id`, 
                             `command_type`, 
                             `command_action`, 
-                            `player_id`, 
+                            `command_numeric`, 
+                            `target_name`, 
+                            `target_id`, 
                             `source_name`, 
                             `record_message`, 
                             `adkats_read`
@@ -5153,8 +5102,10 @@ namespace PRoConEvents
                             " + ((hasRecordID) ? ("@record_id, ") : ("")) + @"
                             @server_id, 
                             @command_type, 
-                            @command_action,  
-                            @player_id, 
+                            @command_action,
+                            @command_numeric,
+                            @target_name, 
+                            @target_id, 
                             @source_name, 
                             @record_message, 
                             @adkats_read
@@ -5183,7 +5134,16 @@ namespace PRoConEvents
                         command.Parameters.AddWithValue("@server_id", record.server_id);
                         command.Parameters.AddWithValue("@command_type", type);
                         command.Parameters.AddWithValue("@command_action", action);
-                        command.Parameters.AddWithValue("@player_id", record.player_id);
+                        command.Parameters.AddWithValue("@command_numeric", record.command_numeric);
+                        command.Parameters.AddWithValue("@target_name", record.target_name);
+                        if (record.target_player != null)
+                        {
+                            command.Parameters.AddWithValue("@target_id", record.target_player.player_id);
+                        }
+                        else
+                        {
+                            command.Parameters.AddWithValue("@target_id", null);
+                        }
                         command.Parameters.AddWithValue("@source_name", record.source_name);
                         command.Parameters.AddWithValue("@record_message", record.record_message);
                         command.Parameters.AddWithValue("@adkats_read", 'Y');
@@ -5219,70 +5179,9 @@ namespace PRoConEvents
         }
 
         //DONE
-        /*private void updateRecord(AdKat_Record record, MySqlConnection connection)
+        private AdKat_Record fetchRecordByID(int record_id, MySqlConnection connection)
         {
-            DebugWrite("updateRecord starting!", 6);
-
-            Boolean success = false;
-            try
-            {
-                if (connection == null)
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
-                {
-                    using (MySqlCommand command = connection.CreateCommand())
-                    {
-                        //Convert enum to DB string
-                        string action;
-                        if (record.command_action == AdKat_CommandType.Default)
-                        {
-                            action = this.AdKat_RecordTypes[record.command_type];
-                        }
-                        else
-                        {
-                            action = this.AdKat_RecordTypes[record.command_action];
-                        }
-                        //Set values
-                        command.CommandText = "UPDATE `" + this.mySqlDatabaseName + "`.`adkat_records` SET `command_action` = '" + action + "', `record_durationMinutes` = " + record.record_durationMinutes + ", `adkats_read` = 'Y' WHERE `record_id` = " + record.record_id;
-                        //Attempt to execute the query
-                        if (command.ExecuteNonQuery() > 0)
-                        {
-                            success = true;
-                        }
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                ConsoleException(e.ToString());
-            }
-
-            string temp = this.AdKat_RecordTypes[record.command_action];
-
-            if (success)
-            {
-                DebugWrite(temp + " UPDATE for player " + record.target_name + " by " + record.source_name + " SUCCESSFUL!", 3);
-            }
-            else
-            {
-                ConsoleError(temp + " UPDATE for player '" + record.target_name + " by " + record.source_name + " FAILED!");
-            }
-
-            if (record.source_name == this.debugSoldierName)
-            {
-                TimeSpan commandTime = DateTime.Now.Subtract(this.commandStartTime);
-                this.playerSayMessage(this.debugSoldierName, "Duration: " + commandTime.TotalMilliseconds + "ms");
-            }
-
-            DebugWrite("updateRecord finished!", 6);
-        }*/
-
-        //DONE
-        private AdKat_Record fetchRecord(int record_id, MySqlConnection connection)
-        {
-            DebugWrite("fetchRecord starting!", 6);
+            DebugWrite("fetchRecordByID starting!", 6);
             //Create return list
 
             AdKat_Record record = null;
@@ -5302,7 +5201,9 @@ namespace PRoConEvents
                             `server_id`, 
                             `command_type`, 
                             `command_action`, 
-                            `player_id`, 
+                            `command_numeric`, 
+                            `target_name`, 
+                            `target_id`, 
                             `source_name`, 
                             `record_message`, 
                             `record_time` 
@@ -5326,9 +5227,16 @@ namespace PRoConEvents
 
                                 record.record_id = reader.GetInt32("record_id");
                                 record.server_id = reader.GetInt32("server_id");
-                                record.command_type = reader.GetString("command_type");
-                                record.command_action = reader.GetString("command_action");
-                                record.target_player = this.fetchPlayer(reader.GetInt32("player_id"), null, null, connection);
+                                record.command_type = this.getDBCommand(reader.GetString("command_type"));
+                                record.command_action = this.getDBCommand(reader.GetString("command_action"));
+                                record.command_numeric = reader.GetInt32("command_numeric");
+                                record.target_name = reader.GetString("target_name");
+                                object value = reader.GetValue(6);
+                                Int32? target_id_parse = value is DBNull ? (Int32?)null : (Int32)value;
+                                if (target_id_parse != null)
+                                {
+                                    record.target_player = this.fetchPlayer((Int32)target_id_parse, null, null, null, connection);
+                                }
                                 record.source_name = reader.GetString("source_name");
                                 record.record_message = reader.GetString("record_message");
                                 record.record_time = reader.GetDateTime("record_time");
@@ -5350,8 +5258,82 @@ namespace PRoConEvents
                 ConsoleException(e.ToString());
             }
 
-            DebugWrite("fetchRecord finished!", 6);
+            DebugWrite("fetchRecordByID finished!", 6);
             return record;
+        }
+
+        //DONE
+        private List<AdKat_Record> fetchUnreadRecords(MySqlConnection connection)
+        {
+            DebugWrite("fetchUnreadRecords starting!", 6);
+            //Create return list
+
+            List<AdKat_Record> records = new List<AdKat_Record>();
+            try
+            {
+                if (connection == null)
+                {
+                    connection = this.getDatabaseConnection();
+                }
+                using (connection)
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        String sql = @"
+                        SELECT 
+                            `record_id`, 
+                            `server_id`, 
+                            `command_type`, 
+                            `command_action`, 
+                            `command_numeric`, 
+                            `target_name`, 
+                            `target_id`, 
+                            `source_name`, 
+                            `record_message`, 
+                            `record_time` 
+                        FROM 
+                            `" + this.mySqlDatabaseName + @"`.`adkat_records` 
+                        WHERE 
+                            `adkats_read` = 'N'";
+
+                        this.DebugWrite("QUERY: " + sql, 6);
+                        command.CommandText = sql;
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+                            //Grab the record
+                            while (reader.Read())
+                            {
+                                AdKat_Record record = new AdKat_Record();
+
+                                record.record_id = reader.GetInt32("record_id");
+                                record.server_id = reader.GetInt32("server_id");
+                                record.command_type = this.getDBCommand(reader.GetString("command_type"));
+                                record.command_action = this.getDBCommand(reader.GetString("command_action"));
+                                record.command_numeric = reader.GetInt32("command_numeric");
+                                record.target_name = reader.GetString("target_name");
+                                object value = reader.GetValue(6);
+                                Int32? target_id_parse = value is DBNull ? (Int32?)null : (Int32)value;
+                                if (target_id_parse != null)
+                                {
+                                    record.target_player = this.fetchPlayer((Int32)target_id_parse, null, null, null, connection);
+                                }
+                                record.source_name = reader.GetString("source_name");
+                                record.record_message = reader.GetString("record_message");
+                                record.record_time = reader.GetDateTime("record_time");
+
+                                records.Add(record);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                ConsoleException(e.ToString());
+            }
+
+            DebugWrite("fetchUnreadRecords finished!", 6);
+            return records;
         }
 
         //DONE
@@ -5391,9 +5373,9 @@ namespace PRoConEvents
         }
 
         //DONE
-        private void updatePlayerAccess(string player_name, int desiredAccessLevel, MySqlConnection connection)
+        private void uploadPlayerAccess(string player_name, int desiredAccessLevel, MySqlConnection connection)
         {
-            DebugWrite("updatePlayerAccess starting!", 6);
+            DebugWrite("uploadPlayerAccess(accessrank) starting!", 6);
             if (desiredAccessLevel < 0 || desiredAccessLevel > 6)
             {
                 this.ConsoleError("Desired Access Level for " + player_name + " was invalid.");
@@ -5424,7 +5406,44 @@ namespace PRoConEvents
                 ConsoleException(e.ToString());
             }
 
-            DebugWrite("updatePlayerAccess finished!", 6);
+            DebugWrite("uploadPlayerAccess(accessrank) finished!", 6);
+        }
+
+        //DONE
+        private void uploadPlayerAccess(string player_name, string desiredEmailAddress, MySqlConnection connection)
+        {
+            DebugWrite("uploadPlayerAccess(Email) starting!", 6);
+            if (!Regex.IsMatch(desiredEmailAddress, @"^([\w-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([\w-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$"))
+            {
+                this.ConsoleError(desiredEmailAddress + " is an invalid email address.");
+                return;
+            }
+            try
+            {
+                if (connection == null)
+                {
+                    connection = this.getDatabaseConnection();
+                }
+                using (connection)
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        //Set the insert command structure
+                        command.CommandText = "INSERT INTO `" + this.mySqlDatabaseName + "`.`adkat_accesslist` (`player_name`, `player_email`) VALUES (@player_name, @player_email) ON DUPLICATE KEY UPDATE `player_email` = @player_email";
+                        //Set values
+                        command.Parameters.AddWithValue("@player_name", player_name);
+                        command.Parameters.AddWithValue("@player_email", desiredEmailAddress);
+                        //Attempt to execute the query
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                ConsoleException(e.ToString());
+            }
+
+            DebugWrite("uploadPlayerAccess(Email) finished!", 6);
         }
 
         //DONE
@@ -5433,9 +5452,9 @@ namespace PRoConEvents
             DebugWrite("uploadBan starting!", 6);
 
             //Upload the inner record if needed
-            if (ban.ban_record.record_id < 0)
+            if (aBan.ban_record.record_id < 0)
             {
-                this.handleRecordUpload(ban.ban_record);
+                this.handleRecordUpload(aBan.ban_record, connection);
             }
 
             Boolean success = false;
@@ -5459,25 +5478,29 @@ namespace PRoConEvents
                             INSERT INTO 
                             `" + this.mySqlDatabaseName + @"`.`adkat_banlist` 
                             (
-	                            `player_id`, 
 	                            `record_id`, 
 	                            `ban_status`, 
 	                            `ban_reason`, 
 	                            `ban_notes`, 
-	                            `ban_sync`, 
 	                            `ban_startTime`, 
-	                            `ban_endTime`
+	                            `ban_endTime`, 
+	                            `ban_enforceName`, 
+	                            `ban_enforceGUID`, 
+	                            `ban_enforceIP`, 
+	                            `ban_sync`
                             ) 
                             VALUES 
                             (
-	                            @player_id, 
 	                            @record_id, 
 	                            @ban_status, 
 	                            @ban_reason, 
 	                            @ban_notes, 
-	                            @ban_sync, 
 	                            NOW(), 
-	                            DATE_ADD(NOW(), INTERVAL @ban_durationMinutes MINUTE)
+	                            DATE_ADD(NOW(), INTERVAL @ban_durationMinutes MINUTE), 
+	                            @ban_enforceName, 
+	                            @ban_enforceGUID, 
+	                            @ban_enforceIP, 
+	                            @ban_sync
                             ) 
                             ON DUPLICATE KEY 
                             UPDATE 
@@ -5485,16 +5508,20 @@ namespace PRoConEvents
 	                            `ban_status` = @ban_status, 
 	                            `ban_reason` = @ban_reason, 
 	                            `ban_notes` = @ban_notes, 
-	                            `ban_sync` = @ban_sync, 
 	                            `ban_startTime` = NOW(), 
-	                            `ban_endTime` = DATE_ADD(NOW(), INTERVAL @ban_durationMinutes MINUTE)";
-
-                            command.Parameters.AddWithValue("@record_id", aBan.admin_name);
-                            command.Parameters.AddWithValue("@player_id", aBan.player_name);
-                            command.Parameters.AddWithValue("@ban_status", aBan.player_guid);
+	                            `ban_endTime` = DATE_ADD(NOW(), INTERVAL @ban_durationMinutes MINUTE), 
+	                            `ban_enforceName` = @ban_enforceName, 
+	                            `ban_enforceGUID` = @ban_enforceGUID, 
+	                            `ban_enforceIP` = @ban_enforceIP, 
+	                            `ban_sync` = @ban_sync";
+                            
+                            command.Parameters.AddWithValue("@record_id", aBan.ban_record.record_id);
+                            command.Parameters.AddWithValue("@ban_status", "Active");
                             command.Parameters.AddWithValue("@ban_reason", aBan.ban_reason);
                             command.Parameters.AddWithValue("@ban_notes", aBan.ban_notes);
-                            //Always set the sync to only this server when inserting or updating
+                            command.Parameters.AddWithValue("@ban_enforceName", 'N');
+                            command.Parameters.AddWithValue("@ban_enforceGUID", 'Y');
+                            command.Parameters.AddWithValue("@ban_enforceIP", 'N');
                             command.Parameters.AddWithValue("@ban_sync", "*" + this.server_id + "*");
                             command.Parameters.AddWithValue("@ban_durationMinutes", aBan.ban_record.command_numeric);
                         }
@@ -5513,8 +5540,6 @@ namespace PRoConEvents
         //DONE
         private AdKat_Player fetchPlayer(Int32 player_id, String player_name, String player_guid, String player_ip, MySqlConnection connection)
         {
-            //this.fetchPlayer(-1, player.SoldierName, player.GUID, null, null)
-
             DebugWrite("fetchPlayer starting!", 6);
             //Create return list
             AdKat_Player player = null;
@@ -5658,7 +5683,10 @@ namespace PRoConEvents
                             `adkat_banlist`.`ban_notes`, 
 	                        `adkat_banlist`.`ban_sync`, 
 	                        `adkat_banlist`.`ban_startTime`, 
-	                        `adkat_banlist`.`ban_endTime` 
+	                        `adkat_banlist`.`ban_endTime`, 
+	                        `adkat_banlist`.`ban_enforceName`, 
+	                        `adkat_banlist`.`ban_enforceGUID`, 
+	                        `adkat_banlist`.`ban_enforceIP`, 
                         FROM
 	                        `adkat_banlist` 
                         WHERE 
@@ -5669,7 +5697,7 @@ namespace PRoConEvents
                             //Success fetching bans
                             Boolean success = false;
 
-                            List<AdKat_Ban> tempBanList = List<AdKat_Ban>();
+                            List<AdKat_Ban> tempBanList = new List<AdKat_Ban>();
 
                             //Loop through all incoming bans
                             while (reader.Read())
@@ -5687,58 +5715,41 @@ namespace PRoConEvents
                                 ban.ban_startTime = reader.GetDateTime("ban_startTime");
                                 ban.ban_endTime = reader.GetDateTime("ban_endTime");
 
-                                //Create the record information
+                                if (reader.GetString("ban_enforceName").Equals('Y'))
+                                    ban.ban_enforceName = true;
+                                else
+                                    ban.ban_enforceName = false;
+
+                                if (reader.GetString("ban_enforceGUID").Equals('Y'))
+                                    ban.ban_enforceGUID = true;
+                                else
+                                    ban.ban_enforceGUID = false;
+
+                                if (reader.GetString("ban_enforceIP").Equals('Y'))
+                                    ban.ban_enforceIP = true;
+                                else
+                                    ban.ban_enforceIP = false;
+
+                                //Get the record information
                                 ban.ban_record = this.fetchRecord(reader.GetInt32("record_id"), connection);
 
-                                //Create the player information
-                                ban.ban_record.target_player = this.getPlayer(reader.GetInt32("player_id"), null, null, connection);
+                                //Get the player information
+                                ban.ban_record.target_player = this.fetchPlayer(reader.GetInt32("player_id"), null, null, null, connection);
 
                                 //Add it to the temp banlist
                                 tempBanList.Add(ban);
                             }
 
+                            //If bans were fetched successfully, update the ban lists and sync back
                             if (success)
                             {
-                                lock (this.banEnforcerMutex)
+                                foreach (AdKat_Ban aBan in tempBanList)
                                 {
-                                    foreach (AdKat_Ban ban in tempBanList)
-                                    {
-                                        //If disabled, remove from the cached ban lists
-                                        if (ban.ban_status == "Expired" || ban.ban_status == "Disabled")
-                                        {
-                                            this.AdKat_BanList_GUID.Remove(ban.ban_record.target_player.player_guid);
-                                            this.AdKat_BanList_IP.Remove(ban.ban_record.target_player.player_ip);
-                                        }
-                                        else
-                                        {
-                                            //Update the guid ban list
-                                            if (this.AdKat_BanList_GUID.ContainsKey(ban.ban_record.target_player.player_guid))
-                                            {
-                                                this.AdKat_BanList_GUID[ban.ban_record.target_player.player_guid] = ban;
-                                            }
-                                            else
-                                            {
-                                                this.AdKat_BanList_GUID.Add(ban.ban_record.target_player.player_guid, ban);
-                                            }
-
-                                            //Update the IP ban list
-                                            if (this.AdKat_BanList_IP.ContainsKey(ban.ban_record.target_player.player_ip))
-                                            {
-                                                this.AdKat_BanList_IP[ban.ban_record.target_player.player_ip] = ban;
-                                            }
-                                            else
-                                            {
-                                                this.AdKat_BanList_IP.Add(ban.ban_record.target_player.player_ip, ban);
-                                            }
-                                        }
-
-                                        //Update the sync for this ban
-                                        this.updateBanSync(ban, connection);
-                                    }
-
-                                    //Call enforcer thread to enforce new bans
-                                    this.banEnforcerHandle.Set();
+                                    this.updateBanLists(aBan, connection);
                                 }
+
+                                //Call enforcer thread to enforce new bans
+                                this.banEnforcerHandle.Set();
                             }
                         }
                     }
@@ -5750,6 +5761,85 @@ namespace PRoConEvents
             }
             DebugWrite("ERROR in fetchDatabaseBans!", 6);
             return false;
+        }
+
+        private void updateBanLists(AdKat_Ban aBan, MySqlConnection connection)
+        {
+            lock (this.banEnforcerMutex)
+            {
+                //If disabled, remove from the cached ban lists
+                if (aBan.ban_status == "Expired" || aBan.ban_status == "Disabled")
+                {
+                    if (aBan.ban_record.target_player.player_name != null)
+                    {
+                        this.AdKat_BanList_Name.Remove(aBan.ban_record.target_player.player_name);
+                    }
+                    if (aBan.ban_record.target_player.player_guid != null)
+                    {
+                        this.AdKat_BanList_GUID.Remove(aBan.ban_record.target_player.player_guid);
+                    }
+                    if (aBan.ban_record.target_player.player_ip != null)
+                    {
+                        this.AdKat_BanList_IP.Remove(aBan.ban_record.target_player.player_ip);
+                    }
+                }
+                else
+                {
+                    if (aBan.ban_enforceName)
+                    {
+                        //Update the name ban list
+                        if (this.AdKat_BanList_Name.ContainsKey(aBan.ban_record.target_player.player_name))
+                        {
+                            this.AdKat_BanList_Name[aBan.ban_record.target_player.player_name] = aBan;
+                        }
+                        else
+                        {
+                            this.AdKat_BanList_Name.Add(aBan.ban_record.target_player.player_name, aBan);
+                        }
+                    }
+                    else
+                    {
+                        this.AdKat_BanList_Name.Remove(aBan.ban_record.target_player.player_name);
+                    }
+
+                    if (aBan.ban_enforceGUID)
+                    {
+                        //Update the guid ban list
+                        if (this.AdKat_BanList_GUID.ContainsKey(aBan.ban_record.target_player.player_guid))
+                        {
+                            this.AdKat_BanList_GUID[aBan.ban_record.target_player.player_guid] = aBan;
+                        }
+                        else
+                        {
+                            this.AdKat_BanList_GUID.Add(aBan.ban_record.target_player.player_guid, aBan);
+                        }
+                    }
+                    else
+                    {
+                        this.AdKat_BanList_GUID.Remove(aBan.ban_record.target_player.player_guid);
+                    }
+
+                    if (aBan.ban_enforceIP)
+                    {
+                        //Update the IP ban list
+                        if (this.AdKat_BanList_IP.ContainsKey(aBan.ban_record.target_player.player_ip))
+                        {
+                            this.AdKat_BanList_IP[aBan.ban_record.target_player.player_ip] = aBan;
+                        }
+                        else
+                        {
+                            this.AdKat_BanList_IP.Add(aBan.ban_record.target_player.player_ip, aBan);
+                        }
+                    }
+                    else
+                    {
+                        this.AdKat_BanList_IP.Remove(aBan.ban_record.target_player.player_ip);
+                    }
+                }
+            }
+
+            //Update the sync for this ban
+            this.updateBanSync(aBan, connection);
         }
 
         //DONE
@@ -5781,7 +5871,7 @@ namespace PRoConEvents
                             SET 
                             `ban_sync` = '" + aBan.ban_sync + @"', 
                             WHERE 
-                            `ban_id` = " + matchingDBBan.ban_id;
+                            `ban_id` = " + aBan.ban_id;
 
                             this.DebugWrite("QUERY: " + query, 6);
 
@@ -5820,14 +5910,21 @@ namespace PRoConEvents
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
-                        if (this.combineServerPunishments)
-                        {
-                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 20 SECOND) > NOW() order by record_time desc limit 1";
-                        }
-                        else
-                        {
-                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`server_id` = '" + this.server_id + "' and `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 20 SECOND) > NOW() order by record_time desc limit 1";
-                        }
+                        command.CommandText = @"
+                        SELECT 
+                            `record_time` AS `latest_time` 
+                        FROM 
+                            `" + this.mySqlDatabaseName + @"`.`adkat_records` 
+                        WHERE 
+                            `adkat_records`.`command_type` = 'Punish' 
+                        AND 
+                            `adkat_records`.`player_id` = " + record.target_player.player_id + @" 
+                        AND 
+                            DATE_ADD(`record_time`, INTERVAL 20 SECOND) > NOW() 
+                        ORDER BY 
+                            `record_time` 
+                        DESC LIMIT 1";
+
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
                             if (reader.Read())
@@ -5866,14 +5963,21 @@ namespace PRoConEvents
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
-                        if (this.combineServerPunishments)
-                        {
-                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 5 MINUTE) > NOW() order by record_time desc limit 1";
-                        }
-                        else
-                        {
-                            command.CommandText = "select record_time as `latest_time` from `" + this.mySqlDatabaseName + "`.`adkat_records` where `adkat_records`.`server_id` = '" + this.server_id + "' and `adkat_records`.`command_type` = 'Punish' and `adkat_records`.`target_guid` = '" + record.target_guid + "' and DATE_ADD(`record_time`, INTERVAL 5 MINUTE) > NOW() order by record_time desc limit 1";
-                        }
+                        command.CommandText = @"
+                        SELECT 
+                            `record_time` AS `latest_time` 
+                        FROM 
+                            `" + this.mySqlDatabaseName + @"`.`adkat_records` 
+                        WHERE 
+                            `adkat_records`.`command_type` = 'Punish' 
+                        AND 
+                            `adkat_records`.`player_id` = " + record.target_player.player_id + @" 
+                        AND 
+                            DATE_ADD(`record_time`, INTERVAL 5 MINUTE) > NOW() 
+                        ORDER BY 
+                            `record_time` 
+                        DESC LIMIT 1";
+
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
                             if (reader.Read())
@@ -5902,62 +6006,11 @@ namespace PRoConEvents
             DebugWrite("runActionsFromDB starting!", 7);
             try
             {
-                List<AdKat_Record> recordsProcessed = new List<AdKat_Record>();
-                if (connection == null)
+                foreach (AdKat_Record record in this.fetchUnreadRecords(connection))
                 {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
-                {
-                    using (MySqlCommand command = connection.CreateCommand())
-                    {
-                        command.CommandText = "SELECT `record_id`, `server_id`, `server_ip`, `command_type`, `command_action`, `record_durationMinutes`, `target_guid`, `target_name`, `source_name`, `record_message`, `record_time` FROM `" + this.mySqlDatabaseName + "`.`adkat_records` WHERE `adkats_read` = 'N' AND `server_id` = '" + this.server_id + "'";
-                        using (MySqlDataReader reader = command.ExecuteReader())
-                        {
-                            Boolean actionsMade = false;
-                            while (reader.Read())
-                            {
-                                DebugWrite("getPoints found actions for player " + reader.GetString("target_name") + "!", 5);
-                                AdKat_Record record = new AdKat_Record();
-                                record.command_source = AdKat_CommandSource.Database;
-                                record.record_id = reader.GetInt32("record_id");
-                                record.server_id = reader.GetInt32("server_id");
-                                record.server_ip = reader.GetString("server_ip");
-                                string commandString = reader.GetString("command_type");
-                                record.command_type = this.getDBCommand(commandString);
-                                //If command not parsable, return without creating
-                                if (record.command_type == AdKat_CommandType.Default)
-                                {
-                                    ConsoleError("Command '" + command + "' Not Parsable. Check AdKats doc for valid DB commands.");
-                                    //break this loop iteration and go to the next one
-                                    continue;
-                                }
-                                record.command_action = record.command_type;
-                                /*commandString = reader.GetString("command_action");
-                                record.command_action = this.getDBCommand(commandString);
-                                //If command not parsable, return without creating
-                                if (record.command_action == AdKat_CommandType.Default)
-                                {
-                                    ConsoleError("Command '" + command + "' Not Parsable. Check AdKats doc for valid DB commands.");
-                                    //break this loop iteration and go to the next one
-                                    continue;
-                                }*/
-                                record.source_name = reader.GetString("source_name");
-                                record.target_name = reader.GetString("target_name");
-                                record.target_guid = reader.GetString("target_guid");
-                                record.record_message = reader.GetString("record_message");
-                                record.record_time = reader.GetDateTime("record_time");
-                                record.record_durationMinutes = reader.GetInt32("record_durationMinutes");
-                                this.runAction(record);
-                                recordsProcessed.Add(record);
-                                actionsMade = true;
-                            }
-                        }
-                    }
-                }
-                foreach (AdKat_Record record in recordsProcessed)
-                {
-                    this.updateRecord(record);
+                    //TODO finish
+                    this.queueRecordForActionHandling(record);
+                    this.uploadRecord(record, connection);
                 }
                 //Update the last time this was fetched
                 this.lastDBActionFetch = DateTime.Now;
@@ -5987,30 +6040,12 @@ namespace PRoConEvents
                     {
                         if (this.combineServerPunishments)
                         {
-                            command.CommandText = @"SELECT 
-                                                (SELECT count(`adkat_records`.`target_guid`) 
-	                                                FROM `adkat_records` 
-	                                                WHERE   `adkat_records`.`command_type` = 'Punish' 
-		                                                AND `adkat_records`.`player_id` = @player_id) - 
-                                                (SELECT count(`adkat_records`.`target_guid`)
-	                                                FROM `adkat_records`
-	                                                WHERE   `adkat_records`.`command_type` = 'Forgive'
-		                                                AND `adkat_records`.`player_id` = @player_id) as `totalpoints`";
+                            command.CommandText = @"SELECT `total_points` FROM `" + this.mySqlDatabaseName + @"`.`adkat_globalPlayerPoints` WHERE `player_id` = @player_id";
                             command.Parameters.AddWithValue("@player_id", player.player_id);
                         }
                         else
                         {
-                            command.CommandText = @"SELECT 
-                                                (SELECT count(`adkat_records`.`target_guid`) 
-	                                                FROM `adkat_records` 
-	                                                WHERE   `adkat_records`.`command_type` = 'Punish' 
-		                                                AND `adkat_records`.`player_id` = @player_id 
-		                                                AND `adkat_records`.`server_id` = @server_id) - 
-                                                (SELECT count(`adkat_records`.`target_guid`)
-	                                                FROM `adkat_records`
-	                                                WHERE   `adkat_records`.`command_type` = 'Forgive'
-		                                                AND `adkat_records`.`player_id` = @player_id
-		                                                AND `adkat_records`.`server_id` = @server_id) as `totalpoints`";
+                            command.CommandText = @"SELECT `total_points` FROM `" + this.mySqlDatabaseName + @"`.`adkat_serverPlayerPoints` WHERE `player_id` = @player_id and `server_id` = @server_id";
                             command.Parameters.AddWithValue("@player_id", player.player_id);
                             command.Parameters.AddWithValue("@server_id", this.server_id);
                         }
@@ -6018,7 +6053,7 @@ namespace PRoConEvents
                         {
                             if (reader.Read())
                             {
-                                returnVal = reader.GetInt32("totalpoints");
+                                returnVal = reader.GetInt32("total_points");
                             }
                         }
                     }
@@ -6040,7 +6075,7 @@ namespace PRoConEvents
             DebugWrite("fetchAccessList starting!", 6);
 
             Boolean success = false;
-            Dictionary<string, int> tempAccessCache = new Dictionary<string, int>();
+            Dictionary<String, AdKat_Access> tempAccessCache = new Dictionary<String, AdKat_Access>();
             try
             {
                 if (connection == null)
@@ -6052,38 +6087,19 @@ namespace PRoConEvents
                     List<string> namesToGUIDUpdate = new List<string>();
                     using (MySqlCommand command = connection.CreateCommand())
                     {
-                        command.CommandText = "SELECT `player_name`, `player_guid`, `access_level` FROM `" + this.mySqlDatabaseName + "`.`adkat_accesslist` ORDER BY `access_level` ASC";
+                        command.CommandText = "SELECT `player_name`, `member_id`, `player_guid`, `access_level` FROM `" + this.mySqlDatabaseName + "`.`adkat_accesslist` ORDER BY `access_level` ASC";
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
                             while (reader.Read())
                             {
                                 success = true;
-                                string playerName = reader.GetString("player_name");
-                                string playerGuid = reader.GetString("player_guid");
-                                int accessLevel = reader.GetInt32("access_level");
-                                tempAccessCache.Add(playerName, accessLevel);
-                                if (!Regex.Match(playerGuid, "EA_").Success && this.playerDictionary.ContainsKey(playerName))
-                                {
-                                    namesToGUIDUpdate.Add(playerName);
-                                }
-                                DebugWrite("Admin found: " + playerName, 6);
-                            }
-                        }
-                    }
-                    if (namesToGUIDUpdate.Count > 0)
-                    {
-                        using (MySqlCommand command = connection.CreateCommand())
-                        {
-                            command.CommandText = "";
-                            foreach (string player_name in namesToGUIDUpdate)
-                            {
-                                this.DebugWrite("Updating GUID for " + player_name, 6);
-                                command.CommandText += "UPDATE `" + this.mySqlDatabaseName + "`.`adkat_accesslist` SET `player_guid` = '" + this.playerDictionary[player_name].GUID + "' WHERE `player_name` = '" + player_name + "'; ";
-                            }
-                            //Attempt to execute the query
-                            if (command.ExecuteNonQuery() > 0)
-                            {
-                                success = true;
+                                AdKat_Access access = new AdKat_Access();
+                                access.player_name = reader.GetString("player_name");
+                                access.member_id = reader.GetInt32("member_id");
+                                access.player_email = reader.GetString("player_email");
+                                access.access_level = reader.GetInt32("access_level");
+                                tempAccessCache.Add(access.player_name, access);
+                                DebugWrite("Admin found: " + access.player_name, 6);
                             }
                         }
                     }
@@ -6099,7 +6115,7 @@ namespace PRoConEvents
                 this.playerAccessCache = tempAccessCache;
                 //Update the last update time
                 this.lastDBAccessFetch = DateTime.Now;
-                ConsoleWrite("Admin List Fetched from Database. Admin Count: " + this.playerAccessCache.Count);
+                ConsoleWrite("Access List Fetched from Database. Access Count: " + this.playerAccessCache.Count);
             }
             else
             {
@@ -6567,9 +6583,18 @@ namespace PRoConEvents
             thread.Join();
         }
 
+        public class AdKat_Access
+        {
+            //No reference to player table made here, plain string name access
+            public String player_name;
+            public Int32 member_id;
+            public String player_email;
+            public Int32 access_level;
+        }
+
         public class AdKat_Player
         {
-            public int player_id = -1;
+            public long player_id = -1;
             public string player_name = null;
             public string player_guid = null;
             public string player_pbguid = null;
@@ -6587,7 +6612,7 @@ namespace PRoConEvents
         public class AdKat_Record
         {
             public long record_id = -1;
-            public int server_id = -1;
+            public long server_id = -1;
             public AdKat_CommandType command_type = AdKat_CommandType.Default;
             public AdKat_CommandType command_action = AdKat_CommandType.Default;
             public int command_numeric = 0;
@@ -6619,6 +6644,9 @@ namespace PRoConEvents
             //startTime and endTime will be valid only when bans are fetched from the database
             public DateTime ban_startTime;
             public DateTime ban_endTime;
+            public Boolean ban_enforceName = false;
+            public Boolean ban_enforceGUID = true;
+            public Boolean ban_enforceIP = false;
 
             public AdKat_Ban()
             {
