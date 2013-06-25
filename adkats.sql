@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS `adkat_accesslist` (
 		FOREIGN KEY (`player_id`) 
 		REFERENCES `tbl_playerdata`.`PlayerID` 
 		ON DELETE CASCADE
-) ENGINE = InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Access List';
 
 CREATE TABLE IF NOT EXISTS `adkat_records` ( 
 	`record_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS `adkat_records` (
 		REFERENCES `tbl_playerdata`.`PlayerID` 
 		ON DELETE CASCADE 
 		ON UPDATE NO ACTION
-) ENGINE = InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Records';
 
 CREATE TABLE IF NOT EXISTS `adkat_serverPlayerPoints` (
 	`player_id` INT(11) UNSIGNED NOT NULL, 
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS `adkat_serverPlayerPoints` (
 		REFERENCES `tbl_playerdata`.`PlayerID` 
 		ON DELETE CASCADE 
 		ON UPDATE NO ACTION
-) ENGINE = InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Server Specific Player Points';
 
 CREATE TABLE IF NOT EXISTS `adkat_globalPlayerPoints` (
 	`player_id` INT(11) UNSIGNED NOT NULL, 
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS `adkat_globalPlayerPoints` (
 		REFERENCES `tbl_playerdata`.`PlayerID` 
 		ON DELETE CASCADE 
 		ON UPDATE NO ACTION
-) ENGINE = InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Global Player Points';
 
 CREATE TABLE IF NOT EXISTS `adkat_banlist` ( 
 	`ban_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS `adkat_banlist` (
 		REFERENCES `adkat_records`.`record_id` 
 		ON DELETE CASCADE 
 		ON UPDATE NO ACTION
-) ENGINE = InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Ban Enforcer List';
 
 CREATE TABLE IF NOT EXISTS `adkat_settings` ( 
 	`server_id` INT(11) UNSIGNED NOT NULL, 
@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS `adkat_settings` (
 		REFERENCES `tbl_server`.`ServerID` 
 		ON DELETE CASCADE 
 		ON UPDATE NO ACTION
-) ENGINE = InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Setting Sync';
 
 DROP TRIGGER IF EXISTS update_point_insert_trigger;
 DROP TRIGGER IF EXISTS update_point_delete_trigger;
