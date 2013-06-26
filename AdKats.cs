@@ -161,7 +161,7 @@ namespace PRoConEvents
         private string mySqlUsername = "";
         private string mySqlPassword = "";
         //frequency in seconds to fetch access changes at
-        private DateTime lastDBAccessFetch = DateTime.Now;        
+        private DateTime lastDBAccessFetch = DateTime.Now;
         private int dbAccessFetchFrequency = 300;
         //Action fetch from database settings
         private Boolean fetchActionsFromDB = false;
@@ -4464,15 +4464,11 @@ namespace PRoConEvents
 
         #region Player Access
 
-        private void queueAccessUpdate(String player_name, String player_email, int access_level)
+        private void queueAccessUpdate(AdKat_Access access)
         {
             this.DebugWrite("Preparing to queue player for access update", 6);
             lock (playerAccessMutex)
             {
-                AdKat_Access access = new AdKat_Access();
-                access.player_name = player_name;
-                access.access_level = access_level;
-                access.player_email = player_email;
                 this.playerAccessUpdateQueue.Enqueue(access);
                 this.DebugWrite("Player queued for access update", 6);
                 this.dbCommHandle.Set();
@@ -4507,7 +4503,7 @@ namespace PRoConEvents
             //Get access level of player
             if (this.playerAccessCache.ContainsKey(player_name))
             {
-                access_level = this.playerAccessCache[player_name];
+                access_level = this.playerAccessCache[player_name].access_level;
             }
             else if
                 (!this.requireTeamswapWhitelist ||
@@ -4532,7 +4528,7 @@ namespace PRoConEvents
 
                 Queue<AdKat_Record> inboundRecords;
                 Queue<AdKat_Ban> inboundBans;
-                Queue<KeyValuePair<String, int>> inboundAccessUpdates;
+                Queue<AdKat_Access> inboundAccessUpdates;
                 Queue<String> inboundAccessRemoval;
                 while (true)
                 {
@@ -4586,7 +4582,7 @@ namespace PRoConEvents
                         {
                             this.DebugWrite("DBCOMM: Inbound access changes found. Grabbing.", 6);
                             //Grab all in the queue
-                            inboundAccessUpdates = new Queue<KeyValuePair<String, Int32>>(this.playerAccessUpdateQueue.ToArray());
+                            inboundAccessUpdates = new Queue<AdKat_Access>(this.playerAccessUpdateQueue.ToArray());
                             inboundAccessRemoval = new Queue<String>(this.playerAccessRemovalQueue.ToArray());
                             //Clear the queue for next run
                             this.playerAccessUpdateQueue.Clear();
@@ -4595,8 +4591,8 @@ namespace PRoConEvents
                         //Loop through all records in order that they came in
                         while (inboundAccessUpdates != null && inboundAccessUpdates.Count > 0)
                         {
-                            KeyValuePair<String, int> playerAccess = inboundAccessUpdates.Dequeue();
-                            this.uploadPlayerAccess(playerAccess.Key, playerAccess.Value, null);
+                            AdKat_Access playerAccess = inboundAccessUpdates.Dequeue();
+                            this.uploadPlayerAccess(playerAccess, null);
                         }
                         //Loop through all records in order that they came in
                         while (inboundAccessRemoval != null && inboundAccessRemoval.Count > 0)
@@ -5373,49 +5369,17 @@ namespace PRoConEvents
         }
 
         //DONE
-        private void uploadPlayerAccess(string player_name, int desiredAccessLevel, MySqlConnection connection)
-        {
-            DebugWrite("uploadPlayerAccess(accessrank) starting!", 6);
-            if (desiredAccessLevel < 0 || desiredAccessLevel > 6)
-            {
-                this.ConsoleError("Desired Access Level for " + player_name + " was invalid.");
-                return;
-            }
-            try
-            {
-                if (connection == null)
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
-                {
-                    using (MySqlCommand command = connection.CreateCommand())
-                    {
-                        //Set the insert command structure
-                        command.CommandText = "INSERT INTO `" + this.mySqlDatabaseName + "`.`adkat_accesslist` (`player_name`, `access_level`) VALUES (@player_name, @access_level) ON DUPLICATE KEY UPDATE `access_level` = @access_level";
-                        //Set values
-                        command.Parameters.AddWithValue("@player_name", player_name);
-                        command.Parameters.AddWithValue("@access_level", desiredAccessLevel);
-                        //Attempt to execute the query
-                        command.ExecuteNonQuery();
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                ConsoleException(e.ToString());
-            }
-
-            DebugWrite("uploadPlayerAccess(accessrank) finished!", 6);
-        }
-
-        //DONE
-        private void uploadPlayerAccess(string player_name, string desiredEmailAddress, MySqlConnection connection)
+        private void uploadPlayerAccess(AdKat_Access access, MySqlConnection connection)
         {
             DebugWrite("uploadPlayerAccess(Email) starting!", 6);
-            if (!Regex.IsMatch(desiredEmailAddress, @"^([\w-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([\w-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$"))
+            if (access.access_level < 0 || access.access_level > 6)
             {
-                this.ConsoleError(desiredEmailAddress + " is an invalid email address.");
+                this.ConsoleError("Desired Access Level for " + access.player_name + " was invalid.");
+                return;
+            }
+            if (!Regex.IsMatch(access.player_email, @"^([\w-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([\w-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$"))
+            {
+                this.ConsoleError(access.player_email + " is an invalid email address.");
                 return;
             }
             try
@@ -5429,10 +5393,11 @@ namespace PRoConEvents
                     using (MySqlCommand command = connection.CreateCommand())
                     {
                         //Set the insert command structure
-                        command.CommandText = "INSERT INTO `" + this.mySqlDatabaseName + "`.`adkat_accesslist` (`player_name`, `player_email`) VALUES (@player_name, @player_email) ON DUPLICATE KEY UPDATE `player_email` = @player_email";
+                        command.CommandText = "INSERT INTO `" + this.mySqlDatabaseName + "`.`adkat_accesslist` (`player_name`, `player_email`, `access_level`) VALUES (@player_name, @player_email, @player_email) ON DUPLICATE KEY UPDATE `player_email` = @player_email, `player_access` = @player_access";
                         //Set values
-                        command.Parameters.AddWithValue("@player_name", player_name);
-                        command.Parameters.AddWithValue("@player_email", desiredEmailAddress);
+                        command.Parameters.AddWithValue("@player_name", access.player_name);
+                        command.Parameters.AddWithValue("@access_level", access.access_level);
+                        command.Parameters.AddWithValue("@player_email", access.player_email);
                         //Attempt to execute the query
                         command.ExecuteNonQuery();
                     }
@@ -5514,7 +5479,7 @@ namespace PRoConEvents
 	                            `ban_enforceGUID` = @ban_enforceGUID, 
 	                            `ban_enforceIP` = @ban_enforceIP, 
 	                            `ban_sync` = @ban_sync";
-                            
+
                             command.Parameters.AddWithValue("@record_id", aBan.ban_record.record_id);
                             command.Parameters.AddWithValue("@ban_status", "Active");
                             command.Parameters.AddWithValue("@ban_reason", aBan.ban_reason);
@@ -5731,7 +5696,7 @@ namespace PRoConEvents
                                     ban.ban_enforceIP = false;
 
                                 //Get the record information
-                                ban.ban_record = this.fetchRecord(reader.GetInt32("record_id"), connection);
+                                ban.ban_record = this.fetchRecordByID(reader.GetInt32("record_id"), connection);
 
                                 //Get the player information
                                 ban.ban_record.target_player = this.fetchPlayer(reader.GetInt32("player_id"), null, null, null, connection);
@@ -6289,11 +6254,11 @@ namespace PRoConEvents
                         string duration = dataCollection["record_durationMinutes"];
                         if (duration != null && duration.Length > 0)
                         {
-                            record.record_durationMinutes = Int32.Parse(duration);
+                            record.command_numeric = Int32.Parse(duration);
                         }
                         else
                         {
-                            record.record_durationMinutes = 0;
+                            record.command_numeric = 0;
                         }
 
                         string message = dataCollection["record_message"];
