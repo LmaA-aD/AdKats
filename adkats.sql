@@ -109,11 +109,13 @@ CREATE TABLE IF NOT EXISTS `adkats_settings` (
 		ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Setting Sync';
 
-DROP FUNCTION IF EXISTS import_records;
-DROP FUNCTION IF EXISTS import_bans;
 DROP FUNCTION IF EXISTS confirm_logger;
+DROP PROCEDURE IF EXISTS import_records;
+DROP PROCEDURE IF EXISTS import_ban_manager_bans;
+DROP EVENT IF EXISTS ban_status_update;
 DROP TRIGGER IF EXISTS adkats_update_point_insert;
 DROP TRIGGER IF EXISTS adkats_update_point_delete;
+
 delimiter |
 
 -- Confirms the existence of server tables/records by XpKiller's Stat Logger, a dependancy of AdKats.
@@ -378,7 +380,7 @@ BEGIN
 				server_id, 
 				'TempBan', 
 				'TempBan', 
-				record_durationMinutes, //TODO
+				record_durationMinutes, //TODO FINSH THIS
 				target_name, 
 				player_id, 
 				record_message, 
