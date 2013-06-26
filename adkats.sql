@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS `adkats_banlist` (
 		ON UPDATE NO ACTION, 
 	CONSTRAINT `fk_record_id` 
 		FOREIGN KEY (`record_id` ) 
-		REFERENCES `adkat_records`.`record_id` 
+		REFERENCES `adkats_records`.`record_id` 
 		ON DELETE CASCADE 
 		ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Ban Enforcer List';
@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS `adkats_settings` (
 DROP TRIGGER IF EXISTS adkats_update_point_insert;
 DROP TRIGGER IF EXISTS adkats_update_point_delete;
 delimiter |
-CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkat_records`
+CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkats_records`
 	FOR EACH ROW 
 	BEGIN 
 		DECLARE command_type VARCHAR(45);
@@ -123,14 +123,14 @@ CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkat_records`
 		SET player_id = NEW.player_id;
 
 		IF(command_type = 'Punish') THEN
-			INSERT INTO `adkat_serverPlayerPoints` 
+			INSERT INTO `adkats_serverPlayerPoints` 
 				(`player_id`, `server_id`, `punish_points`, `forgive_points`, `total_points`) 
 			VALUES 
 				(player_id, server_id, 1, 0, 1) 
 			ON DUPLICATE KEY UPDATE 
 				`punish_points` = `punish_points` + 1, 
 				`total_points` = `total_points` + 1;
-			INSERT INTO `adkat_globalPlayerPoints` 
+			INSERT INTO `adkats_globalPlayerPoints` 
 				(`player_id`, `punish_points`, `forgive_points`, `total_points`) 
 			VALUES 
 				(player_id, 1, 0, 1) 
@@ -138,14 +138,14 @@ CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkat_records`
 				`punish_points` = `punish_points` + 1, 
 				`total_points` = `total_points` + 1;
 		ELSEIF (command_type = 'Forgive') THEN
-			INSERT INTO `adkat_serverPlayerPoints` 
+			INSERT INTO `adkats_serverPlayerPoints` 
 				(`player_id`, `server_id`, `punish_points`, `forgive_points`, `total_points`) 
 			VALUES 
 				(player_id, server_id, 0, 1, -1) 
 			ON DUPLICATE KEY UPDATE 
 				`forgive_points` = `forgive_points` + 1, 
 				`total_points` = `total_points` - 1;
-			INSERT INTO `adkat_globalPlayerPoints` 
+			INSERT INTO `adkats_globalPlayerPoints` 
 				(`player_id`, `punish_points`, `forgive_points`, `total_points`) 
 			VALUES 
 				(player_id, 0, 1, -1) 
@@ -155,7 +155,7 @@ CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkat_records`
 		END IF;
 	END;
 |
-CREATE TRIGGER adkats_update_point_delete AFTER DELETE ON `adkat_records`
+CREATE TRIGGER adkats_update_point_delete AFTER DELETE ON `adkats_records`
 	FOR EACH ROW 
 	BEGIN 
 		DECLARE command_type VARCHAR(45);
@@ -166,14 +166,14 @@ CREATE TRIGGER adkats_update_point_delete AFTER DELETE ON `adkat_records`
 		SET player_id = OLD.player_id;
 
 		IF(command_type = 'Punish') THEN
-			INSERT INTO `adkat_serverPlayerPoints` 
+			INSERT INTO `adkats_serverPlayerPoints` 
 				(`player_id`, `server_id`, `punish_points`, `forgive_points`, `total_points`) 
 			VALUES 
 				(player_id, server_id, 0, 0, 0) 
 			ON DUPLICATE KEY UPDATE 
 				`punish_points` = `punish_points` - 1, 
 				`total_points` = `total_points` - 1;
-			INSERT INTO `adkat_globalPlayerPoints` 
+			INSERT INTO `adkats_globalPlayerPoints` 
 				(`player_id`, `punish_points`, `forgive_points`, `total_points`) 
 			VALUES 
 				(player_id, 0, 0, 0) 
@@ -181,14 +181,14 @@ CREATE TRIGGER adkats_update_point_delete AFTER DELETE ON `adkat_records`
 				`punish_points` = `punish_points` - 1, 
 				`total_points` = `total_points` - 1;
 		ELSEIF (command_type = 'Forgive') THEN
-			INSERT INTO `adkat_serverPlayerPoints` 
+			INSERT INTO `adkats_serverPlayerPoints` 
 				(`player_id`, `server_id`, `punish_points`, `forgive_points`, `total_points`) 
 			VALUES 
 				(player_id, server_id, 0, 0, 0) 
 			ON DUPLICATE KEY UPDATE 
 				`forgive_points` = `forgive_points` - 1, 
 				`total_points` = `total_points` + 1;
-			INSERT INTO `adkat_globalPlayerPoints` 
+			INSERT INTO `adkats_globalPlayerPoints` 
 				(`player_id`, `punish_points`, `forgive_points`, `total_points`) 
 			VALUES 
 				(player_id, 0, 0, 0) 
@@ -203,64 +203,64 @@ delimiter ;
 CREATE OR REPLACE VIEW `adkats_totalcmdissued` AS
 SELECT
   (SELECT COUNT(*)
-   FROM adkat_records
-   WHERE adkat_records.command_type = 'Move' OR adkat_records.command_type = 'ForceMove') AS 'Moves',
+   FROM adkats_records
+   WHERE adkats_records.command_type = 'Move' OR adkats_records.command_type = 'ForceMove') AS 'Moves',
 
   (SELECT COUNT(*)
-   FROM adkat_records
-   WHERE adkat_records.command_type = 'Teamswap') AS 'TeamSwaps',
+   FROM adkats_records
+   WHERE adkats_records.command_type = 'Teamswap') AS 'TeamSwaps',
 
   (SELECT COUNT(*)
-   FROM adkat_records
-   WHERE adkat_records.command_type = 'Kill') AS 'Kills',
+   FROM adkats_records
+   WHERE adkats_records.command_type = 'Kill') AS 'Kills',
 
   (SELECT COUNT(*)
-   FROM adkat_records
-   WHERE adkat_records.command_type = 'Kick') AS 'Kicks',
+   FROM adkats_records
+   WHERE adkats_records.command_type = 'Kick') AS 'Kicks',
 
   (SELECT COUNT(*)
-   FROM adkat_records
-   WHERE adkat_records.command_type = 'TempBan' OR adkat_records.command_action = 'TempBan') AS 'TempBans',
+   FROM adkats_records
+   WHERE adkats_records.command_type = 'TempBan' OR adkats_records.command_action = 'TempBan') AS 'TempBans',
 
   (SELECT COUNT(*)
-   FROM adkat_records
-   WHERE adkat_records.command_type = 'PermaBan' OR adkat_records.command_action = 'PermaBan') AS 'PermaBans',
+   FROM adkats_records
+   WHERE adkats_records.command_type = 'PermaBan' OR adkats_records.command_action = 'PermaBan') AS 'PermaBans',
 
   (SELECT COUNT(*)
-   FROM adkat_records
-   WHERE adkat_records.command_type = 'Punish') AS 'Punishes',
+   FROM adkats_records
+   WHERE adkats_records.command_type = 'Punish') AS 'Punishes',
 
   (SELECT COUNT(*)
-   FROM adkat_records
-   WHERE adkat_records.command_type = 'Forgive') AS 'Forgives',
+   FROM adkats_records
+   WHERE adkats_records.command_type = 'Forgive') AS 'Forgives',
 
   (SELECT COUNT(*)
-   FROM adkat_records
-   WHERE adkat_records.command_type = 'Report' OR adkat_records.command_type = 'CallAdmin') AS 'Reports',
+   FROM adkats_records
+   WHERE adkats_records.command_type = 'Report' OR adkats_records.command_type = 'CallAdmin') AS 'Reports',
 
   (SELECT COUNT(*)
-   FROM adkat_records
-   WHERE adkat_records.command_type = 'ConfirmReport') AS 'UsedReports',
+   FROM adkats_records
+   WHERE adkats_records.command_type = 'ConfirmReport') AS 'UsedReports',
 
   (SELECT COUNT(*)
-   FROM adkat_records
-   WHERE adkat_records.command_type = 'AdminSay') AS 'AdminSays',
+   FROM adkats_records
+   WHERE adkats_records.command_type = 'AdminSay') AS 'AdminSays',
 
   (SELECT COUNT(*)
-   FROM adkat_records
-   WHERE adkat_records.command_type = 'PlayerSay') AS 'PlayerSays',
+   FROM adkats_records
+   WHERE adkats_records.command_type = 'PlayerSay') AS 'PlayerSays',
 
   (SELECT COUNT(*)
-   FROM adkat_records
-   WHERE adkat_records.command_type = 'AdminYell') AS 'AdminYells',
+   FROM adkats_records
+   WHERE adkats_records.command_type = 'AdminYell') AS 'AdminYells',
 
   (SELECT COUNT(*)
-   FROM adkat_records
-   WHERE adkat_records.command_type = 'PlayerYell') AS 'PlayerYells',
+   FROM adkats_records
+   WHERE adkats_records.command_type = 'PlayerYell') AS 'PlayerYells',
 
   (SELECT COUNT(*)
-   FROM adkat_records
-   WHERE adkat_records.command_type = 'Mute') AS 'PlayerMutes',
+   FROM adkats_records
+   WHERE adkats_records.command_type = 'Mute') AS 'PlayerMutes',
 
   (SELECT COUNT(*)
-   FROM adkat_records) AS 'TotalCommands';
+   FROM adkats_records) AS 'TotalCommands';
