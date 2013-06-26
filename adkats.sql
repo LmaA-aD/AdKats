@@ -74,9 +74,9 @@ CREATE TABLE IF NOT EXISTS `adkats_globalPlayerPoints` (
 CREATE TABLE IF NOT EXISTS `adkats_banlist` ( 
 	`ban_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
 	`record_id` INT(11) UNSIGNED NOT NULL, 
-	`ban_status` enum('Active', 'Expired', 'Disabled') NOT NULL DEFAULT 'Active',
 	`ban_reason` VARCHAR(100) NOT NULL DEFAULT 'NoReason', 
 	`ban_notes` VARCHAR(150) NOT NULL DEFAULT 'NoNotes', 
+	`ban_status` enum('Active', 'Expired', 'Disabled') NOT NULL DEFAULT 'Active',
 	`ban_startTime` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
 	`ban_endTime` DATETIME NOT NULL, 
 	`ban_enforceName` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
@@ -109,9 +109,30 @@ CREATE TABLE IF NOT EXISTS `adkats_settings` (
 		ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Setting Sync';
 
+DROP FUNCTION IF EXISTS import_records;
+DROP FUNCTION IF EXISTS import_bans;
 DROP TRIGGER IF EXISTS adkats_update_point_insert;
 DROP TRIGGER IF EXISTS adkats_update_point_delete;
 delimiter |
+
+-- Imports any records from previous versions of AdKats into the new verison
+CREATE FUNCTION import_records()
+  RETURNS VARCHAR(100)
+BEGIN
+  
+  RETURN 'Import script completed without issue.';
+END;
+|
+
+-- I
+CREATE FUNCTION import_ban_manager_bans()
+  RETURNS VARCHAR(100)
+BEGIN
+  
+  RETURN 'Import script completed without issue.';
+END;
+|
+
 CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkats_records`
 	FOR EACH ROW 
 	BEGIN 
