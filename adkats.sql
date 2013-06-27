@@ -21,9 +21,9 @@ CREATE TABLE IF NOT EXISTS `adkats_accesslist` (
 	PRIMARY KEY (`player_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Access List';
 
-CREATE TABLE IF NOT EXISTS `adkats_records` ( 
+CREATE TABLE IF NOT EXISTS `adkats_records` (
 	`record_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
-	`server_id` INT(11) UNSIGNED NOT NULL, 
+	`server_id` SMALLINT(5) UNSIGNED NOT NULL, 
 	`command_type` VARCHAR(45) NOT NULL DEFAULT "DefaultCommand", 
 	`command_action` VARCHAR(45) NOT NULL DEFAULT "DefaultAction", 
 	`command_numeric` INT(11) NOT NULL DEFAULT 0, 
@@ -33,31 +33,16 @@ CREATE TABLE IF NOT EXISTS `adkats_records` (
 	`record_message` VARCHAR(100) NOT NULL DEFAULT "NoMessage", 
 	`record_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
 	`adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
-	PRIMARY KEY (`record_id`), 
-	CONSTRAINT `fk_server_id` 
-		FOREIGN KEY (`server_id`) 
-		REFERENCES `tbl_server`.`ServerID` 
-		ON DELETE CASCADE 
-		ON UPDATE NO ACTION
+	PRIMARY KEY (`record_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Records';
 
 CREATE TABLE IF NOT EXISTS `adkats_serverPlayerPoints` (
 	`player_id` INT(11) UNSIGNED NOT NULL, 
-	`server_id` INT(11) UNSIGNED NOT NULL, 
+	`server_id` SMALLINT(5) UNSIGNED NOT NULL, 
 	`punish_points` INT(11) NOT NULL, 
 	`forgive_points` INT(11) NOT NULL, 
 	`total_points` INT(11) NOT NULL, 
-	PRIMARY KEY (`player_id`, `server_id`), 
-	CONSTRAINT `fk_server_id` 
-		FOREIGN KEY (`server_id`) 
-		REFERENCES `tbl_server`.`ServerID` 
-		ON DELETE CASCADE 
-		ON UPDATE NO ACTION, 
-	CONSTRAINT `fk_player_id` 
-		FOREIGN KEY (`player_id`) 
-		REFERENCES `tbl_playerdata`.`PlayerID` 
-		ON DELETE CASCADE 
-		ON UPDATE NO ACTION
+	PRIMARY KEY (`player_id`, `server_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Server Specific Player Points';
 
 CREATE TABLE IF NOT EXISTS `adkats_globalPlayerPoints` (
@@ -65,12 +50,7 @@ CREATE TABLE IF NOT EXISTS `adkats_globalPlayerPoints` (
 	`punish_points` INT(11) NOT NULL, 
 	`forgive_points` INT(11) NOT NULL, 
 	`total_points` INT(11) NOT NULL, 
-	PRIMARY KEY (`player_id`), 
-	CONSTRAINT `fk_player_id` 
-		FOREIGN KEY (`player_id`) 
-		REFERENCES `tbl_playerdata`.`PlayerID` 
-		ON DELETE CASCADE 
-		ON UPDATE NO ACTION
+	PRIMARY KEY (`player_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Global Player Points';
 
 CREATE TABLE IF NOT EXISTS `adkats_banlist` ( 
@@ -86,29 +66,14 @@ CREATE TABLE IF NOT EXISTS `adkats_banlist` (
 	`ban_enforceIP` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
 	`ban_sync` VARCHAR(100) NOT NULL DEFAULT "-sync-", 
 	PRIMARY KEY (`ban_id`), 
-	UNIQUE KEY `ban_id_UNIQUE` (`ban_id`), 
-	CONSTRAINT `fk_player_id` 
-		FOREIGN KEY (`player_id`) 
-		REFERENCES `tbl_playerdata`.`PlayerID` 
-		ON DELETE CASCADE 
-		ON UPDATE NO ACTION, 
-	CONSTRAINT `fk_record_id` 
-		FOREIGN KEY (`record_id`) 
-		REFERENCES `adkats_records`.`record_id` 
-		ON DELETE CASCADE 
-		ON UPDATE NO ACTION
+	UNIQUE KEY `ban_id_UNIQUE` (`ban_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Ban Enforcer List';
 
 CREATE TABLE IF NOT EXISTS `adkats_settings` ( 
-	`server_id` INT(11) UNSIGNED NOT NULL, 
+	`server_id` SMALLINT(5) UNSIGNED NOT NULL, 
 	`setting_name` VARCHAR(45) NOT NULL DEFAULT "SettingName", 
 	`setting_value` VARCHAR(45) NOT NULL DEFAULT "SettingValue", 
-	PRIMARY KEY (`server_id`, `setting_name`), 
-	CONSTRAINT `fk_server_id` 
-		FOREIGN KEY (`server_id`) 
-		REFERENCES `tbl_server`.`ServerID` 
-		ON DELETE CASCADE 
-		ON UPDATE NO ACTION
+	PRIMARY KEY (`server_id`, `setting_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Setting Sync';
 
 DROP FUNCTION IF EXISTS confirm_logger;
@@ -121,6 +86,20 @@ DROP TRIGGER IF EXISTS adkats_update_point_delete;
 delimiter |
 
 -- Confirms the existence of server tables/records by XpKiller's Stat Logger, a dependancy of AdKats.
+
+-- SQL Code breaks here
+-- SQL Code breaks here
+-- SQL Code breaks here
+-- SQL Code breaks here
+-- SQL Code breaks here
+-- SQL Code breaks here
+-- SQL Code breaks here
+-- SQL Code breaks here
+-- SQL Code breaks here
+-- SQL Code breaks here
+-- SQL Code breaks here
+-- SQL Code breaks here
+
 CREATE FUNCTION confirm_logger()
 	RETURNS VARCHAR(100)
 BEGIN
