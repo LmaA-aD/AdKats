@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS `adkats_records` (
 	`record_message` VARCHAR(100) NOT NULL DEFAULT "NoMessage", 
 	`record_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
 	`adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
+	`adkats_web` BOOL NOT NULL DEFAULT 0,
 	PRIMARY KEY (`record_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Records';
 
