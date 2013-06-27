@@ -1145,7 +1145,14 @@ namespace PRoConEvents
             {
                 if (this.isEnabled)
                 {
-                    this.queueAccessUpdate(strValue, 6);
+                    if (String.IsNullOrEmpty(strValue))
+                    {
+                        this.ConsoleError("Player name for add access cannot be empty!");
+                        return;
+                    }
+                    AdKat_Access access = new AdKat_Access();
+                    access.player_name = strValue;
+                    this.queueAccessUpdate(access);
                 }
                 else
                 {
