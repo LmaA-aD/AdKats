@@ -4,7 +4,14 @@
 -- If you don't want the plugin changing tables/views in your database, you must run this beforehand.
 
 -- Scheduling is needed for update events
-SET GLOBAL event_scheduler = ON;
+-- SET GLOBAL event_scheduler = ON;
+
+DROP TABLE IF EXISTS `adkats_accesslist`;
+DROP TABLE IF EXISTS `adkats_records`;
+DROP TABLE IF EXISTS `adkats_serverPlayerPoints`;
+DROP TABLE IF EXISTS `adkats_globalPlayerPoints`;
+DROP TABLE IF EXISTS `adkats_banlist`;
+DROP TABLE IF EXISTS `adkats_settings`;
 
 CREATE TABLE IF NOT EXISTS `adkats_accesslist` ( 
 	`player_name` VARCHAR(20) NOT NULL, 
@@ -28,13 +35,8 @@ CREATE TABLE IF NOT EXISTS `adkats_records` (
 	`adkats_read` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
 	PRIMARY KEY (`record_id`), 
 	CONSTRAINT `fk_server_id` 
-		FOREIGN KEY (`server_id` ) 
+		FOREIGN KEY (`server_id`) 
 		REFERENCES `tbl_server`.`ServerID` 
-		ON DELETE CASCADE 
-		ON UPDATE NO ACTION, 
-	CONSTRAINT `fk_player_id` 
-		FOREIGN KEY (`player_id` ) 
-		REFERENCES `tbl_playerdata`.`PlayerID` 
 		ON DELETE CASCADE 
 		ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Records';
@@ -47,12 +49,12 @@ CREATE TABLE IF NOT EXISTS `adkats_serverPlayerPoints` (
 	`total_points` INT(11) NOT NULL, 
 	PRIMARY KEY (`player_id`, `server_id`), 
 	CONSTRAINT `fk_server_id` 
-		FOREIGN KEY (`server_id` ) 
+		FOREIGN KEY (`server_id`) 
 		REFERENCES `tbl_server`.`ServerID` 
 		ON DELETE CASCADE 
 		ON UPDATE NO ACTION, 
 	CONSTRAINT `fk_player_id` 
-		FOREIGN KEY (`player_id` ) 
+		FOREIGN KEY (`player_id`) 
 		REFERENCES `tbl_playerdata`.`PlayerID` 
 		ON DELETE CASCADE 
 		ON UPDATE NO ACTION
@@ -65,7 +67,7 @@ CREATE TABLE IF NOT EXISTS `adkats_globalPlayerPoints` (
 	`total_points` INT(11) NOT NULL, 
 	PRIMARY KEY (`player_id`), 
 	CONSTRAINT `fk_player_id` 
-		FOREIGN KEY (`player_id` ) 
+		FOREIGN KEY (`player_id`) 
 		REFERENCES `tbl_playerdata`.`PlayerID` 
 		ON DELETE CASCADE 
 		ON UPDATE NO ACTION
@@ -86,12 +88,12 @@ CREATE TABLE IF NOT EXISTS `adkats_banlist` (
 	PRIMARY KEY (`ban_id`), 
 	UNIQUE KEY `ban_id_UNIQUE` (`ban_id`), 
 	CONSTRAINT `fk_player_id` 
-		FOREIGN KEY (`player_id` ) 
+		FOREIGN KEY (`player_id`) 
 		REFERENCES `tbl_playerdata`.`PlayerID` 
 		ON DELETE CASCADE 
 		ON UPDATE NO ACTION, 
 	CONSTRAINT `fk_record_id` 
-		FOREIGN KEY (`record_id` ) 
+		FOREIGN KEY (`record_id`) 
 		REFERENCES `adkats_records`.`record_id` 
 		ON DELETE CASCADE 
 		ON UPDATE NO ACTION
@@ -103,7 +105,7 @@ CREATE TABLE IF NOT EXISTS `adkats_settings` (
 	`setting_value` VARCHAR(45) NOT NULL DEFAULT "SettingValue", 
 	PRIMARY KEY (`server_id`, `setting_name`), 
 	CONSTRAINT `fk_server_id` 
-		FOREIGN KEY (`server_id` ) 
+		FOREIGN KEY (`server_id`) 
 		REFERENCES `tbl_server`.`ServerID` 
 		ON DELETE CASCADE 
 		ON UPDATE NO ACTION
@@ -125,7 +127,7 @@ BEGIN
 	DECLARE response VARCHAR(100);
 	SET response = 'OK.';
 	IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='tbl_server' AND column_name='ServerID') THEN 
-		IF NOT EXISTS (SELECT * FROM 'tbl_server') THEN 
+		IF NOT EXISTS (SELECT * FROM `tbl_server`) THEN 
 			SET response = 'ERROR. Tables Empty.';
 		END IF;
 	ELSE
@@ -138,27 +140,26 @@ END;
 -- Imports any records from AdKats 2.5.1+ into AdKats 3.0.0
 -- Assumes all needed tables are already in the database
 CREATE PROCEDURE import_records()
-BEGIN
-	IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='adkat_records' AND column_name='server_ip') THEN 
+	BEGIN
 		DECLARE done INT DEFAULT FALSE;
 		DECLARE old_records CURSOR FOR 
-		SELECT 
-			`record_id`, 
-			`server_id`, 
-			`server_ip`, 
-			`command_type`, 
-			`command_action`, 
-			`record_durationMinutes`, 
-			`target_guid`, 
-			`target_name`, 
-			`source_name`, 
-			`record_message`, 
-			`record_time`, 
-			`adkats_read` 
-		FROM 
-			`adkat_records`;
+			SELECT 
+				`record_id`, 
+				`server_id`, 
+				`server_ip`, 
+				`command_type`, 
+				`command_action`, 
+				`record_durationMinutes`, 
+				`target_guid`, 
+				`target_name`, 
+				`source_name`, 
+				`record_message`, 
+				`record_time`, 
+				`adkats_read` 
+			FROM 
+				`adkat_records`;
 		DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
-		-- Create all variables for imported record
+		-- Create needed variables for imported record
 		DECLARE record_id INT(11);
 		DECLARE server_id INT(11);
 		DECLARE server_ip VARCHAR(45);
@@ -173,157 +174,128 @@ BEGIN
 		-- Create needed variables for new record
 		DECLARE record_id INT(11);
 		DECLARE player_id INT(11);
-		SET player_id = NULL;
 		DECLARE new_server_id INT(11);
-		
-		-- Open the reader
-		OPEN old_records;
-		
-		-- A lot of writes may be happening to playerdata, lock to secure.
-		LOCK TABLES `tbl_playerdata` WRITE, `tbl_server` WRITE;
-		
-		-- Enter the read loop for old records
-		read_loop: LOOP
-			-- Fetche the first/next record from the cursor
-			FETCH old_records INTO 
-				record_id, 
-				server_id, 
-				server_ip, 
-				command_type, 
-				command_action, 
-				record_durationMinutes, 
-				target_guid, 
-				target_name, 
-				source_name, 
-				record_time, 
-				adkats_read;
-			-- Check for done condition
-			IF done THEN
-			  LEAVE read_loop;
-			END IF;
-			IF(POSITION('A_' in target_guid) > 0) THEN
-				-- Attempt to fetch player ID from tbl_playerdata
-				IF NOT EXISTS (SELECT `PlayerID` INTO player_id FROM `tbl_playerdata` WHERE `EAGUID` = target_guid) THEN
-					-- If ID not found, insert the new player
-					INSERT INTO `tbl_playerdata` (`SoldierName`, `EAGUID`) VALUES (target_name, target_guid);
-					SET player_id = LAST_INSERT_ID();
+		SET player_id = NULL;
+
+		IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='adkats_records' AND column_name='server_ip') THEN 
+			-- Open the reader
+			OPEN old_records;
+			
+			-- A lot of writes may be happening to playerdata, lock to secure.
+			LOCK TABLES `tbl_playerdata` WRITE, `tbl_server` WRITE;
+			
+			-- Enter the read loop for old records
+			read_loop: LOOP
+				-- Fetche the first/next record from the cursor
+				FETCH old_records INTO 
+					record_id, 
+					server_id, 
+					server_ip, 
+					command_type, 
+					command_action, 
+					record_durationMinutes, 
+					target_guid, 
+					target_name, 
+					source_name, 
+					record_time, 
+					adkats_read;
+				-- Check for done condition
+				IF done THEN
+				  LEAVE read_loop;
 				END IF;
-			END IF;
-			-- Attempt to fetch correct server ID from tbl_server
-			IF NOT EXISTS (SELECT `ServerID` INTO new_server_id FROM `tbl_server` WHERE `IP_Address` = server_ip) THEN
-				-- If ID not found, insert new server
-				INSERT INTO `tbl_server` (`IP_Address`) VALUES (server_ip);
-				SET new_server_id = LAST_INSERT_ID();
-			END IF;
-			
-			-- Fix an error injected in 2.5.1
-			IF (command_type == "Punish" AND record_durationMinutes > 0) THEN 
-				command_action = "TempBan";
-			END IF;
-			
-			-- Insert the new record
-			INSERT INTO `adkats_records` 
-			(
-				`server_id`, 
-				`command_type`, 
-				`command_action`, 
-				`command_numeric`, 
-				`target_name`, 
-				`target_id`, 
-				`source_name`, 
-				`record_message`, 
-				`record_time`, 
-				`adkats_read`
-			)
-			VALUES 
-			(
-				new_server_id, 
-				command_type, 
-				command_action, 
-				record_durationMinutes, 
-				target_name, 
-				player_id, 
-				record_message, 
-				record_time, 
-				adkats_read
-			)
-			
-			-- If the record is a ban, create the ban record for it
-			IF ((command_action == "TempBan") OR (command_action == "PermaBan")) THEN
-				-- Insert the new ban
-				INSERT INTO `adkats_banlist` 
+				IF(POSITION('A_' in target_guid) > 0) THEN
+					-- Attempt to fetch player ID from tbl_playerdata
+					IF (NOT EXISTS (SELECT `PlayerID` INTO player_id FROM `tbl_playerdata` WHERE `EAGUID` = target_guid)) THEN
+						-- If ID not found, insert the new player
+						INSERT INTO `tbl_playerdata` (`SoldierName`, `EAGUID`) VALUES (target_name, target_guid);
+						SET player_id = LAST_INSERT_ID();
+					END IF;
+				END IF;
+				-- Attempt to fetch correct server ID from tbl_server
+				IF NOT EXISTS (SELECT `ServerID` INTO new_server_id FROM `tbl_server` WHERE `IP_Address` = server_ip) THEN
+					-- If ID not found, insert new server
+					INSERT INTO `tbl_server` (`IP_Address`) VALUES (server_ip);
+					SET new_server_id = LAST_INSERT_ID();
+				END IF;
+				
+				-- Fix an error injected in 2.5.1
+				IF (command_type == "Punish" AND record_durationMinutes > 0) THEN 
+					command_action = "TempBan";
+				END IF;
+				
+				-- Insert the new record
+				INSERT INTO `adkats_records` 
 				(
-					`record_id`, 
-					`ban_reason`, 
-					`ban_status`, 
-					`ban_startTime`, 
-					`ban_endTime`, 
-					`ban_enforceName`, 
-					`ban_enforceGUID`, 
-					`ban_enforceIP`, 
-					`ban_sync`
+					`server_id`, 
+					`command_type`, 
+					`command_action`, 
+					`command_numeric`, 
+					`target_name`, 
+					`target_id`, 
+					`source_name`, 
+					`record_message`, 
+					`record_time`, 
+					`adkats_read`
 				)
 				VALUES 
 				(
-					record_id, 
+					new_server_id, 
+					command_type, 
+					command_action, 
+					record_durationMinutes, 
+					target_name, 
+					player_id, 
 					record_message, 
-					'Active', 
 					record_time, 
-					DATE_ADD(record_time, INTERVAL record_durationMinutes MINUTE), 
-					'N', 
-					'Y', 
-					'N',
-					'-sync-'
+					adkats_read
 				)
-			END IF;
-		END LOOP;
-		
-		-- Unlock player data and server
-		UNLOCK TABLES;
-		
-		-- Close the reader
-		CLOSE old_records;
-	END IF;
-END;
+			END LOOP;
+			
+			-- Unlock player data and server
+			UNLOCK TABLES;
+			
+			-- Close the reader
+			CLOSE old_records;
+		END IF;
+	END;
 |
 
 -- Imports any records from the "Ban Manager" by DaMagicWobber into AdKats Ban Manager
 CREATE PROCEDURE import_ban_manager_bans()
 BEGIN
+	DECLARE done INT DEFAULT FALSE;
+	DECLARE ban_manager_bans CURSOR FOR 
+	SELECT 
+		`bm_banlist`.`banID` AS `ban_id`, 
+		`bm_servergroup`.`serverip` AS `server_ip`, 
+		`bm_soldiers`.`soldiername` AS `target_name`, 
+		`bm_soldiers`.`eaguid` AS `target_guid`, 
+		`bm_banlist`.`ban_reason` AS `ban_reason`, 
+		`bm_banlist`.`ban_admin` AS `source_name`, 
+		`bm_banlist`.`ban_duration` AS `ban_duration`, 
+		`bm_banlist`.`timestamp` AS `ban_time`
+	FROM 
+		`bm_banlist` 
+	INNER JOIN 
+		`bm_soldiers` ON `bm_banlist`.`soldierID` = `bm_soldiers`.`soldierID` 
+	INNER JOIN 
+		`bm_servergroup` ON `bm_banlist`.`servergroup` = `bm_servergroup`.`servergroup`;
+		
+	DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+	-- Create all variables for imported ban
+	DECLARE server_ip VARCHAR(45);
+	DECLARE target_name VARCHAR(45);
+	DECLARE target_guid VARCHAR(100);
+	DECLARE ban_reason VARCHAR(100);
+	DECLARE source_name VARCHAR(45);
+	DECLARE ban_duration DATETIME;
+	DECLARE ban_time TIMESTAMP;
+	-- Create needed variables for new record
+	DECLARE player_id INT(11);
+	DECLARE server_id INT(11);
+	SET player_id = NULL;
 	-- If the bm_banlist table exists then that ban manager was in use
-	IF (EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='bm_banlist') AND 
-		) THEN 
-		DECLARE done INT DEFAULT FALSE;
-		DECLARE ban_manager_bans CURSOR FOR 
-		SELECT 
-			`bm_banlist`.`banID` AS `ban_id`, 
-			`bm_servergroup`.`serverip` AS `server_ip`, 
-			`bm_soldiers`.`soldiername` AS `target_name`, 
-			`bm_soldiers`.`eaguid` AS `target_guid`, 
-			`bm_banlist`.`ban_reason` AS `ban_reason`, 
-			`bm_banlist`.`ban_admin` AS `source_name`, 
-			`bm_banlist`.`ban_duration` AS `ban_duration`, 
-			`bm_banlist`.`timestamp` AS `ban_time`
-		FROM 
-			`bm_banlist` 
-		INNER JOIN 
-			`bm_soldiers` ON `bm_banlist`.`soldierID` = `bm_soldiers`.`soldierID` 
-		INNER JOIN 
-			`bm_servergroup` ON `bm_banlist`.`servergroup` = `bm_servergroup`.`servergroup`;
-			
-		DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
-		-- Create all variables for imported ban
-		DECLARE server_ip VARCHAR(45);
-		DECLARE target_name VARCHAR(45);
-		DECLARE target_guid VARCHAR(100);
-		DECLARE ban_reason VARCHAR(100);
-		DECLARE source_name VARCHAR(45);
-		DECLARE ban_duration DATETIME;
-		DECLARE ban_time TIMESTAMP;
-		-- Create needed variables for new record
-		DECLARE player_id INT(11);
-		SET player_id = NULL;
-		DECLARE server_id INT(11);
+	IF (EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='bm_banlist')) THEN 
 		
 		-- Open the reader
 		OPEN old_records;
@@ -380,12 +352,39 @@ BEGIN
 				server_id, 
 				'TempBan', 
 				'TempBan', 
-				record_durationMinutes, //TODO FINSH THIS
+				record_durationMinutes, 
 				target_name, 
 				player_id, 
+				source_name, 
 				record_message, 
 				record_time, 
 				adkats_read
+			)
+
+			-- Insert the new ban
+			INSERT INTO `adkats_banlist` 
+			(
+				`record_id`, 
+				`ban_reason`, 
+				`ban_status`, 
+				`ban_startTime`, 
+				`ban_endTime`, 
+				`ban_enforceName`, 
+				`ban_enforceGUID`, 
+				`ban_enforceIP`, 
+				`ban_sync`
+			)
+			VALUES 
+			(
+				record_id, 
+				record_message, 
+				'Active', 
+				record_time, 
+				DATE_ADD(record_time, INTERVAL record_durationMinutes MINUTE), 
+				'N', 
+				'Y', 
+				'N',
+				'-sync-'
 			)
 		END LOOP;
 		
@@ -403,9 +402,8 @@ CREATE EVENT ban_status_update
 		EVERY 5 MINUTE 
     COMMENT 'Updates expired bans for sync every 5 minutes.'
     DO 
-		BEGIN 
-			UDPATE `adkat_banlist` SET `ban_status` = 'Expired', `ban_sync` = '-sync-' WHERE `ban_endTime` < NOW();
-		END
+		UDPATE `adkats_banlist` SET `ban_status` = 'Expired', `ban_sync` = '-sync-' WHERE `ban_endTime` < NOW();
+
 |
 
 -- Updates player points when punishments or forgivness logs are added in the record table
