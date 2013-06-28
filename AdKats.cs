@@ -551,8 +551,6 @@ namespace PRoConEvents
                 lstReturn = new List<CPluginVariable>();
 
                 lstReturn.Add(new CPluginVariable("Complete these settings before enabling.", typeof(string), "Once enabled, more settings will appear."));
-                //Server Settings
-                lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID", typeof(int), this.server_id));
                 //SQL Settings
                 lstReturn.Add(new CPluginVariable("2. MySQL Settings|MySQL Hostname", typeof(string), mySqlHostname));
                 lstReturn.Add(new CPluginVariable("2. MySQL Settings|MySQL Port", typeof(string), mySqlPort));
@@ -592,11 +590,11 @@ namespace PRoConEvents
             try
             {
                 //Server Settings
-                lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID", typeof(int), this.server_id));
+                lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID (Display)", typeof(int), this.server_id));
                 CServerInfo info = this.getServerInfo();
                 if (info != null)
                 {
-                    lstReturn.Add(new CPluginVariable("1. Server Settings|Server IP", typeof(string), info.ExternalGameIpandPort));
+                    lstReturn.Add(new CPluginVariable("1. Server Settings|Server IP (Display)", typeof(string), info.ExternalGameIpandPort));
                 }
 
                 //SQL Settings
@@ -1604,6 +1602,20 @@ namespace PRoConEvents
 
         #region Procon Events
 
+        private void disable()
+        {
+            //Call Disable
+            this.ExecuteCommand("procon.protected.plugins.enable", "AdKats", "False");
+            //Set enable false
+            this.isEnabled = false;
+        }
+
+        private void enable()
+        {
+            //Call Enable
+            this.ExecuteCommand("procon.protected.plugins.enable", "AdKats", "True");
+        }
+
         public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion)
         {
             this.RegisterEvents(this.GetType().Name,
@@ -1634,6 +1646,8 @@ namespace PRoConEvents
             if (this.finalizer != null && this.finalizer.IsAlive)
             {
                 ConsoleError("Cannot enable plugin while it is shutting down. Please Wait.");
+                //Disable the plugin
+                this.disable();
                 return;
             }
             try
@@ -1644,15 +1658,37 @@ namespace PRoConEvents
                     {
                         ConsoleWrite("Enabling command functionality. Please Wait.");
 
-                        if (!this.isStatLoggerEnabled())
+                        //Checking for stat logger
+                        if (this.isStatLoggerEnabled())
+                        {
+                            this.ConsoleWrite("SUCCESS ^bCChatGUIDStatsLoggerBF3^n plugin found and running!");
+                        }
+                        else
                         {
                             //Inform the user
-                            this.ConsoleError("^1^bCChatGUIDStatsLoggerBF3^n plugin not found or disabled; installing/updating and enabling that plugin is required for AdKats!");
+                            this.ConsoleError("^1^bCChatGUIDStatsLoggerBF3^n plugin not found or disabled. Installing and enabling that plugin is required for AdKats!");
                             //Disable the plugin
-                            this.ExecuteCommand("procon.protected.plugins.enable", "AdKats", "False");
+                            this.disable();
                             return;
                         }
-                        this.ConsoleWrite("SUCCESS ^bCChatGUIDStatsLoggerBF3^n plugin found and running!");
+
+                        //Checking for frostbite server info
+                        CServerInfo sInfo = this.getServerInfo();
+                        if (sInfo == null || String.IsNullOrEmpty(sInfo.ExternalGameIpandPort))
+                        {
+                            //Call server info
+                            this.serverInfoHandle.Reset();
+                            this.ExecuteCommand("procon.protected.send", "admin.serverInfo", "all");
+                            //Wait for serverInfo to finish
+                            if (this.serverInfoHandle.WaitOne(10000))
+                            {
+                                this.ConsoleWrite("SUCCESS Frostbite Server Info fetched. Server IP is " + this.getServerInfo().ExternalGameIpandPort + "!");
+                            }
+                            else
+                            {
+                                this.ConsoleError("Frostbite Server Info could not be fetched! 10 second timout elapsed.");
+                            }
+                        }
 
                         //Set the enabled variable
                         this.isEnabled = true;
@@ -1674,7 +1710,7 @@ namespace PRoConEvents
                                 //Inform the user
                                 this.ConsoleError("Failed to enable in 30 seconds. Shutting down. Inform ColColonCleaner.");
                                 //Disable the plugin
-                                this.ExecuteCommand("procon.protected.plugins.enable", "AdKats", "False");
+                                this.disable()
                                 return;
                             }
                         }
@@ -1818,16 +1854,15 @@ namespace PRoConEvents
 
         public override void OnServerInfo(CServerInfo serverInfo)
         {
-            if (this.isEnabled)
-            {
-                //Get the team scores
-                this.setServerInfo(serverInfo);
-                List<TeamScore> listCurrTeamScore = serverInfo.TeamScores;
-                int iTeam0Score = listCurrTeamScore[0].Score;
-                int iTeam1Score = listCurrTeamScore[1].Score;
-                this.lowestTicketCount = (iTeam0Score < iTeam1Score) ? (iTeam0Score) : (iTeam1Score);
-                this.highestTicketCount = (iTeam0Score > iTeam1Score) ? (iTeam0Score) : (iTeam1Score);
-            }
+            //Get the team scores
+            this.setServerInfo(serverInfo);
+            List<TeamScore> listCurrTeamScore = serverInfo.TeamScores;
+            int iTeam0Score = listCurrTeamScore[0].Score;
+            int iTeam1Score = listCurrTeamScore[1].Score;
+            this.lowestTicketCount = (iTeam0Score < iTeam1Score) ? (iTeam0Score) : (iTeam1Score);
+            this.highestTicketCount = (iTeam0Score > iTeam1Score) ? (iTeam0Score) : (iTeam1Score);
+
+            this.serverInfoHandle.Set();
         }
 
         public override void OnPunkbusterPlayerInfo(CPunkbusterInfo cPunkbusterInfo)
@@ -4345,7 +4380,7 @@ namespace PRoConEvents
             string adminAssistantIdentifier = (this.adminAssistantCache.ContainsKey(record.source_name)) ? ("[AA]") : ("");
             foreach (String admin_name in this.playerAccessCache.Keys)
             {
-                if (this.playerAccessCache[admin_name] <= 4)
+                if (this.playerAccessCache[admin_name].access_level <= 4 && this.playerDictionary.ContainsKey(admin_name))
                 {
                     this.playerSayMessage(admin_name, "REPORT " + adminAssistantIdentifier + "[" + reportID + "]: " + record.source_name + " reported " + record.target_name + " for " + record.record_message);
                 }
@@ -4365,7 +4400,7 @@ namespace PRoConEvents
             string adminAssistantIdentifier = (this.adminAssistantCache.ContainsKey(record.source_name)) ? ("[AA]") : ("");
             foreach (String admin_name in this.playerAccessCache.Keys)
             {
-                if (this.playerAccessCache[admin_name] <= 4)
+                if (this.playerAccessCache[admin_name].access_level <= 4 && this.playerDictionary.ContainsKey(admin_name))
                 {
                     this.playerSayMessage(admin_name, "ADMIN CALL " + adminAssistantIdentifier + "[" + reportID + "]: " + record.source_name + " called admin on " + record.target_name + " for " + record.record_message);
                 }
@@ -4565,6 +4600,24 @@ namespace PRoConEvents
                             this.dbCommHandle.WaitOne(Timeout.Infinite);
                             this.DebugWrite("DBCOMM: Settings changed, attempting new connection.", 3);
                             continue;
+                        }
+                    }
+
+                    //Update server ID
+                    if (this.server_id < 0)
+                    {
+                        //Checking for database server info
+                        if (this.fetchServerID(this.getServerInfo(), null) >= 0)
+                        {
+                            this.ConsoleWrite("SUCCESS Database Server Info Fetched. Server ID is " + this.server_id + "!");
+                        }
+                        else
+                        {
+                            //Inform the user
+                            this.ConsoleError("Database Server info could not be fetched! Make sure stat logger is running!");
+                            //Disable the plugin
+                            this.disable();
+                            break;
                         }
                     }
 
@@ -6186,14 +6239,13 @@ namespace PRoConEvents
                                 returnVal = reader.GetInt32("server_id");
                                 if (this.server_id != -1)
                                 {
-                                    this.ConsoleError("Attempted server ID updated after ID already chosen.");
+                                    this.ConsoleError("Attempted server ID update after ID already chosen.");
                                 }
-                                this.server_id = returnVal;
-                                this.DebugWrite("Server ID fetched: " + this.server_id, 1);
-                            }
-                            else
-                            {
-                                this.ConsoleError("Server not found in database, make sure Stat Logger is Running.");
+                                else
+                                {
+                                    this.server_id = returnVal;
+                                    this.DebugWrite("Server ID fetched: " + this.server_id, 1);
+                                }
                             }
                         }
                     }
