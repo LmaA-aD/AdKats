@@ -572,7 +572,8 @@ namespace PRoConEvents
                 {
                     foreach (string playerName in this.playerAccessCache.Keys)
                     {
-                        lstReturn.Add(new CPluginVariable("3. Player Access Settings|" + playerName, typeof(string), this.playerAccessCache[playerName] + ""));
+                        lstReturn.Add(new CPluginVariable("3. Player Access Settings|" + playerName + "|Access Level", typeof(int), this.playerAccessCache[playerName].access_level));
+                        lstReturn.Add(new CPluginVariable("3. Player Access Settings|" + playerName + "|Email Address", typeof(string), this.playerAccessCache[playerName].player_email));
                     }
                 }
                 else
@@ -705,6 +706,7 @@ namespace PRoConEvents
 
         public void SetPluginVariable(string strVariable, string strValue)
         {
+            string[] variableParse = AdKats.DecodeStringArray(strVariable);
             if (strVariable.Equals("UpdateSettings"))
             {
                 //Do nothing. Settings page will be updated after return.
@@ -1138,48 +1140,6 @@ namespace PRoConEvents
                 this.IROOverridesLowPop = Boolean.Parse(strValue);
             }
             #endregion
-            #region access settings
-            else if (Regex.Match(strVariable, @"Add Access").Success)
-            {
-                if (this.isEnabled)
-                {
-                    if (String.IsNullOrEmpty(strValue))
-                    {
-                        this.ConsoleError("Player name for add access cannot be empty!");
-                        return;
-                    }
-                    AdKat_Access access = new AdKat_Access();
-                    access.player_name = strValue;
-                    this.queueAccessUpdate(access);
-                }
-                else
-                {
-                    this.ConsoleError("Enable AdKats before changing admins.");
-                }
-            }
-            else if (Regex.Match(strVariable, @"Remove Access").Success)
-            {
-                if (this.isEnabled)
-                {
-                    this.queueAccessRemoval(strValue);
-                }
-                else
-                {
-                    this.ConsoleError("Enable AdKats before changing admins.");
-                }
-            }
-            else if (this.playerAccessCache.ContainsKey(strVariable))
-            {
-                if (this.isEnabled)
-                {
-                    this.queueAccessUpdate(strVariable, Int32.Parse(strValue));
-                }
-                else
-                {
-                    this.ConsoleError("Enable AdKats before changing admins.");
-                }
-            }
-            #endregion
             #region sql settings
             else if (Regex.Match(strVariable, @"MySQL Hostname").Success)
             {
@@ -1373,6 +1333,48 @@ namespace PRoConEvents
             else if (Regex.Match(strVariable, @"Require Use of Pre-Messages").Success)
             {
                 this.requirePreMessageUse = Boolean.Parse(strValue);
+            }
+            #endregion
+            #region access settings
+            else if (Regex.Match(strVariable, @"Add Access").Success)
+            {
+                if (this.isEnabled)
+                {
+                    if (String.IsNullOrEmpty(strValue))
+                    {
+                        this.ConsoleError("Player name for add access cannot be empty!");
+                        return;
+                    }
+                    AdKat_Access access = new AdKat_Access();
+                    access.player_name = strValue;
+                    this.queueAccessUpdate(access);
+                }
+                else
+                {
+                    this.ConsoleError("Enable AdKats before changing admins.");
+                }
+            }
+            else if (Regex.Match(strVariable, @"Remove Access").Success)
+            {
+                if (this.isEnabled)
+                {
+                    this.queueAccessRemoval(strValue);
+                }
+                else
+                {
+                    this.ConsoleError("Enable AdKats before changing admins.");
+                }
+            }
+            else if (this.playerAccessCache.ContainsKey(variableParse[1]))
+            {
+                if (this.isEnabled)
+                {
+                    this.queueAccessUpdate(strVariable, Int32.Parse(strValue));
+                }
+                else
+                {
+                    this.ConsoleError("Enable AdKats before changing admins.");
+                }
             }
             #endregion
         }
@@ -1710,7 +1712,7 @@ namespace PRoConEvents
                                 //Inform the user
                                 this.ConsoleError("Failed to enable in 30 seconds. Shutting down. Inform ColColonCleaner.");
                                 //Disable the plugin
-                                this.disable()
+                                this.disable();
                                 return;
                             }
                         }
