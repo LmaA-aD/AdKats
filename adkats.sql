@@ -36,6 +36,18 @@ CREATE TABLE IF NOT EXISTS `adkats_records` (
 	`adkats_web` BOOL NOT NULL DEFAULT 0,
 	PRIMARY KEY (`record_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Records';
+ALTER TABLE `adkats_records` ADD 
+	CONSTRAINT `fk_server_id` 
+		FOREIGN KEY (`server_id`) 
+		REFERENCES `tbl_server`.`ServerID` 
+		ON DELETE CASCADE 
+		ON UPDATE NO ACTION;
+ALTER TABLE `adkats_records` ADD 
+	CONSTRAINT `fk_target_id` 
+		FOREIGN KEY (`target_id`) 
+		REFERENCES `tbl_playerdata`.`PlayerID` 
+		ON DELETE CASCADE 
+		ON UPDATE NO ACTION;
 
 CREATE TABLE IF NOT EXISTS `adkats_serverPlayerPoints` (
 	`player_id` INT(11) UNSIGNED NOT NULL, 
@@ -103,18 +115,18 @@ delimiter |
 
 CREATE FUNCTION confirm_logger()
 	RETURNS VARCHAR(100)
-BEGIN
-	DECLARE response VARCHAR(100);
-	SET response = 'OK.';
-	IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='tbl_server' AND column_name='ServerID') THEN 
-		IF NOT EXISTS (SELECT * FROM `tbl_server`) THEN 
-			SET response = 'ERROR. Tables Empty.';
+	BEGIN
+		DECLARE response VARCHAR(100);
+		SET response = 'OK.';
+		IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='tbl_server' AND column_name='ServerID') THEN 
+			IF NOT EXISTS (SELECT * FROM `tbl_server`) THEN 
+				SET response = 'ERROR. Tables Empty.';
+			END IF;
+		ELSE
+			SET response = 'ERROR. Tables not created.';
 		END IF;
-	ELSE
-		SET response = 'ERROR. Tables not created.';
-	END IF;
-	RETURN response;
-END;
+		RETURN response;
+	END;
 |
 
 -- Imports any records from AdKats 2.5.1+ into AdKats 3.0.0
@@ -273,7 +285,9 @@ BEGIN
 	-- Create needed variables for new record
 	DECLARE player_id INT(11);
 	DECLARE server_id INT(11);
-	SET player_id = NULL;
+	SET player_id = -1;
+	SET server_id = -1;
+
 	-- If the bm_banlist table exists then that ban manager was in use
 	IF (EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='bm_banlist')) THEN 
 		
@@ -300,14 +314,16 @@ BEGIN
 			END IF;
 			
 			-- Attempt to fetch player ID from tbl_playerdata
-			IF NOT EXISTS (SELECT `PlayerID` INTO player_id FROM `tbl_playerdata` WHERE `EAGUID` = target_guid) THEN
+			SELECT `PlayerID` INTO player_id FROM `tbl_playerdata` WHERE `EAGUID` = target_guid;
+			IF (player_id < 0) THEN
 				-- If ID not found, insert the new player
 				INSERT INTO `tbl_playerdata` (`SoldierName`, `EAGUID`) VALUES (target_name, target_guid);
 				SET player_id = LAST_INSERT_ID();
 			END IF;
 			
 			-- Attempt to fetch correct server ID from tbl_server
-			IF NOT EXISTS (SELECT `ServerID` INTO server_id FROM `tbl_server` WHERE `IP_Address` = server_ip) THEN
+			SELECT `ServerID` INTO server_id FROM `tbl_server` WHERE `IP_Address` = server_ip;
+			IF (server_id < 0) THEN
 				-- If ID not found, insert new server
 				INSERT INTO `tbl_server` (`IP_Address`) VALUES (server_ip);
 				SET new_server_id = LAST_INSERT_ID();
@@ -339,7 +355,7 @@ BEGIN
 				record_message, 
 				record_time, 
 				adkats_read
-			)
+			);
 
 			-- Insert the new ban
 			INSERT INTO `adkats_banlist` 
@@ -365,7 +381,7 @@ BEGIN
 				'Y', 
 				'N',
 				'-sync-'
-			)
+			);
 		END LOOP;
 		
 		-- Unlock player data and server
@@ -375,15 +391,6 @@ BEGIN
 		CLOSE old_records;
 	END IF;
 END;
-|
-
-CREATE EVENT ban_status_update 
-	ON SCHEDULE 
-		EVERY 5 MINUTE 
-    COMMENT 'Updates expired bans for sync every 5 minutes.'
-    DO 
-		UDPATE `adkats_banlist` SET `ban_status` = 'Expired', `ban_sync` = '-sync-' WHERE `ban_endTime` < NOW();
-
 |
 
 -- Updates player points when punishments or forgivness logs are added in the record table
