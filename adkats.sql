@@ -4,7 +4,7 @@
 -- If you don't want the plugin changing tables/views in your database, you must run this beforehand.
 
 -- Scheduling is needed for update events
--- SET GLOBAL event_scheduler = ON;
+SET GLOBAL event_scheduler = ON;
 
 DROP TABLE IF EXISTS `adkats_accesslist`;
 DROP TABLE IF EXISTS `adkats_records`;
@@ -123,28 +123,12 @@ DROP FUNCTION IF EXISTS confirm_logger;
 DROP PROCEDURE IF EXISTS import_records;
 DROP PROCEDURE IF EXISTS import_ban_manager_bans;
 DROP EVENT IF EXISTS ban_status_update;
-DROP TRIGGER IF EXISTS adkats_update_point_insert;
-DROP TRIGGER IF EXISTS adkats_update_point_delete;
-
 
 -- Confirms the existence of server tables/records by XpKiller's Stat Logger, a dependancy of AdKats.
-
--- SQL Code breaks here
--- SQL Code breaks here
--- SQL Code breaks here
--- SQL Code breaks here
--- SQL Code breaks here
--- SQL Code breaks here
--- SQL Code breaks here
--- SQL Code breaks here
--- SQL Code breaks here
--- SQL Code breaks here
--- SQL Code breaks here
--- SQL Code breaks here
-
 delimiter |
 CREATE FUNCTION confirm_logger()
-	RETURNS VARCHAR(100)
+	RETURNS VARCHAR(100) 
+	READS SQL DATA 
 	BEGIN
 		DECLARE response VARCHAR(100);
 		SET response = 'OK.';
@@ -196,7 +180,8 @@ CREATE PROCEDURE import_records()
 			FROM 
 				`adkat_records`;
 		DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
-		SET player_id = NULL;
+		SET player_id = -1;
+		SET new_server_id = -1;
 
 		IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'adkats_records' AND column_name = 'server_ip') THEN 
 			-- Open the reader
@@ -223,14 +208,18 @@ CREATE PROCEDURE import_records()
 				END IF;
 				IF(POSITION('A_' in target_guid) > 0) THEN
 					-- Attempt to fetch player ID from tbl_playerdata
-					IF (NOT EXISTS (SELECT `PlayerID` INTO player_id FROM `tbl_playerdata` WHERE `EAGUID` = target_guid)) THEN
+					SELECT `PlayerID` INTO player_id FROM `tbl_playerdata` WHERE `EAGUID` = target_guid;
+					IF (player_id < 0) THEN
 						-- If ID not found, insert the new player
 						INSERT INTO `tbl_playerdata` (`SoldierName`, `EAGUID`) VALUES (target_name, target_guid);
 						SET player_id = LAST_INSERT_ID();
 					END IF;
+				ELSE
+					SET player_id = NULL;
 				END IF;
 				-- Attempt to fetch correct server ID from tbl_server
-				IF NOT EXISTS (SELECT `ServerID` INTO new_server_id FROM `tbl_server` WHERE `IP_Address` = server_ip) THEN
+				SELECT `ServerID` INTO new_server_id FROM `tbl_server` WHERE `IP_Address` = server_ip;
+				IF (new_server_id < 0) THEN
 					-- If ID not found, insert new server
 					INSERT INTO `tbl_server` (`IP_Address`) VALUES (server_ip);
 					SET new_server_id = LAST_INSERT_ID();
@@ -314,7 +303,7 @@ BEGIN
 	IF (EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='bm_banlist')) THEN 
 		
 		-- Open the reader
-		OPEN old_records;
+		OPEN ban_manager_bans;
 		
 		-- Enter the read loop for old records
 		read_loop: LOOP
@@ -345,7 +334,7 @@ BEGIN
 			IF (server_id < 0) THEN
 				-- If ID not found, insert new server
 				INSERT INTO `tbl_server` (`IP_Address`) VALUES (server_ip);
-				SET new_server_id = LAST_INSERT_ID();
+				SET server_id = LAST_INSERT_ID();
 			END IF;
 			
 			-- Insert the new record
@@ -404,10 +393,25 @@ BEGIN
 		END LOOP;
 		
 		-- Close the reader
-		CLOSE old_records;
+		CLOSE ban_manager_bans;
+
 	END IF;
 END;
 |
+
+CREATE EVENT ban_status_update
+	ON SCHEDULE EVERY 5 MINUTE 
+	COMMENT 'Updates expired bans for sync every 5 minutes.' 
+	DO 
+	BEGIN
+		UDPATE 
+			`adkats_banlist` 
+		SET 
+			`ban_status` = 'Expired', 
+			`ban_sync` = '-sync-' 
+		WHERE 
+			`ban_endTime` < NOW();
+	END;
 
 -- Updates player points when punishments or forgivness logs are added in the record table
 CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkats_records`
@@ -418,7 +422,7 @@ CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkats_records`
 		DECLARE player_id INT(11);
 		SET command_type = NEW.command_type;
 		SET server_id = NEW.server_id;
-		SET player_id = NEW.player_id;
+		SET player_id = NEW.target_id;
 
 		IF(command_type = 'Punish') THEN
 			INSERT INTO `adkats_serverPlayerPoints` 
@@ -463,7 +467,7 @@ CREATE TRIGGER adkats_update_point_delete AFTER DELETE ON `adkats_records`
 		DECLARE player_id INT(11);
 		SET command_type = OLD.command_type;
 		SET server_id = OLD.server_id;
-		SET player_id = OLD.player_id;
+		SET player_id = OLD.target_id;
 
 		IF(command_type = 'Punish') THEN
 			INSERT INTO `adkats_serverPlayerPoints` 
