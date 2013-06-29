@@ -6,13 +6,6 @@
 -- Scheduling is needed for update events
 SET GLOBAL event_scheduler = ON;
 
-DROP TABLE IF EXISTS `adkats_accesslist`;
-DROP TABLE IF EXISTS `adkats_records`;
-DROP TABLE IF EXISTS `adkats_serverPlayerPoints`;
-DROP TABLE IF EXISTS `adkats_globalPlayerPoints`;
-DROP TABLE IF EXISTS `adkats_banlist`;
-DROP TABLE IF EXISTS `adkats_settings`;
-
 CREATE TABLE IF NOT EXISTS `adkats_accesslist` ( 
 	`player_name` VARCHAR(20) NOT NULL, 
 	`member_id` INT(11) UNSIGNED NOT NULL DEFAULT 0, 
@@ -404,7 +397,7 @@ CREATE EVENT ban_status_update
 	COMMENT 'Updates expired bans for sync every 5 minutes.' 
 	DO 
 	BEGIN
-		UDPATE 
+		UPDATE 
 			`adkats_banlist` 
 		SET 
 			`ban_status` = 'Expired', 
