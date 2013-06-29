@@ -36,18 +36,18 @@ CREATE TABLE IF NOT EXISTS `adkats_records` (
 	`adkats_web` BOOL NOT NULL DEFAULT 0,
 	PRIMARY KEY (`record_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Records';
-ALTER TABLE `adkats_records` ADD 
-	CONSTRAINT `fk_server_id` 
-		FOREIGN KEY (`server_id`) 
-		REFERENCES `tbl_server`.`ServerID` 
-		ON DELETE CASCADE 
-		ON UPDATE NO ACTION;
-ALTER TABLE `adkats_records` ADD 
-	CONSTRAINT `fk_target_id` 
-		FOREIGN KEY (`target_id`) 
-		REFERENCES `tbl_playerdata`.`PlayerID` 
-		ON DELETE CASCADE 
-		ON UPDATE NO ACTION;
+-- ALTER TABLE `adkats_records` ADD 
+-- 	CONSTRAINT `adkats_records_fk_server_id` 
+-- 		FOREIGN KEY (`server_id`) 
+-- 		REFERENCES tbl_server(ServerID) 
+-- 		ON DELETE CASCADE 
+-- 		ON UPDATE NO ACTION;
+-- ALTER TABLE `adkats_records` ADD 
+-- 	CONSTRAINT `adkats_records_fk_target_id` 
+-- 		FOREIGN KEY (`target_id`) 
+-- 		REFERENCES tbl_playerdata(PlayerID) 
+-- 		ON DELETE CASCADE 
+-- 		ON UPDATE NO ACTION;
 
 CREATE TABLE IF NOT EXISTS `adkats_serverPlayerPoints` (
 	`player_id` INT(11) UNSIGNED NOT NULL, 
@@ -57,6 +57,18 @@ CREATE TABLE IF NOT EXISTS `adkats_serverPlayerPoints` (
 	`total_points` INT(11) NOT NULL, 
 	PRIMARY KEY (`player_id`, `server_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Server Specific Player Points';
+-- ALTER TABLE `adkats_serverPlayerPoints` ADD 
+-- 	CONSTRAINT `adkats_serverPlayerPoints_fk_player_id` 
+-- 		FOREIGN KEY (`player_id`) 
+-- 		REFERENCES tbl_playerdata(PlayerID) 
+-- 		ON DELETE CASCADE 
+-- 		ON UPDATE NO ACTION;
+-- ALTER TABLE `adkats_serverPlayerPoints` ADD 
+-- 	CONSTRAINT `adkats_serverPlayerPoints_fk_server_id` 
+-- 		FOREIGN KEY (`server_id`) 
+-- 		REFERENCES tbl_server(ServerID) 
+-- 		ON DELETE CASCADE 
+-- 		ON UPDATE NO ACTION;
 
 CREATE TABLE IF NOT EXISTS `adkats_globalPlayerPoints` (
 	`player_id` INT(11) UNSIGNED NOT NULL, 
@@ -65,6 +77,12 @@ CREATE TABLE IF NOT EXISTS `adkats_globalPlayerPoints` (
 	`total_points` INT(11) NOT NULL, 
 	PRIMARY KEY (`player_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Global Player Points';
+-- ALTER TABLE `adkats_globalPlayerPoints` ADD 
+-- 	CONSTRAINT `adkats_globalPlayerPoints_fk_player_id` 
+-- 		FOREIGN KEY (`player_id`) 
+-- 		REFERENCES tbl_playerdata(PlayerID) 
+-- 		ON DELETE CASCADE 
+-- 		ON UPDATE NO ACTION;
 
 CREATE TABLE IF NOT EXISTS `adkats_banlist` ( 
 	`ban_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
@@ -81,6 +99,12 @@ CREATE TABLE IF NOT EXISTS `adkats_banlist` (
 	PRIMARY KEY (`ban_id`), 
 	UNIQUE KEY `ban_id_UNIQUE` (`ban_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Ban Enforcer List';
+-- ALTER TABLE `adkats_banlist` ADD 
+-- 	CONSTRAINT `adkats_banlist_fk_record_id` 
+-- 		FOREIGN KEY (`record_id`) 
+-- 		REFERENCES adkats_records(record_id) 
+-- 		ON DELETE CASCADE 
+-- 		ON UPDATE NO ACTION;
 
 CREATE TABLE IF NOT EXISTS `adkats_settings` ( 
 	`server_id` SMALLINT(5) UNSIGNED NOT NULL, 
@@ -88,6 +112,12 @@ CREATE TABLE IF NOT EXISTS `adkats_settings` (
 	`setting_value` VARCHAR(45) NOT NULL DEFAULT "SettingValue", 
 	PRIMARY KEY (`server_id`, `setting_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Setting Sync';
+-- ALTER TABLE `adkats_settings` ADD 
+-- 	CONSTRAINT `adkats_settings_fk_server_id` 
+-- 		FOREIGN KEY (`server_id`) 
+-- 		REFERENCES tbl_server(ServerID) 
+-- 		ON DELETE CASCADE 
+-- 		ON UPDATE NO ACTION;
 
 DROP FUNCTION IF EXISTS confirm_logger;
 DROP PROCEDURE IF EXISTS import_records;
@@ -96,7 +126,6 @@ DROP EVENT IF EXISTS ban_status_update;
 DROP TRIGGER IF EXISTS adkats_update_point_insert;
 DROP TRIGGER IF EXISTS adkats_update_point_delete;
 
-delimiter |
 
 -- Confirms the existence of server tables/records by XpKiller's Stat Logger, a dependancy of AdKats.
 
@@ -113,6 +142,7 @@ delimiter |
 -- SQL Code breaks here
 -- SQL Code breaks here
 
+delimiter |
 CREATE FUNCTION confirm_logger()
 	RETURNS VARCHAR(100)
 	BEGIN
@@ -134,6 +164,21 @@ CREATE FUNCTION confirm_logger()
 CREATE PROCEDURE import_records()
 	BEGIN
 		DECLARE done INT DEFAULT FALSE;
+		-- Create needed variables for imported record
+		DECLARE record_id INT(11);
+		DECLARE server_id INT(11);
+		DECLARE server_ip VARCHAR(45);
+		DECLARE command_type VARCHAR(45);
+		DECLARE command_action VARCHAR(45);
+		DECLARE record_durationMinutes INT(11);
+		DECLARE target_guid VARCHAR(100);
+		DECLARE target_name VARCHAR(45);
+		DECLARE source_name VARCHAR(45);
+		DECLARE record_time TIMESTAMP;
+		DECLARE adkats_read ENUM('Y', 'N');
+		-- Create needed variables for new record
+		DECLARE player_id INT(11);
+		DECLARE new_server_id INT(11);
 		DECLARE old_records CURSOR FOR 
 			SELECT 
 				`record_id`, 
@@ -151,30 +196,11 @@ CREATE PROCEDURE import_records()
 			FROM 
 				`adkat_records`;
 		DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
-		-- Create needed variables for imported record
-		DECLARE record_id INT(11);
-		DECLARE server_id INT(11);
-		DECLARE server_ip VARCHAR(45);
-		DECLARE command_type VARCHAR(45);
-		DECLARE command_action VARCHAR(45);
-		DECLARE record_durationMinutes INT(11);
-		DECLARE target_guid VARCHAR(100);
-		DECLARE target_name VARCHAR(45);
-		DECLARE source_name VARCHAR(45);
-		DECLARE record_time TIMESTAMP;
-		DECLARE adkats_read ENUM('Y', 'N');
-		-- Create needed variables for new record
-		DECLARE record_id INT(11);
-		DECLARE player_id INT(11);
-		DECLARE new_server_id INT(11);
 		SET player_id = NULL;
 
-		IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='adkats_records' AND column_name='server_ip') THEN 
+		IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'adkats_records' AND column_name = 'server_ip') THEN 
 			-- Open the reader
 			OPEN old_records;
-			
-			-- A lot of writes may be happening to playerdata, lock to secure.
-			LOCK TABLES `tbl_playerdata` WRITE, `tbl_server` WRITE;
 			
 			-- Enter the read loop for old records
 			read_loop: LOOP
@@ -211,8 +237,8 @@ CREATE PROCEDURE import_records()
 				END IF;
 				
 				-- Fix an error injected in 2.5.1
-				IF (command_type == "Punish" AND record_durationMinutes > 0) THEN 
-					command_action = "TempBan";
+				IF (command_type = 'Punish' AND record_durationMinutes > 0) THEN 
+					SET command_action = 'TempBan';
 				END IF;
 				
 				-- Insert the new record
@@ -240,11 +266,8 @@ CREATE PROCEDURE import_records()
 					record_message, 
 					record_time, 
 					adkats_read
-				)
+				);
 			END LOOP;
-			
-			-- Unlock player data and server
-			UNLOCK TABLES;
 			
 			-- Close the reader
 			CLOSE old_records;
@@ -256,6 +279,17 @@ CREATE PROCEDURE import_records()
 CREATE PROCEDURE import_ban_manager_bans()
 BEGIN
 	DECLARE done INT DEFAULT FALSE;
+	-- Create all variables for imported ban
+	DECLARE server_ip VARCHAR(45);
+	DECLARE target_name VARCHAR(45);
+	DECLARE target_guid VARCHAR(100);
+	DECLARE ban_reason VARCHAR(100);
+	DECLARE source_name VARCHAR(45);
+	DECLARE ban_duration DATETIME;
+	DECLARE ban_time TIMESTAMP;
+	-- Create needed variables for new record
+	DECLARE player_id INT(11);
+	DECLARE server_id INT(11);
 	DECLARE ban_manager_bans CURSOR FOR 
 	SELECT 
 		`bm_banlist`.`banID` AS `ban_id`, 
@@ -272,19 +306,7 @@ BEGIN
 		`bm_soldiers` ON `bm_banlist`.`soldierID` = `bm_soldiers`.`soldierID` 
 	INNER JOIN 
 		`bm_servergroup` ON `bm_banlist`.`servergroup` = `bm_servergroup`.`servergroup`;
-		
 	DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
-	-- Create all variables for imported ban
-	DECLARE server_ip VARCHAR(45);
-	DECLARE target_name VARCHAR(45);
-	DECLARE target_guid VARCHAR(100);
-	DECLARE ban_reason VARCHAR(100);
-	DECLARE source_name VARCHAR(45);
-	DECLARE ban_duration DATETIME;
-	DECLARE ban_time TIMESTAMP;
-	-- Create needed variables for new record
-	DECLARE player_id INT(11);
-	DECLARE server_id INT(11);
 	SET player_id = -1;
 	SET server_id = -1;
 
@@ -293,9 +315,6 @@ BEGIN
 		
 		-- Open the reader
 		OPEN old_records;
-		
-		-- A lot of writes may be happening to playerdata, lock to secure.
-		LOCK TABLES `tbl_playerdata` WRITE, `tbl_server` WRITE;
 		
 		-- Enter the read loop for old records
 		read_loop: LOOP
@@ -383,9 +402,6 @@ BEGIN
 				'-sync-'
 			);
 		END LOOP;
-		
-		-- Unlock player data and server
-		UNLOCK TABLES;
 		
 		-- Close the reader
 		CLOSE old_records;
