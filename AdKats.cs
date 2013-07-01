@@ -13,8 +13,7 @@
  * 
  * Code Credit:
  * Modded Levenshtein Distance algorithm from Micovery's InsaneLimits
- * Threading Examples from Micovery's InsaneLimits
- * Planned Future Usage:
+ * Threading Examples from Micovery's InsaneLimits 
  * Email System from "Notify Me!" By MorpheusX(AUT)
  * Twitter Post System from Micovery's InsaneLimits
  * 
@@ -295,6 +294,17 @@ namespace PRoConEvents
         private List<string> lstReceiverMail;
         private string strSMTPUser;
         private string strSMTPPassword;
+
+        //Twitter Settings
+        string oauth_token = String.Empty;
+        string oauth_token_secret = String.Empty;
+        public String twitter_PIN_message = "Navigate to Twitter's authorization site to obtain the PIN";
+        public String twitter_consumer_key = "USQmPjXO3BFLDfWyLoAx0g";
+        public String twitter_consumer_secret = "UBpq7ULrfaXe1xLFL4xnAoBFnQ0GVsP2tdJXIRdLbVA";
+        public String twitter_access_token = "475558195-h1DII1daqUjvK1KJ8x5CD9taTIeuDq9JqMgQkGva";
+        public String twitter_access_token_secret = "LvHjwGMQTfE0f59kRBkE1tBjsz4KYhyh6pzS4iCdkxA";
+        public String twitter_user_id = "475558195";
+        public String twitter_screen_name = "AdKats";
 
         //Multi-Threading
 
@@ -2051,6 +2061,8 @@ namespace PRoConEvents
                         //Grab first/next player
                         aPlayer = playerCheckingQueue.Dequeue();
                         this.DebugWrite("BANENF: begin reading player", 5);
+
+                        this.DebugWrite("Checking " + aPlayer.player_name + " Against " + this.AdKat_BanList_Name.Count + " Name Bans. " + this.AdKat_BanList_GUID.Count + " GUID Bans. And " + this.AdKat_BanList_IP.Count + " IP Bans.", 5);
 
                         AdKat_Ban ban = null;
                         if (!String.IsNullOrEmpty(aPlayer.player_name) && ban == null)
@@ -5402,7 +5414,7 @@ namespace PRoConEvents
                                 record.command_action = this.getDBCommand(reader.GetString("command_action"));
                                 record.command_numeric = reader.GetInt32("command_numeric");
                                 record.target_name = reader.GetString("target_name");
-                                if(!reader.IsDBNull(6))
+                                if (!reader.IsDBNull(6))
                                 {
                                     record.target_player = new AdKat_Player();
                                     record.target_player.player_id = reader.GetInt64(6);
@@ -5710,7 +5722,7 @@ namespace PRoConEvents
                             if (String.IsNullOrEmpty(aBan.ban_notes))
                                 aBan.ban_notes = "NoNotes";
                             command.Parameters.AddWithValue("@ban_notes", aBan.ban_notes);
-                            command.Parameters.AddWithValue("@ban_enforceName", aBan.ban_enforceName && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_name) ? ('Y'):('N'));
+                            command.Parameters.AddWithValue("@ban_enforceName", aBan.ban_enforceName && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_name) ? ('Y') : ('N'));
                             command.Parameters.AddWithValue("@ban_enforceGUID", aBan.ban_enforceGUID && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_guid) ? ('Y') : ('N'));
                             command.Parameters.AddWithValue("@ban_enforceIP", aBan.ban_enforceIP && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_ip) ? ('Y') : ('N'));
                             command.Parameters.AddWithValue("@ban_sync", "*" + this.server_id + "*");
@@ -6733,6 +6745,410 @@ namespace PRoConEvents
 
         #endregion
 
+        #region Twitter Functions
+
+        /////////////////////////CODE CREDIT////////////////////////
+        //All below twitter related functions are credited to Micovery's Insane Limits
+        ////////////////////////////////////////////////////////////
+
+        public bool DefaultTweet(String status)
+        {
+            return Tweet
+            (
+                status,
+                twitter_access_token,
+                twitter_access_token_secret,
+                twitter_consumer_key,
+                twitter_consumer_secret,
+                true
+            );
+        }
+
+        public bool Tweet
+            (
+            String status,
+            String access_token,
+            String access_token_secret,
+            String consumer_key,
+            String consumer_secret,
+            bool quiet
+            )
+        {
+            try
+            {
+                if (String.IsNullOrEmpty(status))
+                    throw new TwitterException("Cannot update Twitter status, invalid ^bstatus^n value");
+
+
+                if (String.IsNullOrEmpty(access_token) || String.IsNullOrEmpty(access_token_secret) ||
+                    String.IsNullOrEmpty(consumer_key) || String.IsNullOrEmpty(consumer_secret))
+                    throw new TwitterException("Cannot update Twitter status, looks like you have not run Twitter setup");
+
+                /* Create the Status Update Request */
+                OAuthRequest orequest = TwitterStatusUpdateRequest(status, access_token, access_token_secret, consumer_key, consumer_secret);
+
+                HttpWebResponse oresponse = (HttpWebResponse)orequest.request.GetResponse();
+
+                String protcol = "HTTP/" + oresponse.ProtocolVersion + " " + (int)oresponse.StatusCode;
+
+                if (!oresponse.StatusCode.Equals(HttpStatusCode.OK))
+                    throw new TwitterException("Twitter UpdateStatus Request failed, " + protcol);
+
+                if (oresponse.ContentLength == 0)
+                    throw new TwitterException("Twitter UpdateStatus Request failed, ContentLength=0");
+
+                StreamReader sin = new StreamReader(oresponse.GetResponseStream());
+                String response = sin.ReadToEnd();
+                sin.Close();
+
+                Hashtable data = (Hashtable)JSON.JsonDecode(response);
+
+                if (data == null || !data.ContainsKey("id_str"))
+                    throw new TwitterException("Twitter UpdateStatus Request failed, response missing ^bid^n field");
+
+                String id = (String)(data["id_str"].ToString());
+
+                DebugWrite("Tweet Successful, id=^b" + id + "^n, Status: " + status, 4);
+
+                return true;
+            }
+            catch (TwitterException e)
+            {
+                if (!quiet)
+                    ConsoleException(e.Message);
+            }
+            catch (WebException e)
+            {
+                if (!quiet)
+                    HandleTwitterWebException(e, "UpdateStatus");
+            }
+            catch (Exception e)
+            {
+                this.ConsoleException(e.ToString());
+            }
+
+            return false;
+
+        }
+
+        public void VerifyTwitterPin(String PIN)
+        {
+            try
+            {
+                if (String.IsNullOrEmpty(PIN))
+                {
+                    ConsoleError("Cannot verify Twitter PIN, value(^b" + PIN + "^n) is invalid");
+                    return;
+                }
+
+                DebugWrite("VERIFIER_PIN: " + PIN, 5);
+
+                if (String.IsNullOrEmpty(oauth_token) || String.IsNullOrEmpty(oauth_token_secret))
+                    throw new TwitterException("Cannot verify Twitter PIN, There is no ^boauth_token^n or ^boauth_token_secret^n in memory");
+
+                OAuthRequest orequest = TwitterAccessTokenRequest(PIN, oauth_token, oauth_token_secret);
+
+                HttpWebResponse oresponse = (HttpWebResponse)orequest.request.GetResponse();
+
+                String protcol = "HTTP/" + oresponse.ProtocolVersion + " " + (int)oresponse.StatusCode;
+
+                if (!oresponse.StatusCode.Equals(HttpStatusCode.OK))
+                    throw new TwitterException("Twitter AccessToken Request failed, " + protcol);
+
+                if (oresponse.ContentLength == 0)
+                    throw new TwitterException("Twitter AccessToken Request failed, ContentLength=0");
+
+                StreamReader sin = new StreamReader(oresponse.GetResponseStream());
+                String response = sin.ReadToEnd();
+
+                DebugWrite("ACCESS_TOKEN_RESPONSE: " + response, 5);
+
+                Dictionary<String, String> pairs = ParseQueryString(response);
+
+                /* Sanity check the results */
+                if (pairs.Count == 0)
+                    throw new TwitterException("Twitter AccessToken Request failed, missing fields");
+
+                /* Get the ReuestToken */
+                if (!pairs.ContainsKey("oauth_token"))
+                    throw new TwitterException("Twitter AccessToken Request failed, missing ^boauth_token^n field");
+                oauth_token = pairs["oauth_token"];
+
+                /* Get the RequestTokenSecret */
+                if (!pairs.ContainsKey("oauth_token_secret"))
+                    throw new TwitterException("Twitter AccessToken Request failed, missing ^boauth_token_secret^n field");
+                oauth_token_secret = pairs["oauth_token_secret"];
+
+                /* Get the User-Id  (Optional) */
+                String user_id = String.Empty;
+                if (pairs.ContainsKey("user_id"))
+                    user_id = pairs["user_id"];
+
+                /* Get the Screen-Name (Optional) */
+                String screen_name = String.Empty;
+                if (pairs.ContainsKey("screen_name"))
+                    screen_name = pairs["screen_name"];
+
+                ConsoleWrite("Access token, and secret obtained. Twitter setup is now complete.");
+                if (!String.IsNullOrEmpty(user_id))
+                    ConsoleWrite("Twitter User-Id: ^b" + user_id + "^n");
+                if (!String.IsNullOrEmpty(screen_name))
+                    ConsoleWrite("Twitter Screen-Name: ^b" + screen_name + "^n");
+
+                DebugWrite("access_token=" + oauth_token, 4);
+                DebugWrite("access_token_secret=" + oauth_token_secret, 4);
+
+                this.twitter_access_token = oauth_token;
+                this.twitter_access_token_secret = oauth_token_secret;
+                this.twitter_user_id = user_id;
+                this.twitter_screen_name = screen_name;
+
+            }
+            catch (TwitterException e)
+            {
+                ConsoleException(e.Message);
+                ConsoleWarn("Set the field ^btwitter_setup_account^n to ^bTrue^n to re-initiate the Twitter configuration");
+                return;
+            }
+            catch (WebException e)
+            {
+                HandleTwitterWebException(e, "AccessToken");
+            }
+            catch (Exception e)
+            {
+                this.ConsoleException(e.ToString());
+            }
+        }
+
+        public void SetupTwitter()
+        {
+            try
+            {
+                oauth_token = String.Empty;
+                oauth_token_secret = String.Empty;
+
+                OAuthRequest orequest = TwitterRequestTokenRequest();
+
+                HttpWebResponse oresponse = (HttpWebResponse)orequest.request.GetResponse();
+                String protcol = "HTTP/" + oresponse.ProtocolVersion + " " + (int)oresponse.StatusCode;
+
+                if (!oresponse.StatusCode.Equals(HttpStatusCode.OK))
+                    throw new TwitterException("Twitter RequestToken Request failed, " + protcol);
+
+                if (oresponse.ContentLength == 0)
+                    throw new TwitterException("Twitter RequestToken Request failed, ContentLength=0");
+
+                StreamReader sin = new StreamReader(oresponse.GetResponseStream());
+                String response = sin.ReadToEnd();
+
+                Dictionary<String, String> pairs = ParseQueryString(response);
+
+                if (pairs.Count == 0 || !pairs.ContainsKey("oauth_callback_confirmed"))
+                    throw new TwitterException("Twitter RequestToken Request failed, missing ^boauth_callback_confirmed^n field");
+
+                String oauth_callback_confirmed = pairs["oauth_callback_confirmed"];
+
+                if (!oauth_callback_confirmed.ToLower().Equals("true"))
+                    throw new TwitterException("Twitter RequestToken Request failed, ^boauth_callback_confirmed^n=^b" + oauth_callback_confirmed + "^n");
+
+                /* Get the ReuestToken */
+                if (!pairs.ContainsKey("oauth_token"))
+                    throw new TwitterException("Twitter RequestToken Request failed, missing ^boauth_token^n field");
+                oauth_token = pairs["oauth_token"];
+
+                /* Get the RequestTokenSecret */
+                if (!pairs.ContainsKey("oauth_token_secret"))
+                    throw new TwitterException("Twitter RequestToken Request failed, missing ^boauth_token_secret^n field");
+                oauth_token_secret = pairs["oauth_token_secret"];
+
+
+
+                DebugWrite("REQUEST_TOKEN_RESPONSE: " + response, 5);
+                DebugWrite("oauth_callback_confirmed=" + oauth_callback_confirmed, 4);
+                DebugWrite("oauth_token=" + oauth_token, 4);
+                DebugWrite("oauth_token_secret=" + oauth_token_secret, 4);
+
+                ConsoleWrite("Please visit the following site to obtain the ^btwitter_verifier_pin^n");
+                ConsoleWrite("http://api.twitter.com/oauth/authorize?oauth_token=" + oauth_token);
+
+
+            }
+            catch (TwitterException e)
+            {
+                this.ConsoleException(e.Message);
+                return;
+            }
+            catch (WebException e)
+            {
+                this.HandleTwitterWebException(e, "RequestToken");
+            }
+            catch (Exception e)
+            {
+                this.ConsoleException(e.ToString());
+            }
+
+        }
+
+        public void HandleTwitterWebException(WebException e, String prefix)
+        {
+            HttpWebResponse response = (HttpWebResponse)e.Response;
+            String protcol = (response == null) ? "" : "HTTP/" + response.ProtocolVersion;
+
+            String error = String.Empty;
+            //try reading JSON response
+            if (response != null && response.ContentType != null && response.ContentType.ToLower().Contains("json"))
+            {
+                try
+                {
+                    StreamReader sin = new StreamReader(response.GetResponseStream());
+                    String data = sin.ReadToEnd();
+                    sin.Close();
+
+                    Hashtable jdata = (Hashtable)JSON.JsonDecode(data);
+                    if (jdata == null || !jdata.ContainsKey("error") ||
+                        jdata["error"] == null || !jdata["error"].GetType().Equals(typeof(String)))
+                        throw new Exception();
+
+                    error = "Twitter Error: " + (String)jdata["error"] + ", ";
+                }
+                catch (Exception ex)
+                {
+                }
+            }
+
+            /* Handle Time-Out Gracefully */
+            if (e.Status.Equals(WebExceptionStatus.Timeout))
+            {
+                ConsoleException("Twitter " + prefix + " Request(" + protcol + ") timed-out");
+                return;
+            }
+            else if (e.Status.Equals(WebExceptionStatus.ProtocolError))
+            {
+                ConsoleException("Twitter " + prefix + " Request(" + protcol + ") failed, " + error + " " + e.GetType() + ": " + e.Message);
+                return;
+            }
+            else
+                throw e;
+        }
+
+        public Dictionary<String, String> ParseQueryString(String text)
+        {
+            MatchCollection matches = Regex.Matches(text, @"([^=]+)=([^&]+)&?", RegexOptions.IgnoreCase);
+
+            Dictionary<String, String> pairs = new Dictionary<string, string>();
+
+            foreach (Match match in matches)
+                if (match.Success && !pairs.ContainsKey(match.Groups[1].Value))
+                    pairs.Add(match.Groups[1].Value, match.Groups[2].Value);
+
+            return pairs;
+        }
+
+        public static int MAX_STATUS_LENGTH = 140;
+        public OAuthRequest TwitterStatusUpdateRequest(
+            String status,
+            String access_token,
+            String access_token_secret,
+            String consumer_key,
+            String consumer_secret)
+        {
+            System.Net.ServicePointManager.Expect100Continue = false;
+
+            if (String.IsNullOrEmpty(status))
+                return null;
+
+            String suffix = "...";
+            if (status.Length > MAX_STATUS_LENGTH)
+                status = status.Substring(0, MAX_STATUS_LENGTH - suffix.Length) + suffix;
+
+            OAuthRequest orequest = new OAuthRequest(this, "http://api.twitter.com/1/statuses/update.json");
+            orequest.Method = HTTPMethod.POST;
+            orequest.request.ContentType = "application/x-www-form-urlencoded";
+
+            /* Set the Post Data */
+
+            byte[] data = Encoding.UTF8.GetBytes("status=" + OAuthRequest.UrlEncode(Encoding.UTF8.GetBytes(status)));
+
+            // Parameters required by the Twitter OAuth Protocol
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_consumer_key", consumer_key));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_nonce", Guid.NewGuid().ToString("N")));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_signature_method", "HMAC-SHA1"));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_token", access_token));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_timestamp", ((long)DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1)).TotalSeconds).ToString()));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_version", "1.0"));
+            orequest.parameters.Add(new KeyValuePair<string, string>("status", OAuthRequest.UrlEncode(Encoding.UTF8.GetBytes(status))));
+
+            // Compute and add the signature
+            String signature = orequest.Signature(consumer_secret, access_token_secret);
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_signature", OAuthRequest.UrlEncode(signature)));
+
+            // Add the OAuth authentication header
+            String OAuthHeader = orequest.Header();
+            orequest.request.AuthenticationLevel = System.Net.Security.AuthenticationLevel.MutualAuthRequired;
+            orequest.request.Headers["Authorization"] = OAuthHeader;
+
+            // Add the POST body
+            orequest.request.ContentLength = data.Length;
+            Stream sout = orequest.request.GetRequestStream();
+            sout.Write(data, 0, data.Length);
+            sout.Close();
+
+            return orequest;
+        }
+
+        public OAuthRequest TwitterAccessTokenRequest(String verifier, String token, String secret)
+        {
+            OAuthRequest orequest = new OAuthRequest(this, "http://api.twitter.com/oauth/access_token");
+            orequest.Method = HTTPMethod.POST;
+            orequest.request.ContentLength = 0;
+
+            // Parameters required by the Twitter OAuth Protocol
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_consumer_key", twitter_consumer_key));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_nonce", Guid.NewGuid().ToString("N")));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_timestamp", ((long)DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1)).TotalSeconds).ToString()));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_signature_method", "HMAC-SHA1"));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_version", "1.0"));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_token", token));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_verifier", verifier));
+
+            // Compute and add the signature
+            String signature = orequest.Signature(twitter_consumer_secret, secret);
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_signature", OAuthRequest.UrlEncode(signature)));
+
+            // Add the OAuth authentication header
+            String OAuthHeader = orequest.Header();
+            orequest.request.AuthenticationLevel = System.Net.Security.AuthenticationLevel.MutualAuthRequired;
+            orequest.request.Headers["Authorization"] = OAuthHeader;
+            return orequest;
+        }
+
+        public OAuthRequest TwitterRequestTokenRequest()
+        {
+            OAuthRequest orequest = new OAuthRequest(this, "http://api.twitter.com/oauth/request_token");
+            orequest.Method = HTTPMethod.POST;
+            orequest.request.ContentLength = 0;
+
+            // Parameters required by the Twitter OAuth Protocol
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_callback", OAuthRequest.UrlEncode("oob")));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_consumer_key", twitter_consumer_key));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_nonce", Guid.NewGuid().ToString("N")));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_timestamp", ((long)DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1)).TotalSeconds).ToString()));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_signature_method", "HMAC-SHA1"));
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_version", "1.0"));
+
+            // Compute and add the signature
+            String signature = orequest.Signature(twitter_consumer_secret, null);
+            orequest.parameters.Add(new KeyValuePair<string, string>("oauth_signature", OAuthRequest.UrlEncode(signature)));
+
+            // Add the OAuth authentication header
+            String OAuthHeader = orequest.Header();
+            orequest.request.AuthenticationLevel = System.Net.Security.AuthenticationLevel.MutualAuthRequired;
+            orequest.request.Headers["Authorization"] = OAuthHeader;
+
+            return orequest;
+        }
+        #endregion
+
         #region Helper Methods and Classes
 
         public bool isStatLoggerEnabled()
@@ -6843,6 +7259,13 @@ namespace PRoConEvents
             thread.Join();
         }
 
+        public class TwitterException : Exception
+        {
+            public int code = 0;
+            public TwitterException(String message) : base(message) { }
+            public TwitterException(String message, int code) : base(message) { this.code = code; }
+        }
+
         public class AdKat_Access
         {
             //No reference to player table made here, plain string name access
@@ -6910,6 +7333,156 @@ namespace PRoConEvents
 
             public AdKat_Ban()
             {
+            }
+        }
+
+        public enum HTTPMethod
+        {
+            POST = 0x01,
+            GET = 0x02,
+            PUT = 0x04
+        };
+
+        public class OAuthRequest
+        {
+            private AdKats plugin = null;
+            public HttpWebRequest request = null;
+            HMACSHA1 SHA1 = null;
+            public List<KeyValuePair<String, String>> parameters = new List<KeyValuePair<string, string>>();
+            public HTTPMethod Method { set { request.Method = value.ToString(); } get { return (HTTPMethod)Enum.Parse(typeof(HTTPMethod), request.Method); } }
+
+            public OAuthRequest(AdKats plugin, String URL)
+            {
+                this.plugin = plugin;
+                this.request = (HttpWebRequest)HttpWebRequest.Create(URL);
+                this.request.UserAgent = "Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US; rv:1.9.1.3) Gecko/20090824 Firefox/3.5.3 (.NET CLR 4.0.20506)";
+            }
+
+            public void Sort()
+            {
+                // sort the query parameters
+                parameters.Sort(delegate(KeyValuePair<String, String> left, KeyValuePair<String, String> right)
+                {
+                    if (left.Key.Equals(right.Key))
+                        return left.Value.CompareTo(right.Value);
+                    else
+                        return left.Key.CompareTo(right.Key);
+                });
+            }
+
+            public String Header()
+            {
+                String header = "OAuth ";
+                List<String> pairs = new List<string>();
+
+                Sort();
+
+                for (int i = 0; i < parameters.Count; i++)
+                {
+
+                    KeyValuePair<String, String> pair = parameters[i];
+                    if (pair.Key.Equals("status"))
+                        continue;
+
+                    pairs.Add(pair.Key + "=\"" + pair.Value + "\"");
+                }
+
+                header += String.Join(", ", pairs.ToArray());
+
+                plugin.DebugWrite("OAUTH_HEADER: " + header, 7);
+
+                return header;
+            }
+
+            public String Signature(String ConsumerSecret, String AccessTokenSecret)
+            {
+                String base_url = request.Address.Scheme + "://" + request.Address.Host + request.Address.AbsolutePath;
+                String encoded_base_url = UrlEncode(base_url);
+
+                String http_method = request.Method;
+
+                Sort();
+
+                List<String> encoded_parameters = new List<string>();
+                List<String> raw_parameters = new List<string>();
+
+                // encode and concatenate the query parameters
+                for (int i = 0; i < parameters.Count; i++)
+                {
+                    KeyValuePair<String, String> pair = parameters[i];
+
+                    // ignore signature if present
+                    if (pair.Key.Equals("oauth_signature"))
+                        continue;
+
+                    raw_parameters.Add(pair.Key + "=" + pair.Value);
+                    encoded_parameters.Add(UrlEncode(pair.Key) + "%3D" + UrlEncode(pair.Value));
+                }
+
+                String encoded_query = String.Join("%26", encoded_parameters.ToArray());
+                String raw_query = String.Join("&", raw_parameters.ToArray());
+
+                plugin.DebugWrite("HTTP_METHOD: " + http_method, 8);
+                plugin.DebugWrite("BASE_URI: " + base_url, 8);
+                plugin.DebugWrite("ENCODED_BASE_URI: " + encoded_base_url, 8);
+                //plugin.DebugWrite("RAW_QUERY: " + raw_query, 8);
+                //plugin.DebugWrite("ENCODED_QUERY: " + encoded_query, 8);
+
+                String base_signature = http_method + "&" + encoded_base_url + "&" + encoded_query;
+
+                plugin.DebugWrite("BASE_SIGNATURE: " + base_signature, 7);
+
+
+                String HMACSHA1_signature = HMACSHA1_HASH(base_signature, ConsumerSecret, AccessTokenSecret);
+
+                plugin.DebugWrite("HMACSHA1_SIGNATURE: " + HMACSHA1_signature, 7);
+
+                return HMACSHA1_signature;
+            }
+
+            public String HMACSHA1_HASH(String text, String ConsumerSecret, String AccessTokenSecret)
+            {
+                if (SHA1 == null)
+                {
+                    /* Initialize the SHA1 */
+                    String HMACSHA1_KEY = String.IsNullOrEmpty(ConsumerSecret) ? "" : UrlEncode(ConsumerSecret) + "&" + (String.IsNullOrEmpty(AccessTokenSecret) ? "" : UrlEncode(AccessTokenSecret));
+                    plugin.DebugWrite("HMACSHA1_KEY: " + HMACSHA1_KEY, 7);
+                    SHA1 = new HMACSHA1(Encoding.ASCII.GetBytes(HMACSHA1_KEY));
+                }
+
+                return Convert.ToBase64String(SHA1.ComputeHash(System.Text.Encoding.ASCII.GetBytes(text)));
+            }
+
+            public static String UnreservedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~";
+
+            public static String UrlEncode(string Input)
+            {
+                StringBuilder Result = new StringBuilder();
+
+                for (int x = 0; x < Input.Length; ++x)
+                {
+                    if (UnreservedChars.IndexOf(Input[x]) != -1)
+                        Result.Append(Input[x]);
+                    else
+                        Result.Append("%").Append(String.Format("{0:X2}", (int)Input[x]));
+                }
+
+                return Result.ToString();
+            }
+
+            public static String UrlEncode(byte[] Input)
+            {
+                StringBuilder Result = new StringBuilder();
+
+                for (int x = 0; x < Input.Length; ++x)
+                {
+                    if (UnreservedChars.IndexOf((char)Input[x]) != -1)
+                        Result.Append((char)Input[x]);
+                    else
+                        Result.Append("%").Append(String.Format("{0:X2}", (int)Input[x]));
+                }
+
+                return Result.ToString();
             }
         }
 
