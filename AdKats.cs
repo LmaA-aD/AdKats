@@ -296,6 +296,7 @@ namespace PRoConEvents
         private string strSMTPPassword;
 
         //Twitter Settings
+        Boolean tweetedPluginEnable = false;
         string oauth_token = String.Empty;
         string oauth_token_secret = String.Empty;
         public String twitter_PIN_message = "Navigate to Twitter's authorization site to obtain the PIN";
@@ -1878,15 +1879,24 @@ namespace PRoConEvents
 
         public override void OnServerInfo(CServerInfo serverInfo)
         {
-            //Get the team scores
-            this.setServerInfo(serverInfo);
-            List<TeamScore> listCurrTeamScore = serverInfo.TeamScores;
-            int iTeam0Score = listCurrTeamScore[0].Score;
-            int iTeam1Score = listCurrTeamScore[1].Score;
-            this.lowestTicketCount = (iTeam0Score < iTeam1Score) ? (iTeam0Score) : (iTeam1Score);
-            this.highestTicketCount = (iTeam0Score > iTeam1Score) ? (iTeam0Score) : (iTeam1Score);
+            if (this.isEnabled)
+            {
+                //Get the team scores
+                this.setServerInfo(serverInfo);
+                List<TeamScore> listCurrTeamScore = serverInfo.TeamScores;
+                int iTeam0Score = listCurrTeamScore[0].Score;
+                int iTeam1Score = listCurrTeamScore[1].Score;
+                this.lowestTicketCount = (iTeam0Score < iTeam1Score) ? (iTeam0Score) : (iTeam1Score);
+                this.highestTicketCount = (iTeam0Score > iTeam1Score) ? (iTeam0Score) : (iTeam1Score);
 
-            this.serverInfoHandle.Set();
+                this.serverInfoHandle.Set();
+
+                if (!this.tweetedPluginEnable)
+                {
+                    string tweet = "Server '" + serverInfo.ServerName + "' [" + serverInfo.ServerRegion + "] has ENABLED Adkats " + this.GetPluginVersion() + "!";
+                    this.DefaultTweet(tweet);
+                }
+            }
         }
 
         public override void OnPunkbusterPlayerInfo(CPunkbusterInfo cPunkbusterInfo)
@@ -6526,6 +6536,8 @@ namespace PRoConEvents
 
         #endregion
 
+        #endregion
+
         #region HTTP Server Handling
 
         public override HttpWebServerResponseData OnHttpRequest(HttpWebServerRequestData data)
@@ -6629,37 +6641,6 @@ namespace PRoConEvents
             }
             return new HttpWebServerResponseData(responseString);
         }
-
-        #endregion
-
-        #region encoding and hash gen
-
-        public static string GetRandom64BitHashCode()
-        {
-            string randomString = "";
-            Random random = new Random();
-
-            for (int i = 0; i < 32; i++)
-            {
-                randomString += Convert.ToChar(Convert.ToInt32(Math.Floor(91 * random.NextDouble()))).ToString(); ;
-            }
-
-            return Encode(randomString);
-        }
-
-        public static string Encode(string str)
-        {
-            byte[] encbuff = System.Text.Encoding.UTF8.GetBytes(str);
-            return Convert.ToBase64String(encbuff);
-        }
-
-        public static string Decode(string str)
-        {
-            byte[] decbuff = Convert.FromBase64String(str.Replace(" ", "+"));
-            return System.Text.Encoding.UTF8.GetString(decbuff);
-        }
-
-        #endregion
 
         #endregion
 
@@ -6955,13 +6936,11 @@ namespace PRoConEvents
                 if (!pairs.ContainsKey("oauth_token"))
                     throw new TwitterException("Twitter RequestToken Request failed, missing ^boauth_token^n field");
                 oauth_token = pairs["oauth_token"];
-
+                    
                 /* Get the RequestTokenSecret */
                 if (!pairs.ContainsKey("oauth_token_secret"))
                     throw new TwitterException("Twitter RequestToken Request failed, missing ^boauth_token_secret^n field");
                 oauth_token_secret = pairs["oauth_token_secret"];
-
-
 
                 DebugWrite("REQUEST_TOKEN_RESPONSE: " + response, 5);
                 DebugWrite("oauth_callback_confirmed=" + oauth_callback_confirmed, 4);
@@ -6970,8 +6949,6 @@ namespace PRoConEvents
 
                 ConsoleWrite("Please visit the following site to obtain the ^btwitter_verifier_pin^n");
                 ConsoleWrite("http://api.twitter.com/oauth/authorize?oauth_token=" + oauth_token);
-
-
             }
             catch (TwitterException e)
             {
@@ -7162,6 +7139,31 @@ namespace PRoConEvents
                 }
             }
             return false;
+        }
+
+        public static string GetRandom64BitHashCode()
+        {
+            string randomString = "";
+            Random random = new Random();
+
+            for (int i = 0; i < 32; i++)
+            {
+                randomString += Convert.ToChar(Convert.ToInt32(Math.Floor(91 * random.NextDouble()))).ToString(); ;
+            }
+
+            return Encode(randomString);
+        }
+
+        public static string Encode(string str)
+        {
+            byte[] encbuff = System.Text.Encoding.UTF8.GetBytes(str);
+            return Convert.ToBase64String(encbuff);
+        }
+
+        public static string Decode(string str)
+        {
+            byte[] decbuff = Convert.FromBase64String(str.Replace(" ", "+"));
+            return System.Text.Encoding.UTF8.GetString(decbuff);
         }
 
         public static string EncodeStringArray(string[] a_strValue)
