@@ -59,7 +59,7 @@ namespace PRoConEvents
     {
         #region Variables
 
-        string plugin_version = "0.2.7.0";
+        string plugin_version = "0.3.0.0";
 
         //Enumerations
         //Messaging
