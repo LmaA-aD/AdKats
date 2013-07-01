@@ -79,7 +79,8 @@ CREATE TABLE IF NOT EXISTS `adkats_globalPlayerPoints` (
 
 CREATE TABLE IF NOT EXISTS `adkats_banlist` ( 
 	`ban_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
-	`record_id` INT(11) UNSIGNED NOT NULL, 
+	`player_id` INT(11) UNSIGNED NOT NULL, 
+	`latest_record_id` INT(11) UNSIGNED NOT NULL, 
 	`ban_reason` VARCHAR(100) NOT NULL DEFAULT 'NoReason', 
 	`ban_notes` VARCHAR(150) NOT NULL DEFAULT 'NoNotes', 
 	`ban_status` enum('Active', 'Expired', 'Disabled') NOT NULL DEFAULT 'Active',
@@ -90,11 +91,17 @@ CREATE TABLE IF NOT EXISTS `adkats_banlist` (
 	`ban_enforceIP` ENUM('Y', 'N') NOT NULL DEFAULT 'N', 
 	`ban_sync` VARCHAR(100) NOT NULL DEFAULT "-sync-", 
 	PRIMARY KEY (`ban_id`), 
-	UNIQUE KEY `ban_id_UNIQUE` (`ban_id`)
+	UNIQUE KEY `player_id_UNIQUE` (`player_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Ban Enforcer List';
 -- ALTER TABLE `adkats_banlist` ADD 
--- 	CONSTRAINT `adkats_banlist_fk_record_id` 
--- 		FOREIGN KEY (`record_id`) 
+-- 	CONSTRAINT `adkats_banlist_fk_player_id` 
+-- 		FOREIGN KEY (`player_id`) 
+-- 		REFERENCES tbl_playerdata(PlayerID) 
+-- 		ON DELETE CASCADE 
+-- 		ON UPDATE NO ACTION;
+-- ALTER TABLE `adkats_banlist` ADD 
+-- 	CONSTRAINT `adkats_banlist_fk_latest_record_id` 
+-- 		FOREIGN KEY (`latest_record_id`) 
 -- 		REFERENCES adkats_records(record_id) 
 -- 		ON DELETE CASCADE 
 -- 		ON UPDATE NO ACTION;
