@@ -1835,6 +1835,7 @@ namespace PRoConEvents
         {
             if (isEnabled)
             {
+                this.DebugWrite("Listing Players", 5);
                 //Player list and ban list need to be locked for this operation
                 lock (playersMutex)
                 {
@@ -1856,10 +1857,10 @@ namespace PRoConEvents
 
                             //In case of quick name-change, update their IGN
                             aPlayer.player_name = player.SoldierName;
-
-                            //Check with ban enforcer
-                            this.queuePlayerForBanCheck(aPlayer);
                         }
+
+                        //Check with ban enforcer
+                        this.queuePlayerForBanCheck(aPlayer);
 
                         if (player.TeamID == USTeamID)
                         {
@@ -2096,6 +2097,7 @@ namespace PRoConEvents
                             record.source_name = "BanEnforcer";
                             record.isIRO = false;
                             record.server_id = this.server_id;
+                            record.target_name = ban.ban_record.target_player.player_name;
                             record.target_player = ban.ban_record.target_player;
                             record.command_source = AdKat_CommandSource.InGame;
                             record.command_type = AdKat_CommandType.KickPlayer;
@@ -2150,6 +2152,10 @@ namespace PRoConEvents
                 record.source_name = "BanEnforcer";
                 record.server_id = this.server_id;
                 record.target_player = this.fetchPlayer(-1, cBan.SoldierName, cBan.Guid, cBan.IpAddress, null);
+                if (!String.IsNullOrEmpty(record.target_player.player_name))
+                {
+                    record.target_name = record.target_player.player_name;
+                }
                 record.isIRO = false;
                 record.record_message = cBan.Reason;
 
@@ -2334,6 +2340,7 @@ namespace PRoConEvents
                                     record.server_id = this.server_id;
                                     record.source_name = "PlayerMuteSystem";
                                     record.target_player = this.playerDictionary[speaker];
+                                    record.target_name = record.target_player.player_name;
                                     if (this.round_mutedPlayers[speaker] > this.mutedPlayerChances)
                                     {
                                         record.record_message = this.mutedPlayerKickMessage;
@@ -3748,6 +3755,7 @@ namespace PRoConEvents
                     {
                         //Exact player match, call processing without confirmation
                         record.target_player = this.playerDictionary[record.target_name];
+                        record.source_name = record.target_player.player_name;
                         if (!requireConfirm)
                         {
                             //Process record right away
@@ -3777,6 +3785,7 @@ namespace PRoConEvents
                     {
                         //Only one substring match, call processing without confirmation if able
                         record.target_player = substringMatches[0];
+                        record.source_name = record.target_player.player_name;
                         if (!requireConfirm)
                         {
                             //Process record right away
@@ -3831,8 +3840,8 @@ namespace PRoConEvents
                         this.sendMessageToSource(record, msg);
 
                         //Use suggestion for target
-                        record.target_name = suggestion.player_name;
                         record.target_player = suggestion;
+                        record.target_name = suggestion.player_name;
                         //Send record to attempt list for confirmation
                         return this.confirmActionWithSource(record);
                     }
@@ -5445,6 +5454,7 @@ namespace PRoConEvents
                         if (success && record.target_player != null)
                         {
                             record.target_player = this.fetchPlayer(record.target_player.player_id, null, null, null, connection);
+                            record.target_name = record.target_player.player_name;
                         }
                     }
                 }
@@ -5510,6 +5520,7 @@ namespace PRoConEvents
                                 if (target_id_parse != null)
                                 {
                                     record.target_player = this.fetchPlayer((Int32)target_id_parse, null, null, null, connection);
+                                    record.target_name = record.target_player.player_name;
                                 }
                                 record.source_name = reader.GetString("source_name");
                                 record.record_message = reader.GetString("record_message");
@@ -5993,17 +6004,17 @@ namespace PRoConEvents
                                 ban.ban_startTime = reader.GetDateTime("ban_startTime");
                                 ban.ban_endTime = reader.GetDateTime("ban_endTime");
 
-                                if (reader.GetString("ban_enforceName").Equals('Y'))
+                                if (reader.GetString("ban_enforceName").Equals("Y"))
                                     ban.ban_enforceName = true;
                                 else
                                     ban.ban_enforceName = false;
-
-                                if (reader.GetString("ban_enforceGUID").Equals('Y'))
+                                
+                                if (reader.GetString("ban_enforceGUID").Equals("Y"))
                                     ban.ban_enforceGUID = true;
                                 else
                                     ban.ban_enforceGUID = false;
 
-                                if (reader.GetString("ban_enforceIP").Equals('Y'))
+                                if (reader.GetString("ban_enforceIP").Equals("Y"))
                                     ban.ban_enforceIP = true;
                                 else
                                     ban.ban_enforceIP = false;
@@ -6026,12 +6037,6 @@ namespace PRoConEvents
                             this.updateBanLists(aBan, connection);
                         }
 
-                        //Debug Info
-                        foreach (string nameBans in this.AdKat_BanList_Name.Keys)
-                        {
-                            this.DebugWrite("Name Enforce List: " + nameBans, 6);
-                        }
-
                         //Call enforcer thread to enforce new bans
                         this.banEnforcerHandle.Set();
 
@@ -6048,98 +6053,111 @@ namespace PRoConEvents
 
         private void updateBanLists(AdKat_Ban aBan, MySqlConnection connection)
         {
-            this.DebugWrite("Updating Ban " + aBan.ban_id, 5);
-            lock (this.banEnforcerMutex)
+            try
             {
-                //If disabled, remove from the cached ban lists
-                if (aBan.ban_status == "Expired" || aBan.ban_status == "Disabled")
+                this.DebugWrite("Updating Ban " + aBan.ban_id, 5);
+                lock (this.banEnforcerMutex)
                 {
-                    this.DebugWrite("Ban " + aBan.ban_id + " removed.", 5);
-                    if (aBan.ban_record.target_player.player_name != null)
+                    //If disabled, remove from the cached ban lists
+                    if (aBan.ban_status == "Expired" || aBan.ban_status == "Disabled")
                     {
-                        this.AdKat_BanList_Name.Remove(aBan.ban_record.target_player.player_name);
+                        this.DebugWrite("Ban " + aBan.ban_id + " removed.", 5);
+                        if (aBan.ban_record.target_player.player_name != null)
+                        {
+                            this.AdKat_BanList_Name.Remove(aBan.ban_record.target_player.player_name);
+                        }
+                        if (aBan.ban_record.target_player.player_guid != null)
+                        {
+                            this.AdKat_BanList_GUID.Remove(aBan.ban_record.target_player.player_guid);
+                        }
+                        if (aBan.ban_record.target_player.player_ip != null)
+                        {
+                            this.AdKat_BanList_IP.Remove(aBan.ban_record.target_player.player_ip);
+                        }
                     }
-                    if (aBan.ban_record.target_player.player_guid != null)
+                    else
                     {
-                        this.AdKat_BanList_GUID.Remove(aBan.ban_record.target_player.player_guid);
-                    }
-                    if (aBan.ban_record.target_player.player_ip != null)
-                    {
-                        this.AdKat_BanList_IP.Remove(aBan.ban_record.target_player.player_ip);
+                        this.DebugWrite("Attempting to enforce ban.", 5);
+                        this.DebugWrite("Enforcing Name: " + aBan.ban_enforceName + " GUID: " + aBan.ban_enforceGUID + " IP: " + aBan.ban_enforceIP, 5);
+
+                        if (aBan.ban_enforceName && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_name))
+                        {
+                            this.DebugWrite("Ban " + aBan.ban_id + " NAME Enforced.", 5);
+                            //Update the name ban list
+                            if (this.AdKat_BanList_Name.ContainsKey(aBan.ban_record.target_player.player_name))
+                            {
+                                this.AdKat_BanList_Name[aBan.ban_record.target_player.player_name] = aBan;
+                            }
+                            else
+                            {
+                                this.AdKat_BanList_Name.Add(aBan.ban_record.target_player.player_name, aBan);
+                            }
+                        }
+                        else if (!aBan.ban_enforceName && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_name))
+                        {
+                            this.DebugWrite("Ban " + aBan.ban_id + " NAME Cleaned.", 5);
+                            this.AdKat_BanList_Name.Remove(aBan.ban_record.target_player.player_name);
+                        }
+                        else if (aBan.ban_enforceName)
+                        {
+                            this.ConsoleError("Attempted to enforce NAME ban on player with no stored name");
+                        }
+
+                        if (aBan.ban_enforceGUID && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_guid))
+                        {
+                            this.DebugWrite("Ban " + aBan.ban_id + " GUID Enforced.", 5);
+                            //Update the guid ban list
+                            if (this.AdKat_BanList_GUID.ContainsKey(aBan.ban_record.target_player.player_guid))
+                            {
+                                this.AdKat_BanList_GUID[aBan.ban_record.target_player.player_guid] = aBan;
+                            }
+                            else
+                            {
+                                this.AdKat_BanList_GUID.Add(aBan.ban_record.target_player.player_guid, aBan);
+                            }
+                        }
+                        else if (!aBan.ban_enforceGUID && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_guid))
+                        {
+                            this.DebugWrite("Ban " + aBan.ban_id + " GUID Cleaned.", 5);
+                            this.AdKat_BanList_GUID.Remove(aBan.ban_record.target_player.player_guid);
+                        }
+                        else if (aBan.ban_enforceGUID)
+                        {
+                            this.ConsoleError("Attempted to enforce GUID ban on player with no stored GUID");
+                        }
+
+                        if (aBan.ban_enforceIP && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_ip))
+                        {
+                            this.DebugWrite("Ban " + aBan.ban_id + " IP Enforced.", 5);
+                            //Update the guid ban list
+                            if (this.AdKat_BanList_IP.ContainsKey(aBan.ban_record.target_player.player_ip))
+                            {
+                                this.AdKat_BanList_IP[aBan.ban_record.target_player.player_ip] = aBan;
+                            }
+                            else
+                            {
+                                this.AdKat_BanList_IP.Add(aBan.ban_record.target_player.player_ip, aBan);
+                            }
+                        }
+                        else if (!aBan.ban_enforceIP && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_ip))
+                        {
+                            this.DebugWrite("Ban " + aBan.ban_id + " IP Cleaned.", 5);
+                            this.AdKat_BanList_IP.Remove(aBan.ban_record.target_player.player_ip);
+                        }
+                        else if (aBan.ban_enforceIP)
+                        {
+                            this.ConsoleError("Attempted to enforce IP ban on player with no stored IP");
+                        }
                     }
                 }
-                else
-                {
-                    if (aBan.ban_enforceName && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_name))
-                    {
-                        this.DebugWrite("Ban " + aBan.ban_id + " NAME Enforced.", 5);
-                        //Update the name ban list
-                        if (this.AdKat_BanList_Name.ContainsKey(aBan.ban_record.target_player.player_name))
-                        {
-                            this.AdKat_BanList_Name[aBan.ban_record.target_player.player_name] = aBan;
-                        }
-                        else
-                        {
-                            this.AdKat_BanList_Name.Add(aBan.ban_record.target_player.player_name, aBan);
-                        }
-                    }
-                    else if (!aBan.ban_enforceName && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_name))
-                    {
-                        this.AdKat_BanList_Name.Remove(aBan.ban_record.target_player.player_name);
-                    }
-                    else if (aBan.ban_enforceName)
-                    {
-                        this.ConsoleError("Attempted to enforce NAME ban on player with no stored name");
-                    }
 
-                    if (aBan.ban_enforceGUID && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_guid))
-                    {
-                        this.DebugWrite("Ban " + aBan.ban_id + " GUID Enforced.", 5);
-                        //Update the guid ban list
-                        if (this.AdKat_BanList_GUID.ContainsKey(aBan.ban_record.target_player.player_guid))
-                        {
-                            this.AdKat_BanList_GUID[aBan.ban_record.target_player.player_guid] = aBan;
-                        }
-                        else
-                        {
-                            this.AdKat_BanList_GUID.Add(aBan.ban_record.target_player.player_guid, aBan);
-                        }
-                    }
-                    else if (!aBan.ban_enforceGUID && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_guid))
-                    {
-                        this.AdKat_BanList_GUID.Remove(aBan.ban_record.target_player.player_guid);
-                    }
-                    else if (aBan.ban_enforceGUID)
-                    {
-                        this.ConsoleError("Attempted to enforce GUID ban on player with no stored GUID");
-                    }
-
-                    if (aBan.ban_enforceIP && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_ip))
-                    {
-                        this.DebugWrite("Ban " + aBan.ban_id + " IP Enforced.", 5);
-                        //Update the guid ban list
-                        if (this.AdKat_BanList_IP.ContainsKey(aBan.ban_record.target_player.player_ip))
-                        {
-                            this.AdKat_BanList_IP[aBan.ban_record.target_player.player_ip] = aBan;
-                        }
-                        else
-                        {
-                            this.AdKat_BanList_IP.Add(aBan.ban_record.target_player.player_ip, aBan);
-                        }
-                    }
-                    else if (!aBan.ban_enforceIP && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_ip))
-                    {
-                        this.AdKat_BanList_IP.Remove(aBan.ban_record.target_player.player_ip);
-                    }
-                    else if (aBan.ban_enforceIP)
-                    {
-                        this.ConsoleError("Attempted to enforce IP ban on player with no stored IP");
-                    }
-                }
+                //Update the sync for this ban
+                this.updateBanSync(aBan, connection);
             }
-
-            //Update the sync for this ban
-            this.updateBanSync(aBan, connection);
+            catch (Exception e)
+            {
+                this.ConsoleException(e.ToString());
+            }
         }
 
         //DONE
@@ -6936,7 +6954,7 @@ namespace PRoConEvents
                 if (!pairs.ContainsKey("oauth_token"))
                     throw new TwitterException("Twitter RequestToken Request failed, missing ^boauth_token^n field");
                 oauth_token = pairs["oauth_token"];
-                    
+
                 /* Get the RequestTokenSecret */
                 if (!pairs.ContainsKey("oauth_token_secret"))
                     throw new TwitterException("Twitter RequestToken Request failed, missing ^boauth_token_secret^n field");
