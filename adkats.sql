@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS `adkats_banlist` (
 CREATE TABLE IF NOT EXISTS `adkats_settings` ( 
 	`server_id` SMALLINT(5) UNSIGNED NOT NULL, 
 	`setting_name` VARCHAR(45) NOT NULL DEFAULT "SettingName", 
+	`setting_type` VARCHAR(45) NOT NULL DEFAULT "SettingType", 
 	`setting_value` VARCHAR(500) NOT NULL DEFAULT "SettingValue", 
 	PRIMARY KEY (`server_id`, `setting_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='AdKats Setting Sync';
