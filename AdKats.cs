@@ -1,15 +1,19 @@
 /* 
- * AdKats is a MySQL reflected admin tool for Procon Frostbite.
+ * AdKats is a MySQL reflected admin tool for Procon Frostbite. Includes editable in-game commands, database 
+ * reflected punishment and forgiveness, proper player report and admin call handling, player name completion, 
+ * player muting, yell/say pre-recording, and internal implementation of TeamSwap. It requires a MySQL Database 
+ * connection for proper use, and will set up needed tables in the database if they are not there already.
  * 
- * A MySQL reflected admin toolset that includes editable in-game commands, database reflected punishment and
- * forgiveness, proper player report and admin call handling, player name completion, player muting, yell/say 
- * pre-recording, and internal implementation of TeamSwap.
+ * Copyright 2013 A Different Kind, LLC
  * 
- * Requires a MySQL Database connection for proper use. Will set up needed tables in the database if they are 
- * not there already.
- * 
- * AdKats was inspired by the gaming community A Different Kind (ADK). With help from the BF3 Admins within the community the plugin was born. 
- * Visit http://www.adkgamers.com/ to say thanks for the awesome plugin.
+ * AdKats was inspired by the gaming community A Different Kind (ADK), with help from the BF3 Admins within the 
+ * community. Visit http://www.adkgamers.com/ for more information.
+ *
+ * The AdKats Frostbite Plugin is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the License,
+ * or (at your option) any later version. AdKats is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details. To view this license, visit http://www.gnu.org/licenses/.
  * 
  * Code Credit:
  * Modded Levenshtein Distance algorithm from Micovery's InsaneLimits
@@ -68,7 +72,8 @@ namespace PRoConEvents
             Warning,
             Error,
             Exception,
-            Normal
+            Normal,
+            Success
         };
         //Admin Commands
         public enum AdKat_CommandType
@@ -1687,20 +1692,22 @@ namespace PRoConEvents
                     {
                         ConsoleWrite("Enabling command functionality. Please Wait.");
 
-                        //Checking for stat logger
+                        //Sleep for 1 second, waiting on other plugins to enable since AdKats is alphabetically enabled first.
+                        Thread.Sleep(1000);
+                        //Check for stat logger
                         if (this.isStatLoggerEnabled())
                         {
-                            this.ConsoleWrite("SUCCESS ^bCChatGUIDStatsLoggerBF3^n plugin found and running!");
+                            this.ConsoleSuccess("^bCChatGUIDStatsLoggerBF3^n plugin found and running!");
                         }
                         else
                         {
                             this.ConsoleWrite("^bCChatGUIDStatsLoggerBF3^n not enabled! Attempting to enable.");
                             this.enableLogger();
-                            //Sleep for a second, waiting on things to enable
+                            //Wait for enable
                             Thread.Sleep(1000);
                             if (this.isStatLoggerEnabled())
                             {
-                                this.ConsoleWrite("SUCCESS ^bCChatGUIDStatsLoggerBF3^n enabled!");
+                                this.ConsoleSuccess("^bCChatGUIDStatsLoggerBF3^n enabled!");
                             }
                             else
                             {
@@ -1713,7 +1720,7 @@ namespace PRoConEvents
                         }
 
                         //Inform of IP
-                        this.ConsoleWrite("SUCCESS IP loaded. Server IP is " + this.server_ip + "!");
+                        this.ConsoleSuccess("Server IP is " + this.server_ip + "!");
 
                         //Set the enabled variable
                         this.isEnabled = true;
@@ -1851,7 +1858,7 @@ namespace PRoConEvents
                         }
                         else
                         {
-                            aPlayer = this.fetchPlayer(-1, player.SoldierName, player.GUID, null, null);
+                            aPlayer = this.fetchPlayer(-1, player.SoldierName, player.GUID, null);
                             aPlayer.frostbitePlayerInfo = player;
                             this.playerDictionary.Add(player.SoldierName, aPlayer);
 
@@ -1896,6 +1903,7 @@ namespace PRoConEvents
                 {
                     string tweet = "Server '" + serverInfo.ServerName + "' [" + serverInfo.ServerRegion + "] has ENABLED Adkats " + this.GetPluginVersion() + "!";
                     this.DefaultTweet(tweet);
+                    this.tweetedPluginEnable = true;
                 }
             }
         }
@@ -2141,8 +2149,10 @@ namespace PRoConEvents
             this.DebugWrite("OnBanList fired", 6);
             AdKat_Ban aBan;
             AdKat_Record record;
+            Boolean bansFound = false;
             foreach (CBanInfo cBan in banList)
             {
+                bansFound = true;
                 //Create the record
                 record = new AdKat_Record();
                 record.command_source = AdKat_CommandSource.InGame;
@@ -2151,7 +2161,7 @@ namespace PRoConEvents
                 record.command_numeric = cBan.BanLength.Seconds / 60;
                 record.source_name = "BanEnforcer";
                 record.server_id = this.server_id;
-                record.target_player = this.fetchPlayer(-1, cBan.SoldierName, cBan.Guid, cBan.IpAddress, null);
+                record.target_player = this.fetchPlayer(-1, cBan.SoldierName, cBan.Guid, cBan.IpAddress);
                 if (!String.IsNullOrEmpty(record.target_player.player_name))
                 {
                     record.target_name = record.target_player.player_name;
@@ -2171,9 +2181,11 @@ namespace PRoConEvents
 
                 this.queueBanForProcessing(aBan);
             }
-
-            //Database access is successful, sync all bans
-            this.ExecuteCommand("procon.protected.send", "banList.clear");
+            if (bansFound)
+            {
+                //Database access is successful, sync all bans
+                this.ExecuteCommand("procon.protected.send", "banList.clear");
+            }
         }
 
         public override void OnBanListClear()
@@ -3964,7 +3976,7 @@ namespace PRoConEvents
                     this.round_reports.Remove(record.target_name);
                     //Update it in the database
                     reportedRecord.command_action = AdKat_CommandType.ConfirmReport;
-                    this.uploadRecord(reportedRecord, null);
+                    this.uploadRecord(reportedRecord);
                     //Get target information
                     record.target_name = reportedRecord.target_name;
                     record.target_player = reportedRecord.target_player;
@@ -4266,7 +4278,9 @@ namespace PRoConEvents
             //Perform Actions
             if (!this.isTesting)
             {
-                if (this.useBanEnforcer)
+                //For now, route all bans through procon's banlist and read back from there.
+                //Currently the only way to tell players "you have been BANNED" instead of just "you have been KICKED".
+                if (false)//this.useBanEnforcer)
                 {
                     //Create the ban
                     AdKat_Ban aBan = new AdKat_Ban();
@@ -4282,7 +4296,6 @@ namespace PRoConEvents
                 }
                 else
                 {
-                    //If not using the AdKats Ban Enforcer just push the ban to frostbite like normal
                     if (!String.IsNullOrEmpty(record.target_player.player_guid))
                     {
                         this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_player.player_guid, "seconds", seconds + "", banReason);
@@ -4322,7 +4335,9 @@ namespace PRoConEvents
             //Perform Actions
             if (!this.isTesting)
             {
-                if (this.useBanEnforcer)
+                //For now, route all bans through procon's banlist and read back from there.
+                //Currently the only way to tell players "you have been BANNED" instead of just kicked.
+                if (false)//this.useBanEnforcer)
                 {
                     //Create the ban
                     AdKat_Ban aBan = new AdKat_Ban();
@@ -4338,7 +4353,6 @@ namespace PRoConEvents
                 }
                 else
                 {
-                    //If not using the AdKats Ban Enforcer just push the ban to frostbite like normal
                     if (!String.IsNullOrEmpty(record.target_player.player_guid))
                     {
                         this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_player.player_guid, "perm", banReason);
@@ -4369,7 +4383,7 @@ namespace PRoConEvents
             this.DebugWrite("punishing target", 6);
             string message = "ERROR";
             //Get number of points the player from server
-            int points = this.fetchPoints(record.target_player, null);
+            int points = this.fetchPoints(record.target_player);
             //Get the proper action to take for player punishment
             string action = "noaction";
             if (points > (this.punishmentHierarchy.Length - 1))
@@ -4444,7 +4458,7 @@ namespace PRoConEvents
 
         public string forgiveTarget(AdKat_Record record)
         {
-            int points = this.fetchPoints(record.target_player, null);
+            int points = this.fetchPoints(record.target_player);
             this.playerSayMessage(record.target_name, "Forgiven 1 infraction point. You now have " + points + " point(s) against you.");
             return this.sendMessageToSource(record, "Forgive Logged for " + record.target_name + ". They now have " + points + " infraction points.");
         }
@@ -4723,7 +4737,7 @@ namespace PRoConEvents
                     if (this.dbSettingsChanged)
                     {
                         this.DebugWrite("DBCOMM: DB Settings have changed, calling test.", 6);
-                        if (this.testDatabaseConnection(null))
+                        if (this.testDatabaseConnection())
                         {
                             this.DebugWrite("DBCOMM: Database Connection Good. Continuing Thread.", 6);
                         }
@@ -4742,9 +4756,9 @@ namespace PRoConEvents
                     if (this.server_id < 0)
                     {
                         //Checking for database server info
-                        if (this.fetchServerID(null) >= 0)
+                        if (this.fetchServerID() >= 0)
                         {
-                            this.ConsoleWrite("SUCCESS Database Server Info Fetched. Server ID is " + this.server_id + "!");
+                            this.ConsoleSuccess("Database Server Info Fetched. Server ID is " + this.server_id + "!");
                         }
                         else
                         {
@@ -4766,7 +4780,7 @@ namespace PRoConEvents
                     //Check for new actions from the database at given interval
                     if (this.fetchActionsFromDB && (DateTime.Now > this.lastDBActionFetch.AddSeconds(this.dbActionFrequency)))
                     {
-                        this.runActionsFromDB(null);
+                        this.runActionsFromDB();
                     }
                     else
                     {
@@ -4791,22 +4805,22 @@ namespace PRoConEvents
                         while (inboundAccessUpdates != null && inboundAccessUpdates.Count > 0)
                         {
                             AdKat_Access playerAccess = inboundAccessUpdates.Dequeue();
-                            this.uploadPlayerAccess(playerAccess, null);
+                            this.uploadPlayerAccess(playerAccess);
                         }
                         //Loop through all records in order that they came in
                         while (inboundAccessRemoval != null && inboundAccessRemoval.Count > 0)
                         {
                             String playerName = inboundAccessRemoval.Dequeue();
-                            this.removePlayerAccess(playerName, null);
+                            this.removePlayerAccess(playerName);
                         }
-                        this.fetchAccessList(null);
+                        this.fetchAccessList();
                         //Update the setting page with new information
                         this.updateSettingPage();
                     }
                     else if (DateTime.Now > this.lastDBAccessFetch.AddMinutes(this.dbAccessFetchFrequency))
                     {
                         //Handle access updates directly from the database
-                        this.fetchAccessList(null);
+                        this.fetchAccessList();
                         //Update the setting page with new information
                         this.updateSettingPage();
                     }
@@ -4837,10 +4851,13 @@ namespace PRoConEvents
                             this.DebugWrite("DBCOMM: Processing Frostbite Ban: " + index++, 6);
 
                             //Upload the ban
-                            this.uploadBan(aBan, null);
+                            this.uploadBan(aBan);
 
                             //Update this server's ban lists
-                            this.updateBanLists(aBan, null);
+                            this.updateBanLists(aBan);
+
+                            //Queue the player for bancheck
+                            this.queuePlayerForBanCheck(aBan.ban_record.target_player);
                         }
 
                         //Call Ban Enforcer thread to enforce any updated bans
@@ -4850,7 +4867,7 @@ namespace PRoConEvents
                     //Check for new bans from the database at given interval
                     if (this.useBanEnforcer && (DateTime.Now > this.lastDBBanFetch.AddSeconds(this.dbBanFetchFrequency)))
                     {
-                        this.fetchDatabaseBans(null);
+                        this.fetchDatabaseBans();
                     }
                     else
                     {
@@ -4875,7 +4892,7 @@ namespace PRoConEvents
                             AdKat_Record record = inboundRecords.Dequeue();
 
                             //Only run action if the record needs action
-                            if (this.handleRecordUpload(record, null))
+                            if (this.handleRecordUpload(record))
                             {
                                 //Action is only called after initial upload, not after update
                                 this.DebugWrite("DBCOMM: Upload success. Attempting to add to action queue.", 6);
@@ -4948,7 +4965,7 @@ namespace PRoConEvents
             }
         }
 
-        private Boolean testDatabaseConnection(MySqlConnection connection)
+        private Boolean testDatabaseConnection()
         {
             Boolean databaseValid = false;
             DebugWrite("testDatabaseConnection starting!", 6);
@@ -4958,18 +4975,14 @@ namespace PRoConEvents
                 {
                     Boolean success = false;
                     //Prepare the connection string and create the connection object
-                    if (connection == null || !connection.Ping())
-                    {
-                        connection = this.getDatabaseConnection();
-                    }
-                    using (connection)
+                    using (MySqlConnection connection = this.getDatabaseConnection())
                     {
                         this.ConsoleWrite("Attempting database connection.");
                         //Attempt a ping through the connection
                         if (connection.Ping())
                         {
                             //Connection good
-                            this.ConsoleWrite("Database connection SUCCESS.");
+                            this.ConsoleSuccess("Database connection open.");
                             success = true;
                         }
                         else
@@ -4981,10 +4994,10 @@ namespace PRoConEvents
                     if (success)
                     {
                         //Make sure database structure is good
-                        if (confirmDatabaseSetup(connection))
+                        if (confirmDatabaseSetup())
                         {
                             //If the structure is good, fetch all access lists
-                            this.fetchAccessList(connection);
+                            this.fetchAccessList();
                             databaseValid = true;
                         }
                     }
@@ -5006,17 +5019,17 @@ namespace PRoConEvents
             return databaseValid;
         }
 
-        private Boolean confirmDatabaseSetup(MySqlConnection connection)
+        private Boolean confirmDatabaseSetup()
         {
             this.DebugWrite("Confirming Database Structure.", 3);
             try
             {
                 Boolean confirmed = true;
-                if (!this.confirmTable("adkats_records", connection))
+                if (!this.confirmTable("adkats_records"))
                 {
                     this.ConsoleError("Main Record table not present in the database.");
-                    this.runDBSetupScript(null);
-                    if (!this.confirmTable("adkats_records", connection))
+                    this.runDBSetupScript();
+                    if (!this.confirmTable("adkats_records"))
                     {
                         this.ConsoleError("After running setup script main record table still not present.");
                         confirmed = false;
@@ -5074,7 +5087,7 @@ namespace PRoConEvents
                 }*/
                 if (confirmed)
                 {
-                    this.DebugWrite("SUCCESS. Database confirmed functional for AdKats use.", 3);
+                    this.ConsoleSuccess("Database confirmed functional for AdKats use.");
                 }
                 else
                 {
@@ -5089,16 +5102,12 @@ namespace PRoConEvents
             }
         }
 
-        private void runDBSetupScript(MySqlConnection connection)
+        private void runDBSetupScript()
         {
             try
             {
                 ConsoleWrite("Running database setup script. You will not lose any data.");
-                if (connection == null || !connection.Ping())
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
+                using (MySqlConnection connection = this.getDatabaseConnection())
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
@@ -5133,15 +5142,11 @@ namespace PRoConEvents
             }
         }
 
-        private Boolean confirmTable(string tablename, MySqlConnection connection)
+        private Boolean confirmTable(string tablename)
         {
             try
             {
-                if (connection == null || !connection.Ping())
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
+                using (MySqlConnection connection = this.getDatabaseConnection())
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
@@ -5174,12 +5179,151 @@ namespace PRoConEvents
 
         #endregion
 
-        #region Data
+        #region Queries
+
+        private void uploadAllSettings()
+        {
+            DebugWrite("uploadAllSettings starting!", 6);
+
+            List<CPluginVariable> vars = this.GetPluginVariables();
+
+            try
+            {
+                using (MySqlConnection connection = this.getDatabaseConnection())
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        //Set the insert command structure
+                        string commandTotal = "";
+                        foreach (CPluginVariable var in vars)
+                        {
+                            //Fill the command
+                            commandTotal += @"
+                            INSERT INTO `" + this.mySqlDatabaseName + @"`.`adkats_settings` 
+                            (
+                                `server_id`, 
+                                `setting_name`, 
+                                `setting_value`
+                            ) 
+                            VALUES 
+                            ( 
+                                " + this.server_id + @", 
+                                '" + var.Name + @"', 
+                                '" + var.Value + @"'
+                            ) 
+                            ON DUPLICATE KEY 
+                            UPDATE 
+                                `setting_value` = '" + var.Value + @"'; 
+                            ";
+                        }
+                        //Attempt to execute the query
+                        if (command.ExecuteNonQuery() > 0)
+                        {
+                            this.DebugWrite("All Settings pushed to database", 3);
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                ConsoleException(e.ToString());
+            }
+
+            DebugWrite("uploadAllSettings finished!", 6);
+        }
+
+        private void uploadSetting(CPluginVariable var)
+        {
+            DebugWrite("uploadSetting starting!", 6);
+
+            List<CPluginVariable> vars = this.GetPluginVariables();
+
+            try
+            {
+                using (MySqlConnection connection = this.getDatabaseConnection())
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        //Set the insert command structure
+                        string commandTotal = @"
+                        INSERT INTO `" + this.mySqlDatabaseName + @"`.`adkats_settings` 
+                        (
+                            `server_id`, 
+                            `setting_name`, 
+                            `setting_value`
+                        ) 
+                        VALUES 
+                        ( 
+                            " + this.server_id + @", 
+                            '" + var.Name + @"', 
+                            '" + var.Value + @"'
+                        ) 
+                        ON DUPLICATE KEY 
+                        UPDATE 
+                            `setting_value` = '" + var.Value + @"'";
+                        //Attempt to execute the query
+                        if (command.ExecuteNonQuery() > 0)
+                        {
+                            this.DebugWrite("Setting " + var.Name + " pushed to database", 3);
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                ConsoleException(e.ToString());
+            }
+
+            DebugWrite("uploadSetting finished!", 6);
+        }
+
+        private void fetchSettings(Int64 server_id)
+        {
+            DebugWrite("fetchSettings starting!", 6);
+            try
+            {
+                //Success fetching settings
+                using (MySqlConnection connection = this.getDatabaseConnection())
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        String sql = @"
+                        SELECT  
+                            `setting_name`, 
+                            `setting_type`, 
+                            `setting_value`
+                        FROM 
+                            `" + this.mySqlDatabaseName + @"`.`adkats_settings` 
+                        WHERE 
+                            `server_id` = " + server_id;
+                        command.CommandText = sql;
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+                            //Grab the settings
+                            CPluginVariable var = null;
+                            while (reader.Read())
+                            {
+                                //Create as variable in case needed later
+                                var = new CPluginVariable(reader.GetString("setting_name"), reader.GetString("setting_type"), reader.GetString("setting_value"));
+                                this.SetPluginVariable(var.Name, var.Value);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                ConsoleException(e.ToString());
+            }
+
+            DebugWrite("fetchSettings finished!", 6);
+        }
+        
         /*
          * This method handles uploading of records and calling their action methods
          * Will only upload a record if upload setting for that command is true, or if uploading is required
          */
-        private Boolean handleRecordUpload(AdKat_Record record, MySqlConnection connection)
+        private Boolean handleRecordUpload(AdKat_Record record)
         {
             this.DebugWrite("DBCOMM: Entering handle record upload", 6);
             Boolean recordNeedsAction = true;
@@ -5192,7 +5336,7 @@ namespace PRoConEvents
                 {
                     this.DebugWrite("DBCOMM: UPDATING record for " + record.command_type, 6);
                     //Update Record
-                    this.uploadRecord(record, connection);
+                    this.uploadRecord(record);
                 }
                 else
                 {
@@ -5208,11 +5352,11 @@ namespace PRoConEvents
                     case AdKat_CommandType.PunishPlayer:
                         //Upload for punish is required
                         //Check if the punish will be double counted
-                        if (this.isDoubleCounted(record, connection))
+                        if (this.isDoubleCounted(record))
                         {
                             this.DebugWrite("DBCOMM: Punish is double counted.", 6);
                             //Check if player is on timeout
-                            if (this.canPunish(record, connection))
+                            if (this.canPunish(record))
                             {
                                 //IRO - Immediate Repeat Offence
                                 record.isIRO = true;
@@ -5220,8 +5364,8 @@ namespace PRoConEvents
                                 record.record_message += IROAppend;
                                 //Upload record twice
                                 this.DebugWrite("DBCOMM: UPLOADING IRO Punish", 6);
-                                this.uploadRecord(record, connection);
-                                this.uploadRecord(record, connection);
+                                this.uploadRecord(record);
+                                this.uploadRecord(record);
                                 //Trim off the IRO again
                                 record.record_message = record.record_message.TrimEnd(IROAppend.ToCharArray());
                             }
@@ -5235,21 +5379,21 @@ namespace PRoConEvents
                         {
                             //Upload record once
                             this.DebugWrite("DBCOMM: UPLOADING Punish", 6);
-                            this.uploadRecord(record, connection);
+                            this.uploadRecord(record);
                         }
                         break;
                     case AdKat_CommandType.ForgivePlayer:
                         //Upload for forgive is required
                         //No restriction on forgives/minute
                         this.DebugWrite("DBCOMM: UPLOADING Forgive", 6);
-                        this.uploadRecord(record, connection);
+                        this.uploadRecord(record);
                         break;
                     default:
                         if (this.AdKat_LoggingSettings[record.command_type])
                         {
                             this.DebugWrite("UPLOADING record for " + record.command_type, 6);
                             //Upload Record
-                            this.uploadRecord(record, connection);
+                            this.uploadRecord(record);
                         }
                         else
                         {
@@ -5261,23 +5405,18 @@ namespace PRoConEvents
             return recordNeedsAction;
         }
 
-        private void uploadRecord(AdKat_Record record, MySqlConnection connection)
+        private void uploadRecord(AdKat_Record record)
         {
             DebugWrite("postRecord starting!", 6);
 
             Boolean success = false;
             try
             {
-                if (connection == null || !connection.Ping())
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
+                using (MySqlConnection connection = this.getDatabaseConnection())
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
                         Boolean hasRecordID = (record.record_id > 0);
-                        Boolean hasTargetPlayer = (record.record_id > 0);
                         //Set the insert command structure
                         command.CommandText = "INSERT INTO `" + this.mySqlDatabaseName + @"`.`adkats_records` 
                         (
@@ -5383,21 +5522,15 @@ namespace PRoConEvents
         }
 
         //DONE
-        private AdKat_Record fetchRecordByID(Int64 record_id, MySqlConnection connection)
+        private AdKat_Record fetchRecordByID(Int64 record_id)
         {
             DebugWrite("fetchRecordByID starting!", 6);
-            //Create return list
-
             AdKat_Record record = null;
             try
             {
-                //Success fetching bans
+                //Success fetching record
                 Boolean success = false;
-                if (connection == null || !connection.Ping())
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
+                using (MySqlConnection connection = this.getDatabaseConnection())
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
@@ -5453,7 +5586,7 @@ namespace PRoConEvents
                         }
                         if (success && record.target_player != null)
                         {
-                            record.target_player = this.fetchPlayer(record.target_player.player_id, null, null, null, connection);
+                            record.target_player = this.fetchPlayer(record.target_player.player_id, null, null, null);
                             record.target_name = record.target_player.player_name;
                         }
                     }
@@ -5469,7 +5602,7 @@ namespace PRoConEvents
         }
 
         //DONE
-        private List<AdKat_Record> fetchUnreadRecords(MySqlConnection connection)
+        private List<AdKat_Record> fetchUnreadRecords()
         {
             DebugWrite("fetchUnreadRecords starting!", 6);
             //Create return list
@@ -5477,11 +5610,7 @@ namespace PRoConEvents
             List<AdKat_Record> records = new List<AdKat_Record>();
             try
             {
-                if (connection == null || !connection.Ping())
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
+                using (MySqlConnection connection = this.getDatabaseConnection())
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
@@ -5519,7 +5648,7 @@ namespace PRoConEvents
                                 Int32? target_id_parse = value is DBNull ? (Int32?)null : (Int32)value;
                                 if (target_id_parse != null)
                                 {
-                                    record.target_player = this.fetchPlayer((Int32)target_id_parse, null, null, null, connection);
+                                    record.target_player = this.fetchPlayer((Int32)target_id_parse, null, null, null);
                                     record.target_name = record.target_player.player_name;
                                 }
                                 record.source_name = reader.GetString("source_name");
@@ -5542,7 +5671,7 @@ namespace PRoConEvents
         }
 
         //DONE
-        private void removePlayerAccess(string player_name, MySqlConnection connection)
+        private void removePlayerAccess(string player_name)
         {
             DebugWrite("removePlayerAccess starting!", 6);
             if (!this.playerAccessCache.ContainsKey(player_name))
@@ -5552,11 +5681,7 @@ namespace PRoConEvents
             }
             try
             {
-                if (connection == null || !connection.Ping())
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
+                using (MySqlConnection connection = this.getDatabaseConnection())
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
@@ -5578,7 +5703,7 @@ namespace PRoConEvents
         }
 
         //DONE
-        private void uploadPlayerAccess(AdKat_Access access, MySqlConnection connection)
+        private void uploadPlayerAccess(AdKat_Access access)
         {
             DebugWrite("uploadPlayerAccess(Email) starting!", 6);
 
@@ -5596,11 +5721,7 @@ namespace PRoConEvents
             }
             try
             {
-                if (connection == null || !connection.Ping())
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
+                using (MySqlConnection connection = this.getDatabaseConnection())
                 {
                     AdKat_Access oldAccess = null;
                     this.playerAccessCache.TryGetValue(access.player_name, out oldAccess);
@@ -5663,7 +5784,7 @@ namespace PRoConEvents
         }
 
         //DONE
-        private Boolean uploadBan(AdKat_Ban aBan, MySqlConnection connection)
+        private Boolean uploadBan(AdKat_Ban aBan)
         {
             DebugWrite("uploadBan starting!", 6);
 
@@ -5679,15 +5800,10 @@ namespace PRoConEvents
                     //Upload the inner record if needed
                     if (aBan.ban_record.record_id < 0)
                     {
-                        this.uploadRecord(aBan.ban_record, connection);
+                        this.uploadRecord(aBan.ban_record);
                     }
 
-                    if (connection == null || !connection.Ping())
-                    {
-                        connection = this.getDatabaseConnection();
-                    }
-
-                    using (connection)
+                    using (MySqlConnection connection = this.getDatabaseConnection())
                     {
                         using (MySqlCommand command = connection.CreateCommand())
                         {
@@ -5796,7 +5912,7 @@ namespace PRoConEvents
         }
 
         //DONE
-        private AdKat_Player fetchPlayer(Int64 player_id, String player_name, String player_guid, String player_ip, MySqlConnection connection)
+        private AdKat_Player fetchPlayer(Int64 player_id, String player_name, String player_guid, String player_ip)
         {
             DebugWrite("fetchPlayer starting!", 6);
             //Create return list
@@ -5809,11 +5925,7 @@ namespace PRoConEvents
             {
                 try
                 {
-                    if (connection == null || !connection.Ping())
-                    {
-                        connection = this.getDatabaseConnection();
-                    }
-                    using (connection)
+                    using (MySqlConnection connection = this.getDatabaseConnection())
                     {
                         using (MySqlCommand command = connection.CreateCommand())
                         {
@@ -5947,7 +6059,7 @@ namespace PRoConEvents
         }
 
         //DONE
-        private Boolean fetchDatabaseBans(MySqlConnection connection)
+        private Boolean fetchDatabaseBans()
         {
             DebugWrite("fetchDatabaseBans starting!", 6);
 
@@ -5958,11 +6070,7 @@ namespace PRoConEvents
                 Boolean success = false;
                 List<AdKat_Ban> tempBanList = new List<AdKat_Ban>();
 
-                if (connection == null || !connection.Ping())
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
+                using (MySqlConnection connection = this.getDatabaseConnection())
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
@@ -6008,7 +6116,7 @@ namespace PRoConEvents
                                     ban.ban_enforceName = true;
                                 else
                                     ban.ban_enforceName = false;
-                                
+
                                 if (reader.GetString("ban_enforceGUID").Equals("Y"))
                                     ban.ban_enforceGUID = true;
                                 else
@@ -6033,8 +6141,8 @@ namespace PRoConEvents
                     {
                         foreach (AdKat_Ban aBan in tempBanList)
                         {
-                            aBan.ban_record = this.fetchRecordByID(aBan.ban_record.record_id, null);
-                            this.updateBanLists(aBan, connection);
+                            aBan.ban_record = this.fetchRecordByID(aBan.ban_record.record_id);
+                            this.updateBanLists(aBan);
                         }
 
                         //Call enforcer thread to enforce new bans
@@ -6051,7 +6159,7 @@ namespace PRoConEvents
             return false;
         }
 
-        private void updateBanLists(AdKat_Ban aBan, MySqlConnection connection)
+        private void updateBanLists(AdKat_Ban aBan)
         {
             try
             {
@@ -6152,7 +6260,7 @@ namespace PRoConEvents
                 }
 
                 //Update the sync for this ban
-                this.updateBanSync(aBan, connection);
+                this.updateBanSync(aBan);
             }
             catch (Exception e)
             {
@@ -6161,7 +6269,7 @@ namespace PRoConEvents
         }
 
         //DONE
-        private Boolean updateBanSync(AdKat_Ban aBan, MySqlConnection connection)
+        private Boolean updateBanSync(AdKat_Ban aBan)
         {
             DebugWrite("updateBanSync starting!", 6);
 
@@ -6176,11 +6284,7 @@ namespace PRoConEvents
             {
                 try
                 {
-                    if (connection == null || !connection.Ping())
-                    {
-                        connection = this.getDatabaseConnection();
-                    }
-                    using (connection)
+                    using (MySqlConnection connection = this.getDatabaseConnection())
                     {
                         using (MySqlCommand command = connection.CreateCommand())
                         {
@@ -6211,17 +6315,13 @@ namespace PRoConEvents
         }
 
         //DONE
-        private Boolean canPunish(AdKat_Record record, MySqlConnection connection)
+        private Boolean canPunish(AdKat_Record record)
         {
             DebugWrite("canPunish starting!", 6);
 
             try
             {
-                if (connection == null || !connection.Ping())
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
+                using (MySqlConnection connection = this.getDatabaseConnection())
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
@@ -6264,17 +6364,13 @@ namespace PRoConEvents
         }
 
         //DONE
-        private Boolean isDoubleCounted(AdKat_Record record, MySqlConnection connection)
+        private Boolean isDoubleCounted(AdKat_Record record)
         {
             DebugWrite("isDoubleCounted starting!", 6);
 
             try
             {
-                if (connection == null || !connection.Ping())
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
+                using (MySqlConnection connection = this.getDatabaseConnection())
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
@@ -6316,16 +6412,15 @@ namespace PRoConEvents
             return false;
         }
 
-        private void runActionsFromDB(MySqlConnection connection)
+        private void runActionsFromDB()
         {
             DebugWrite("runActionsFromDB starting!", 7);
             try
             {
-                foreach (AdKat_Record record in this.fetchUnreadRecords(connection))
+                foreach (AdKat_Record record in this.fetchUnreadRecords())
                 {
                     //TODO finish
                     this.queueRecordForActionHandling(record);
-                    this.uploadRecord(record, connection);
                 }
                 //Update the last time this was fetched
                 this.lastDBActionFetch = DateTime.Now;
@@ -6337,7 +6432,7 @@ namespace PRoConEvents
         }
 
         //DONE
-        private int fetchPoints(AdKat_Player player, MySqlConnection connection)
+        private int fetchPoints(AdKat_Player player)
         {
             DebugWrite("fetchPoints starting!", 6);
 
@@ -6345,11 +6440,7 @@ namespace PRoConEvents
 
             try
             {
-                if (connection == null || !connection.Ping())
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
+                using (MySqlConnection connection = this.getDatabaseConnection())
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
@@ -6385,7 +6476,7 @@ namespace PRoConEvents
         }
 
         //DONE
-        private void fetchAccessList(MySqlConnection connection)
+        private void fetchAccessList()
         {
             DebugWrite("fetchAccessList starting!", 6);
 
@@ -6393,11 +6484,7 @@ namespace PRoConEvents
             Dictionary<String, AdKat_Access> tempAccessCache = new Dictionary<String, AdKat_Access>();
             try
             {
-                if (connection == null || !connection.Ping())
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
+                using (MySqlConnection connection = this.getDatabaseConnection())
                 {
                     List<string> namesToGUIDUpdate = new List<string>();
                     using (MySqlCommand command = connection.CreateCommand())
@@ -6442,7 +6529,7 @@ namespace PRoConEvents
         }
 
         //OPTIMIZE
-        private void fetchAdminAssistants(MySqlConnection connection)
+        private void fetchAdminAssistants()
         {
             DebugWrite("fetchAdminAssistants starting!", 6);
 
@@ -6450,11 +6537,7 @@ namespace PRoConEvents
             Dictionary<string, Boolean> tempAssistantCache = new Dictionary<string, Boolean>();
             try
             {
-                if (connection == null || !connection.Ping())
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
+                using (MySqlConnection connection = this.getDatabaseConnection())
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
@@ -6505,7 +6588,7 @@ namespace PRoConEvents
         }
 
         //DONE
-        private Int64 fetchServerID(MySqlConnection connection)
+        private Int64 fetchServerID()
         {
             DebugWrite("fetchServerID starting!", 6);
 
@@ -6513,11 +6596,7 @@ namespace PRoConEvents
 
             try
             {
-                if (connection == null || !connection.Ping())
-                {
-                    connection = this.getDatabaseConnection();
-                }
-                using (connection)
+                using (MySqlConnection connection = this.getDatabaseConnection())
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
@@ -6906,7 +6985,6 @@ namespace PRoConEvents
             catch (TwitterException e)
             {
                 ConsoleException(e.Message);
-                ConsoleWarn("Set the field ^btwitter_setup_account^n to ^bTrue^n to re-initiate the Twitter configuration");
                 return;
             }
             catch (WebException e)
@@ -7522,11 +7600,15 @@ namespace PRoConEvents
             {
                 prefix += "^1^bERROR^0^n: ";
             }
+            else if (type.Equals(MessageTypeEnum.Success))
+            {
+                prefix += "^b^2SUCCESS^n^0: ";
+            }
             else if (type.Equals(MessageTypeEnum.Exception))
             {
                 prefix += "^1^bEXCEPTION^0^n: ";
             }
-
+             
             return prefix + msg;
         }
 
@@ -7553,6 +7635,11 @@ namespace PRoConEvents
         public void ConsoleError(string msg)
         {
             ConsoleWrite(msg, MessageTypeEnum.Error);
+        }
+
+        public void ConsoleSuccess(string msg)
+        {
+            ConsoleWrite(msg, MessageTypeEnum.Success);
         }
 
         public void ConsoleException(string msg)
