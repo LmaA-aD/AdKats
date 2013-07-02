@@ -300,12 +300,12 @@ namespace PRoConEvents
         string oauth_token = String.Empty;
         string oauth_token_secret = String.Empty;
         public String twitter_PIN_message = "Navigate to Twitter's authorization site to obtain the PIN";
-        public String twitter_consumer_key = "USQmPjXO3BFLDfWyLoAx0g";
-        public String twitter_consumer_secret = "UBpq7ULrfaXe1xLFL4xnAoBFnQ0GVsP2tdJXIRdLbVA";
-        public String twitter_access_token = "475558195-h1DII1daqUjvK1KJ8x5CD9taTIeuDq9JqMgQkGva";
-        public String twitter_access_token_secret = "LvHjwGMQTfE0f59kRBkE1tBjsz4KYhyh6pzS4iCdkxA";
-        public String twitter_user_id = "475558195";
-        public String twitter_screen_name = "AdKats";
+        public String twitter_consumer_key = "3rkSNbotknUEMstELBNnQg";
+        public String twitter_consumer_secret = "vRijlzIyJO8uXcoRM6ikis298sJJcxFkP3sf4hrL7A";
+        public String twitter_access_token = "1468907792-UcOkpQhqFXdJM1rsYFq4XHYz9RPIjIW0PYDRfsB";
+        public String twitter_access_token_secret = "VzqhUNthdTadAthiX7CqXU62VP7eRXAaw3Jfc1j0";
+        public String twitter_user_id = "1468907792";
+        public String twitter_screen_name = "AdKats Tool";
 
         //Multi-Threading
 
