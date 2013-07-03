@@ -173,10 +173,6 @@ fine for performance). Right now only Punish and Forgive are required to be logg
   be used in regular say, yell, and any other commands that need a reason or message.</li>
   <li><b>Pre-Message Enhancements.</b> Use of pre-defined messages can be required now.</li>
 </ul>
-<h4>0.2.7.0 (13-JUNE-2013)</h4>
-<b>Changes</b> <br/>
-<ul>
-</ul>
 <h4>0.3.0.0 (13-JULY-2013)</h4>
 <b>Changes</b> <br/>
 <ul>
