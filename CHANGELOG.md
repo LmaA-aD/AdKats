@@ -176,14 +176,35 @@ fine for performance). Right now only Punish and Forgive are required to be logg
 <h4>0.2.7.0 (13-JUNE-2013)</h4>
 <b>Changes</b> <br/>
 <ul>
-  <li><b>PERFORMANCE.</b> All actions, parsing, and database communications take place on their own threads now, 
-  increasing performance greatly. However, this needs testing to optimize, a lot of testing.</li>
+</ul>
+<h4>0.3.0.0 (13-JULY-2013)</h4>
+<b>Changes</b> <br/>
+<ul>
+  <li><b>Performance.</b> All actions, parsing, and database communications take place on their own threads now, 
+  increasing performance greatly.</li>
+  <li><b>Dependencies.</b> XPKiller's Stat logger is now REQUIRED for AdKats to function. It provides much useful 
+  information regarding both player and server statistics, which the new Ban Enforcer and AdKats itself use to improve 
+  your admin abilities. A modded version of that plugin has been made which will inform AdKats it is installed, that 
+  version of the stat logger must be installed or AdKats will refuse to start. The modded version has been included with 
+  your download of AdKats 3.0.0</li>
+  <li><b>AdKats WebAdmin.</b> A website from which you can manage all aspects of your server and playerbase. 
+  Direct control of players within the server, command feeds, all logs, ban management, and server statistics are all 
+  included in this site. A video showing its use is located on its website.</li>
+  <li><b>AdKats Ban Enforcer. (Requires AdKats WebAdmin*)</b> AdKats can now enforce bans accross all of your servers. 
+  Enabling the ban enforcer will import all bans from both the procon ban list and "ban manager" plugin, this 
+  happens accross all servers running on your database. Bans made on one of your servers will be enforced on all others 
+  within seconds of issuing the ban. Bans can be made by name, GUID, IP, any combination, or all at once. Enforcer will 
+  shut down plugins that interfere with its functionality, this currently includes Ban Manager, CRemoteBanlist, and the 
+  enforcement setting in the Metabans plugin. Metabans will be left running and can continue posting new bans, but 
+  enforcement of bans using metabans will not be allowed. *You can use this without WebAdmin, but you will be unable to 
+  manage any bans, lift them, or modify them in any way once submitted.</li>
   <li><b>Punishment Enhancements.</b> IRO punishments can now override the low population count and act normally.</li>
   <li><b>Ban Messages Fixed.</b> Frostbite has a 80 character limit for ban/kick messages, and the new ban/kick messages 
   comply with that.</li>
   <li><b>Small bug-fixes and enhancements.</b> Messages for errors, player information, and commands, are more 
   informative to the users now. Small bugs fixed.</li>
   <li><b>Debug Soldier Added.</b> Set the debug soldier name in settings to get the speed of commands on your server 
-  sent to you in-game.</li>
+  sent to you in-game. Time is in milliseconds, from the time you entered it until all actions resulting from that 
+  command have finished.</li>
 </ul>
 </blockquote>
