@@ -1,5 +1,5 @@
-<h2 style="color:#009933;">Version 0.2.7.0 released! Your version is listed above (Procon Only).</h2>
-View new in 0.2.7.0 in the changelog 
+<h2 style="color:#009933;">Version 0.3.0.0 released! Your version is listed above (Procon Only).</h2>
+View new in 0.3.0.0 in the changelog 
 <a href="https://github.com/ColColonCleaner/AdKats/blob/dev/CHANGELOG.md" target="_blank">HERE</a>. 
 Download link below.
 <h1>AdKats</h1>
@@ -13,7 +13,7 @@ Visit the tool's github page
 to submit bugs or wanted features.<br/><br/>
 
 Download the latest version here: 
-<a href="http://sourceforge.net/projects/adkats/files/AdKats_v0.2.7.0.zip/download" target="_blank">Version 2.7.0</a>
+<a href="http://sourceforge.net/projects/adkats/files/AdKats_v0.3.0.0.zip/download" target="_blank">Version 3.0.0</a>
 </p>
 <p>
 AdKats was inspired by the gaming community A Different Kind (ADK). With help from the BF3 Admins within the community the plugin was born.
