@@ -191,9 +191,8 @@ no reason is given. Players (even the most atrocious in some cases) should know 
 This plugin has been multi-threaded for performance in the latest version, and still needs a lot of testing in this area. 
 The speed of commands depends on how much database interaction needs to happen for each. Preliminary thread testing 
 shows small commands like kill which require 2 or fewer database round-trips run around 150ms to completion. Large 
-commands like punish which can sometimes require 7 database round-trips to complete can run around 1000ms. These values 
-are from one day of testing and still need to be optimized after I get feedback on performance. Use "Debug Soldier Name" 
-to get the speed of commands on your server.
+commands like punish which can sometimes require 7 database round-trips to complete can run around 500ms. Use "Debug 
+Soldier Name" to get the speed of commands on your server.
 </p>
 <h3>Database Usage</h3>
 <p>
@@ -208,6 +207,12 @@ the script linked below. You can run the script beforehand if you dont want the 
 your database.<br/>
 <br/>
 <a href="https://github.com/ColColonCleaner/AdKats/blob/master/adkats.sql" target="_blank">SQL Code</a>
+</p>
+<h3>Setting Sync</h3>
+<p>
+All settings for each plugin instance are stored database side by server ID. Enter an existing server ID in the setting 
+sync field and all settings from that instance will be imported to this instance. All settings on the current instance 
+will be overwritten by the synced variables. Whenever a setting is changed, that change is pushed to the database.
 </p>
 <h3>Available In-Game Commands</h3>
 <p>
