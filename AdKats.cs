@@ -4,7 +4,7 @@
  * player muting, yell/say pre-recording, and internal implementation of TeamSwap. It requires a MySQL Database 
  * connection for proper use, and will set up needed tables in the database if they are not there already.
  * 
- * Copyright 2013 A Different Kind, LLC
+ * © 2013 A Different Kind, LLC
  * 
  * AdKats was inspired by the gaming community A Different Kind (ADK), with help from the BF3 Admins within the 
  * community. Visit http://www.adkgamers.com/ for more information.
@@ -354,13 +354,18 @@ namespace PRoConEvents
 
         //Ban Settings
         private Boolean useBanEnforcer = true;
-        private Boolean processingBanList = false;
+        private Boolean defaultEnforceGUID = true;
+        private Boolean defaultEnforceIP = false;
+        private Boolean defaultEnforceName = false;
         private DateTime lastDBBanFetch = DateTime.Now;
         private int dbBanFetchFrequency = 60;
         private Dictionary<string, AdKat_Ban> AdKat_BanList_Name = new Dictionary<string, AdKat_Ban>();
         private Dictionary<string, AdKat_Ban> AdKat_BanList_GUID = new Dictionary<string, AdKat_Ban>();
         private Dictionary<string, AdKat_Ban> AdKat_BanList_IP = new Dictionary<string, AdKat_Ban>();
         private DateTime permaBanEndTime = DateTime.Now.AddYears(1000);
+
+        //Teamspeak info
+        private string tsinfo = "ts.adkgamers.com:3796";
 
         #endregion
 
@@ -2098,7 +2103,6 @@ namespace PRoConEvents
 
         public override void OnBanList(List<CBanInfo> banList)
         {
-            this.processingBanList = true;
             if (!this.isEnabled) return;
             this.DebugWrite("OnBanList fired", 6);
             AdKat_Ban aBan;
@@ -2129,9 +2133,9 @@ namespace PRoConEvents
                 aBan.ban_reason = cBan.Reason;
 
                 //Update the ban enforcement depending on available information
-                aBan.ban_enforceName = !String.IsNullOrEmpty(record.target_player.player_name);
-                aBan.ban_enforceGUID = !String.IsNullOrEmpty(record.target_player.player_guid);
-                aBan.ban_enforceIP = !String.IsNullOrEmpty(record.target_player.player_ip);
+                aBan.ban_enforceGUID = !String.IsNullOrEmpty(record.target_player.player_guid) && this.defaultEnforceGUID;
+                aBan.ban_enforceIP = !String.IsNullOrEmpty(record.target_player.player_ip) && this.defaultEnforceIP;
+                aBan.ban_enforceName = !String.IsNullOrEmpty(record.target_player.player_name) && this.defaultEnforceName;
 
                 this.queueBanForProcessing(aBan);
             }
@@ -2145,7 +2149,6 @@ namespace PRoConEvents
         public override void OnBanListClear()
         {
             this.DebugWrite("Ban list cleared", 5);
-            this.processingBanList = false;
         }
         public override void OnBanListSave()
         {
@@ -4989,56 +4992,56 @@ namespace PRoConEvents
                         confirmed = false;
                     }
                 }
-                /*if (!this.confirmTable("adkats_accesslist", connection))
+                if (!this.confirmTable("adkats_accesslist"))
                 {
                     ConsoleError("Access Table not present in the database.");
-                    this.runDBSetupScript(null);
-                    if (!this.confirmTable("adkats_accesslist", connection))
+                    this.runDBSetupScript();
+                    if (!this.confirmTable("adkats_accesslist"))
                     {
                         this.ConsoleError("After running setup script access table still not present.");
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkats_serverPlayerPoints", connection))
+                if (!this.confirmTable("adkats_serverPlayerPoints"))
                 {
                     ConsoleError("Server Points Table not present in the database.");
-                    this.runDBSetupScript(null);
-                    if (!this.confirmTable("adkats_serverPlayerPoints", connection))
+                    this.runDBSetupScript();
+                    if (!this.confirmTable("adkats_serverPlayerPoints"))
                     {
                         this.ConsoleError("After running setup script Server Points table still not present.");
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkats_globalPlayerPoints", connection))
+                if (!this.confirmTable("adkats_globalPlayerPoints"))
                 {
                     ConsoleError("Global Points Table not present in the database.");
-                    this.runDBSetupScript(null);
-                    if (!this.confirmTable("adkats_globalPlayerPoints", connection))
+                    this.runDBSetupScript();
+                    if (!this.confirmTable("adkats_globalPlayerPoints"))
                     {
                         this.ConsoleError("After running setup script Global Points table still not present.");
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkats_banlist", connection))
+                if (!this.confirmTable("adkats_banlist"))
                 {
                     ConsoleError("Ban List not present in the database.");
-                    this.runDBSetupScript(null);
-                    if (!this.confirmTable("adkats_accesslist", connection))
+                    this.runDBSetupScript();
+                    if (!this.confirmTable("adkats_accesslist"))
                     {
                         this.ConsoleError("After running setup script banlist still not present.");
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkats_settings", connection))
+                if (!this.confirmTable("adkats_settings"))
                 {
                     ConsoleError("Settings Table not present in the database.");
-                    this.runDBSetupScript(null);
-                    if (!this.confirmTable("adkats_settings", connection))
+                    this.runDBSetupScript();
+                    if (!this.confirmTable("adkats_settings"))
                     {
                         this.ConsoleError("After running setup script Settings Table still not present.");
                         confirmed = false;
                     }
-                }*/
+                }
                 if (confirmed)
                 {
                     this.ConsoleSuccess("Database confirmed functional for AdKats use.");
@@ -6759,10 +6762,10 @@ namespace PRoConEvents
                 sb.Append("<td><b>Player Name</b></td>");
                 sb.Append("<td><b>Report Reason</b></td>");
                 sb.Append("</tr>");
-                        //<tr>
-                          //  <td><b>PLAYERNAME</b></td>
-                          //  <td>REPORTREASON</td>
-                        //</tr>
+                //<tr>
+                //  <td><b>PLAYERNAME</b></td>
+                //  <td>REPORTREASON</td>
+                //</tr>
                 sb.Append("</tbody>");
                 sb.Append("</table>");
                 sb.Append("<p>");
