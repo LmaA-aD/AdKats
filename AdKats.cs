@@ -485,15 +485,6 @@ namespace PRoConEvents
             this.AdKat_CommandAccessRank.Add(AdKat_CommandType.ConfirmCommand, 6);
             this.AdKat_CommandAccessRank.Add(AdKat_CommandType.CancelCommand, 6);
 
-            this.sendmail = false;
-            this.blUseSSL = false;
-            this.strSMTPServer = String.Empty;
-            this.iSMTPPort = 25;
-            this.strSenderMail = String.Empty;
-            this.lstReceiverMail = new List<string>();
-            this.strSMTPUser = String.Empty;
-            this.strSMTPPassword = String.Empty;
-
             //Initialize the threads
             this.InitThreads();
         }
@@ -641,16 +632,15 @@ namespace PRoConEvents
                 }
 
                 //Player Report Settings
-                lstReturn.Add(new CPluginVariable("6. Email Settings|Send Emails", typeof(string), "Disabled Until Implemented"));
-                if (this.sendmail == true)
+                lstReturn.Add(new CPluginVariable("6. Email Settings|Send Emails", typeof(bool), this.sendmail));
+                if (this.sendmail == true && false)
                 {
-                    lstReturn.Add(new CPluginVariable("6. Email Settings|Email: Use SSL?", typeof(Boolean), this.blUseSSL));
-                    lstReturn.Add(new CPluginVariable("6. Email Settings|SMTP-Server address", typeof(string), this.strSMTPServer));
-                    lstReturn.Add(new CPluginVariable("6. Email Settings|SMTP-Server port", typeof(int), this.iSMTPPort));
-                    lstReturn.Add(new CPluginVariable("6. Email Settings|Sender address", typeof(string), this.strSenderMail));
-                    lstReturn.Add(new CPluginVariable("6. Email Settings|Receiver addresses", typeof(string[]), this.lstReceiverMail.ToArray()));
-                    lstReturn.Add(new CPluginVariable("6. Email Settings|SMTP-Server username", typeof(string), this.strSMTPUser));
-                    lstReturn.Add(new CPluginVariable("6. Email Settings|SMTP-Server password", typeof(string), this.strSMTPPassword));
+                    lstReturn.Add(new CPluginVariable("6. Email Settings|Email: Use SSL?", typeof(Boolean), this.emailHandler.blUseSSL));
+                    lstReturn.Add(new CPluginVariable("6. Email Settings|SMTP-Server address", typeof(string), this.emailHandler.strSMTPServer));
+                    lstReturn.Add(new CPluginVariable("6. Email Settings|SMTP-Server port", typeof(int), this.emailHandler.iSMTPPort));
+                    lstReturn.Add(new CPluginVariable("6. Email Settings|Sender address", typeof(string), this.emailHandler.strSenderMail));
+                    lstReturn.Add(new CPluginVariable("6. Email Settings|SMTP-Server username", typeof(string), this.emailHandler.strSMTPUser));
+                    lstReturn.Add(new CPluginVariable("6. Email Settings|SMTP-Server password", typeof(string), this.emailHandler.strSMTPPassword));
                 }
 
                 //TeamSwap Settings
@@ -1188,75 +1178,54 @@ namespace PRoConEvents
                 }
                 else if (strVariable.CompareTo("Use SSL?") == 0)
                 {
-                    this.blUseSSL = Boolean.Parse(strValue);
+                    this.emailHandler.blUseSSL = Boolean.Parse(strValue);
                 }
                 else if (strVariable.CompareTo("SMTP-Server address") == 0)
                 {
-                    this.strSMTPServer = strValue;
+                    this.emailHandler.strSMTPServer = strValue;
                 }
                 else if (strVariable.CompareTo("SMTP-Server port") == 0)
                 {
                     int iPort = Int32.Parse(strValue);
                     if (iPort > 0)
                     {
-                        this.iSMTPPort = iPort;
+                        this.emailHandler.iSMTPPort = iPort;
                     }
                 }
                 else if (strVariable.CompareTo("Sender address") == 0)
                 {
                     if (strValue == null || strValue == String.Empty)
                     {
-                        this.strSenderMail = "SENDER_CANNOT_BE_EMPTY";
+                        this.emailHandler.strSenderMail = "SENDER_CANNOT_BE_EMPTY";
                         this.ConsoleError("No sender for email was given! Canceling Operation.");
                     }
                     else
                     {
-                        this.strSenderMail = strValue;
-                    }
-                }
-                else if (strVariable.CompareTo("Receiver addresses") == 0)
-                {
-                    List<String> addresses = new List<string>(CPluginVariable.DecodeStringArray(strValue));
-                    if (addresses.Count > 0)
-                    {
-                        foreach (string mailto in addresses)
-                        {
-                            if (!Regex.IsMatch(mailto, @"^([\w-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([\w-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)$"))
-                            {
-                                this.ConsoleError("Error in receiver email address: " + mailto);
-                            }
-                        }
-                        this.lstReceiverMail = addresses;
-                    }
-                    else
-                    {
-                        this.ConsoleError("No receiver email addresses were given!");
-                        this.lstReceiverMail = new List<string>();
-                        this.lstReceiverMail.Add("test@test.net");
+                        this.emailHandler.strSenderMail = strValue;
                     }
                 }
                 else if (strVariable.CompareTo("SMTP-Server username") == 0)
                 {
                     if (strValue == null || strValue == String.Empty)
                     {
-                        this.strSMTPUser = "SMTP_USERNAME_CANNOT_BE_EMPTY";
+                        this.emailHandler.strSMTPUser = "SMTP_USERNAME_CANNOT_BE_EMPTY";
                         this.ConsoleError("No username for SMTP was given! Canceling Operation.");
                     }
                     else
                     {
-                        this.strSMTPUser = strValue;
+                        this.emailHandler.strSMTPUser = strValue;
                     }
                 }
                 else if (strVariable.CompareTo("SMTP-Server password") == 0)
                 {
                     if (strValue == null || strValue == String.Empty)
                     {
-                        this.strSMTPPassword = "SMTP_PASSWORD_CANNOT_BE_EMPTY";
+                        this.emailHandler.strSMTPPassword = "SMTP_PASSWORD_CANNOT_BE_EMPTY";
                         this.ConsoleError("No password for SMTP was given! Canceling Operation.");
                     }
                     else
                     {
-                        this.strSMTPPassword = strValue;
+                        this.emailHandler.strSMTPPassword = strValue;
                     }
                 }
                 #endregion
@@ -5303,7 +5272,7 @@ namespace PRoConEvents
 
             DebugWrite("fetchSettings finished!", 6);
         }
-        
+
         /*
          * This method handles uploading of records and calling their action methods
          * Will only upload a record if upload setting for that command is true, or if uploading is required
@@ -6750,58 +6719,56 @@ namespace PRoConEvents
         public class EmailHandler
         {
             public AdKats plugin;
-            private Boolean blUseSSL = true;
-            private string strSMTPServer = "smtp.gmail.com";
-            private int iSMTPPort = 995;
-            private string strSenderMail = "adkatsbattlefield@gmail.com";
-            private string strSMTPUser = "adkatsbattlefield@gmail.com";
-            private string strSMTPPassword = "213481859238";
+            public string strSMTPServer = "smtp.gmail.com";
+            public Boolean blUseSSL = true;
+            public int iSMTPPort = 993;
+            public string strSenderMail = "adkatsbattlefield@gmail.com";
+            public string strSMTPUser = "adkatsbattlefield@gmail.com";
+            public string strSMTPPassword = "paqwjboqkbfywapu";
 
             public EmailHandler(AdKats plugin)
             {
                 this.plugin = plugin;
+
+                this.blUseSSL = false;
+                this.strSMTPServer = String.Empty;
+                this.iSMTPPort = 25;
+                this.strSenderMail = String.Empty;
+                this.strSMTPUser = String.Empty;
+                this.strSMTPPassword = String.Empty;
             }
 
-            private void sendReportEmail(AdKat_Record record)
+            private void sendHighProblemStateEmail()
             {
                 CServerInfo info = plugin.getServerInfo();
                 string subject = String.Empty;
                 string body = String.Empty;
 
-                subject = "[REPORT] - " + record.source_name + " requested an admin. Message - " + record.record_message;
+                subject = "AdKats: Server in High Problem State";
 
                 StringBuilder sb = new StringBuilder();
-                sb.Append("<b>Admin Request Notification</b><br /><br />");
-                sb.Append("Date/Time of call:<b> " + DateTime.Now.ToString() + "</b><br />");
-                sb.Append("Servername:<b> " + info.ServerName + "</b><br />");
-                sb.Append("Server address:<b> " + this.strHostName + ":" + this.strPort + "</b><br />");
-                sb.Append("Playercount:<b> " + info.PlayerCount + "/" + info.MaxPlayerCount + "</b><br />");
-                sb.Append("Map:<b> " + info.Map + "</b><br /><br />");
-                sb.Append("Request-Sender:<b> " + record.source_name + "</b><br />");
-                sb.Append("Message:<b> " + record.record_message + "</b><br /><br />");
-
-                /*<h1>AdKats</h1>
-                <h2 style="color:#FF0000;">Warning, high problem state detected.</h2>
-                <h2>SERVERNAME</h2>
-                <h3>CURRENTTIME</h3>
-                <h4>X reports have been made in the past 5 minutes.</h4>
-                <h4>Report List:</h4>
-                <table>
-                    <tbody>
-                        <tr>
-                            <td><b>Player Name</b></td>
-                            <td><b>Report Reason</b></td>
-                        </tr>
-                        <tr>
-                            <td><b>PLAYERNAME</b></td>
-                            <td>REPORTREASON</td>
-                        </tr>
-                    </tbody>
-                </table>
-                <p>
-                Map: MAPNAME<br>
-                Player Count: PLAYERCOUNT<br>
-                </p>*/
+                sb.Append("<h1>AdKats</h1>");
+                sb.Append("<h2 style='color:#FF0000;'>Warning, high problem state detected.</h2>");
+                sb.Append("<h2>SERVERNAME</h2>");
+                sb.Append("<h3>CURRENTTIME</h3>");
+                sb.Append("<h4>X reports have been made in the past 5 minutes.</h4>");
+                sb.Append("<h4>Report List:</h4>");
+                sb.Append("<table>");
+                sb.Append("<tbody>");
+                sb.Append("<tr>");
+                sb.Append("<td><b>Player Name</b></td>");
+                sb.Append("<td><b>Report Reason</b></td>");
+                sb.Append("</tr>");
+                        //<tr>
+                          //  <td><b>PLAYERNAME</b></td>
+                          //  <td>REPORTREASON</td>
+                        //</tr>
+                sb.Append("</tbody>");
+                sb.Append("</table>");
+                sb.Append("<p>");
+                sb.Append("Map: MAPNAME<br>");
+                sb.Append("Player Count: PLAYERCOUNT<br>");
+                sb.Append("</p>");
 
                 body = sb.ToString();
 
@@ -6876,7 +6843,7 @@ namespace PRoConEvents
             private string oauth_token = String.Empty;
             private string oauth_token_secret = String.Empty;
 
-            public String twitter_PIN_message = "Navigate to Twitter's authorization site to obtain the PIN";
+            public String twitter_PIN = "2916484";
             public String twitter_consumer_key = "3rkSNbotknUEMstELBNnQg";
             public String twitter_consumer_secret = "vRijlzIyJO8uXcoRM6ikis298sJJcxFkP3sf4hrL7A";
             public String twitter_access_token = "1468907792-UcOkpQhqFXdJM1rsYFq4XHYz9RPIjIW0PYDRfsB";
@@ -7104,8 +7071,8 @@ namespace PRoConEvents
                     plugin.DebugWrite("oauth_token=" + oauth_token, 4);
                     plugin.DebugWrite("oauth_token_secret=" + oauth_token_secret, 4);
 
-                    plugin.ConsoleWrite("Please visit the following site to obtain the ^btwitter_verifier_pin^n");
-                    plugin.ConsoleWrite("http://api.twitter.com/oauth/authorize?oauth_token=" + oauth_token);
+                    //Confirm PIN right away
+                    this.VerifyTwitterPin(this.twitter_PIN);
                 }
                 catch (TwitterException e)
                 {
@@ -7671,7 +7638,7 @@ namespace PRoConEvents
             {
                 prefix += "^1^bEXCEPTION^0^n: ";
             }
-             
+
             return prefix + msg;
         }
 
