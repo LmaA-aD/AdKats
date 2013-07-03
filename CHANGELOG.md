@@ -178,6 +178,8 @@ fine for performance). Right now only Punish and Forgive are required to be logg
 <ul>
   <li><b>Performance.</b> All actions, parsing, and database communications take place on their own threads now, 
   increasing performance greatly.</li>
+  <li><b>Setting Sync.</b> All plugin settings are now stored in the database, specific to each procon instance. Usage 
+  shown in readme.</li>
   <li><b>Dependencies.</b> XPKiller's Stat logger is now REQUIRED for AdKats to function. It provides much useful 
   information regarding both player and server statistics, which the new Ban Enforcer and AdKats itself use to improve 
   your admin abilities. A modded version of that plugin has been made which will inform AdKats it is installed, that 
