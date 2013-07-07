@@ -409,7 +409,7 @@ CREATE EVENT ban_status_update
 			`adkats_banlist` 
 		SET 
 			`ban_status` = 'Expired', 
-			`ban_sync` = '-sync-' 
+			`ban_sync` = '' 
 		WHERE 
 			`ban_status` != 'Expired' 
 		AND 
