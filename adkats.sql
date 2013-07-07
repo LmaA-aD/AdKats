@@ -411,6 +411,8 @@ CREATE EVENT ban_status_update
 			`ban_status` = 'Expired', 
 			`ban_sync` = '-sync-' 
 		WHERE 
+			`ban_status` != 'Expired' 
+		AND 
 			`ban_endTime` < NOW();
 	END;
 
