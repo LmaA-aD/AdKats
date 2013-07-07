@@ -415,6 +415,7 @@ CREATE EVENT ban_status_update
 		AND 
 			`ban_endTime` < NOW();
 	END;
+|
 
 -- Updates player points when punishments or forgivness logs are added in the record table
 CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkats_records`
