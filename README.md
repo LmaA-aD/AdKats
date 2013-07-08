@@ -368,7 +368,7 @@ commands is database logged in the database.<br/><br/>
 Players need to be at or above certain access levels to perform commands. Players on the access list can have their 
 powers disabled (without removing them from the access list) by lowering their access level. Players can be added to
 or removed from the access from plugin settings using the "Add Access" and "Remove Access" text fields. The access 
-level of a player can be changed once they are on the access list by modifying the number to the right of their name. 
+level of a player can be changed once they are on the access list, in addition to their email address. 
 All players are defaulted to level 6 in the system, and have no special access, level 0 is a full admin.
 <br/>
 <table>
@@ -467,8 +467,7 @@ All players are defaulted to level 6 in the system, and have no special access, 
 </table>
 </p>
 <h3>Commanding AdKats from Outside the Game</h3>
-<h4>AdKats WebAdmin, a tool for controlling your servers, issuing commands, and viewing logs from the comfort of a 
-web browser is currently in production. It should be released along with version 3.0</h4>
+<h4><a href="http://gcp.adkats.info/" target="_blank">AdKats WebAdmin</a> can be used for this.</h4>
 <p>
 If you have an external system (such as a web-based tool with access to bf3 server information), then there are two 
 ways to interact with AdKats externally.<br/>
@@ -489,7 +488,7 @@ target_name=[Full or Partial Player Name]<br/>
 record_message=[reason for action]<br/>
 access_key=[Your Access Key from AdKats Settings]<br/>
 <b>Optional Parameters:</b><br/>
-source_name=[Name of admin sending this command. This system has access level 1 (full admin) regardless of this entry.]<br/>
+source_name=[Name of admin sending this command. This system has access level 0 (full admin) regardless of this entry.]<br/>
 record_durationMinutes=[Used for Temp-Bans, duration of time in minutes]<br/><br/>
 
 <b>Example of Command:</b><br/>
@@ -594,8 +593,9 @@ Valid 'command_type's that can be acted on include the following:<br/>
 <h2>Settings</h2>
 <h3>1. Server Settings:</h3>
 <ul>
-  <li><b>'Server ID'</b> - Value used to identify this server in the database. Must be different from all other servers you run.</li>
-  <li><b>'Server IP'</b> - IP address of this server, just a display for your benefit.<br/></li>
+  <li><b>'Server ID'</b> - ID of this server. Automatically set via the database.</li>
+  <li><b>'Server IP'</b> - IP address and port of this server. Automatically set via procon.<br/></li>
+  <li><b>'Setting Import'</b> - Enter an existing server ID here and all settings from that instance will be imported here. All settings on this instance will be overwritten.<br/></li>
 </ul>
 <h3>2. MySQL Settings:</h3>
 <ul>
@@ -609,7 +609,7 @@ Valid 'command_type's that can be acted on include the following:<br/>
 <ul>
   <li><b>'Add Access'</b> - Add a player to the access list by entering their exact IGN here.<br/></li>
   <li><b>'Remove Access'</b> - Remove a player already on the access list by typing their exact IGN here.<br/></li>
-  <li><b>*PlayerName*</b> - Players in the current database access list are appeneded here with their access level.</li>
+  <li><b>*PlayerName*</b> - Players in the current database access list are appeneded here with their access level and email address.</li>
 </ul> 
 <h3>4. In-Game Command Settings:</h3>
 <ul>
@@ -654,7 +654,11 @@ Valid 'command_type's that can be acted on include the following:<br/>
 </ul>
 <h3>A11. Banning Settings:</h3>
 <ul>
-  <li><b>'Ban Type'</b> - The ban type that should be used when banning players, Frostbite - GUID is advised as that is the most reliable.</li>
+  By default, banning is by GUID only, this is sufficient in most cases. Can only choose name or GUID if not using AdKats Ban Enforcer.<br/>
+  <li><b>'Use AdKats Ban Enforcer'</b> - Whether to use the internal AdKats Ban Enforcer. Details Noted Above.</li>
+  <li><b>'Ban By Name'</b> - Whether to use a player's name to ban them. (Insecure, players can change their names)</li>
+  <li><b>'Ban By GUID'</b> - Whether to use a player's EA GUID to ban them. (Secure, players cannot change their GUIDs)</li>
+  <li><b>'Ban By IP'</b> - Whether to use a player's IP Address to ban them. (Secure, but can hit multiple players.)</li>
   <li><b>'Use Additional Ban Message'</b> - Whether to have an additional message append on each ban.</li>
   <li><b>'Additional Ban Message'</b> - Additional ban message to append on each ban. e.g. "Dispute at www.yourclansite.com"</li>
 </ul>
