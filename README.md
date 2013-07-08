@@ -4,8 +4,8 @@ View new in 0.3.0.0 in the changelog
 Download link below.
 <h1>AdKats</h1>
 <p>
-A MySQL reflected admin toolset that includes editable in-game commands, an out-of-game controller, database 
-reflected punishment and forgiveness, proper player report and admin call handling, player name completion, 
+An advanced admin toolset that includes editable in-game commands, an out-of-game controller, database 
+reflected punishment and forgiveness, proper player report and admin call handling, fuzzy player name completion, 
 player muting, yell/say pre-recording, and internal implementation of TeamSwap.<br/><br/>
 
 Visit the tool's github page 
@@ -30,9 +30,9 @@ for small servers.
 <b>NOTE:</b> This is NOT the player-based punish/forgive system normally used for teamkilling, and is only usable by
 admins.<br/>
 <br/>
-Use of punish and forgive commands takes the load off admins remembering what players have broken 
+Punish and forgive commands take the load off admins remembering what players have broken 
 server rules, and how many times. Each time a player is punished it's logged in the database, and the more punishes 
-they get the more  severe the punishment. Available punishments include kill, kick, temp-ban 60 minutes, temp-ban 1 day, 
+they get the more severe the punishment. Available punishments include kill, kick, temp-ban 60 minutes, temp-ban 1 day, 
 temp-ban 1 week, temp-ban 2 weeks, temp-ban 1 month, and permaban. The order that punishments are given in can be 
 configured to your needs.<br/>
 <br/>
@@ -40,10 +40,12 @@ After a player is 'punished' (and the Punish log is made in the database), their
 this very basic formula: <b>(Punishment Points - Forgiveness Points) = Total Points</b> 
 Then an action is decided using Total Points from the punishment hierarchy. Punishments should get more harsh as the
 player gets more points. A player cannot be punished more than once every 20 seconds, this prevents multiple admins from 
-accidentally punishing a player multiple times for the same thing. When a player is punished, and has already been 
-punished in the past 5 minutes, the new punish counts for 2 points instead of 1, as the player is immediately breaking 
-server rules after being punished. A punish worth 2 points is called an "IRO" punish by the plugin, standing for 
-Immediate Repeat Offence.<br/><br/>
+accidentally punishing a player multiple times for the same thing.<br/>
+<br/>
+IRO Punishments: When a player is punished, and has already been punished in the past 5 minutes, the new punish counts 
+for 2 points instead of 1, as the player is immediately breaking server rules after being punished. A punish worth 2 
+points is called an "IRO" punish by the plugin, standing for Immediate Repeat Offence. "[IRO]" will be appended to the 
+punish reason when this type of punish is activated. <br/><br/>
 
 The punishment hierarchy is configurable to suit your needs, but the default is below.<br/>
 
@@ -110,7 +112,7 @@ The punishment hierarchy is configurable to suit your needs, but the default is 
 	</tr>
 </table>
 
-Players may also be 'forgiven', which will reduce their total point value by 1 each time, this is useful if you have a
+Players may also be 'forgiven', which will reduce their Total Points value by 1 each time, this is useful if you have a
 website where players can apologize for their actions in-game. Players can be forgiven into negative total point values 
 which is why a 'less than 1' clause is needed. <br/><br/>
 
@@ -121,10 +123,20 @@ server if "Combine Server Punishments" is false. This is available since many gr
 server they own, so players breaking rules on one server may not know rules on another, so they get a clean slate.
 <br/><br/>
 
-When deciding to use this system, 'punish' should be the only command used for player rule-breaking. Other commands 
+<b>Suggestions:</b> When deciding to use this system, 'punish' should be the only command used for player rule-breaking. Other commands 
 like kill, or kick are not counted in the system since sometimes players ask to be killed, admins kill/kick themselves, 
 or players get kicked for AFKing. Kill and kick should only be used for server management. Direct tban 
 and ban are of course still available for hacker/glitching situations, but that is the ONLY time they should be used.
+</p>
+<h3>Ban Enforcer (Requires <a href="http://gcp.adkats.info/" target="_blank">AdKats WebAdmin</a>*)</h3>
+<p>
+AdKats can enforce bans accross all of your servers. Enabling the ban enforcer will import all bans from both the procon 
+ban list and "ban manager" plugin, this happens accross all servers running on your database. Bans made on one of your 
+servers will be enforced on all others within seconds of issuing the ban. Bans can be made by name, GUID, IP, any 
+combination, or all at once. Enforcer will shut down plugins that interfere with its functionality, this currently 
+includes Ban Manager, CRemoteBanlist, and the enforcement setting in the Metabans plugin. Metabans will be left running 
+and can continue posting new bans, but enforcement of bans using metabans will not be allowed. *You can use this without 
+WebAdmin, but you will be unable to manage any bans, lift them, or modify them in any way once submitted.
 </p>
 <h3>Report/CallAdmin System</h3>
 <p>
@@ -132,23 +144,23 @@ When a player puts in a proper @report or @admin all in-game admins are notified
 database with full player names for reporter/target, and the full reason for reporting. All uses of @report and 
 @admin with this plugin require players to enter a reason, and will tell them if they haven't entered one. It will 
 not send the report to admins unless reports are complete. This cleans up what admins end up seeing for reports 
-(useful if admins get reports and admin calls whether they are in-game or not).
+(useful if they get reports and calls whether in-game or not).
 <br/>
 <h4>Using Report IDs</h4>
-All reports are issued a random three digit ID which expires either at the end of each round, or when it is used. These ID's can be used in any 
-other action command, simply use that ID instead of a player-name and reason (e.g. waffleman73 baserapes, another player 
-reports them and gets report ID 582, admins just use @punish 582 instead of @punish waffleman73 baserape). Confirmation 
-of command with @yes is required before a report ID is acted on. Players are thanked for reporting when an admin uses 
-their report ID.
+All reports and calls are issued a random three digit ID which expires either at the end of each round, or when it is 
+used. These ID's can be used in any other action command, simply use that ID instead of a player-name and reason (e.g. 
+waffleman73 baserapes, another player reports them and gets report ID 582, admins just use @punish 582 instead of 
+@punish waffleman73 baserape). Confirmation of command with @yes is required before a report ID is acted on. Players 
+are thanked for reporting when an admin uses their report ID.
 </p>
 <h3>Admin Assistants</h3>
 <p>
 When a player sends a report, then an admin uses that report by ID, it is considered a "good" report. When a player 
 has X good reports in the past week a small bonus is given, access to teamswap. When a player gets access it simply 
 tells them "For your consistent player reporting you now have access to TeamSwap. Type @moveme to swap 
-between teams as often as you want." They do not know they are considered an admin assistant, only that they have access to that. The 
-assistant list is recalculated at the beginning of each round. They need to keep that report count up to keep access, 
-if they have less than the required amount they are automatically removed.<br/><br/>
+between teams as often as you want." They do not know they are considered an admin assistant, only that they have access 
+to that. The assistant list is recalculated at the beginning of each round. They need to keep that report count up to 
+keep access, if they have less than the required amount they are automatically removed.<br/><br/>
 
 When an admin assistant sends a report, to the admins that report is prefixed with [AA] to note it as a (most likely) 
 reliable report. Whether admin assistants get the teamswap perk can be disabled, but the prefixes admins see will remain.
@@ -156,7 +168,7 @@ reliable report. Whether admin assistants get the teamswap perk can be disabled,
 <h3>Player Muting</h3>
 <p>
 Players can be muted using the mute command, muting lasts until the end of the round. Players who talk in chat after 
-being muted will be killed each time they talk (up through 5 chat messages), on the 6th message they are kicked from 
+being muted will be killed each time they talk (up through X chat messages), on the (X+1)th message they are kicked from 
 the server. No action other than kill or kick is used by this system. There will be no way to un-mute players, there 
 was a reason they were muted, and they can talk again next round. Admins cannot mute other admins.
 </p>
@@ -199,10 +211,9 @@ Soldier Name" to get the speed of commands on your server.
 You must use an online MySQL database accessible from your procon layer. If you have your own website you can make one 
 there, or you can use an online service. My clan runs our own, but I found this online one to be ok, and has a free 
 usage option. http://www.freesqldatabase.com/ But any online accessible MySql database will work. Be careful with that 
-free option though, the size is limited, and these things can log A LOT of data if it's an active server. When I first 
-activated it on a busy metro server we had over 1500 records in just a few days of use.
+free option though, the size is limited, and these things can log A LOT of data if it's an active server.
 
-The plugin checks the database for needed tables on connect. If it doesn't find the proper tables/views it will run 
+AdKats checks the database for needed tables on connect. If it doesn't find the proper tables/views it will run 
 the script linked below. You can run the script beforehand if you dont want the plugin changing table structure in 
 your database.<br/>
 <br/>
@@ -210,15 +221,15 @@ your database.<br/>
 </p>
 <h3>Setting Sync</h3>
 <p>
-All settings for each plugin instance are stored database side by server ID. Enter an existing server ID in the setting 
-sync field and all settings from that instance will be imported to this instance. All settings on the current instance 
-will be overwritten by the synced variables. Whenever a setting is changed, that change is pushed to the database.
+All settings for each plugin instance are stored in the database by server ID. Enter an existing server ID in the 
+setting sync field and all settings from that instance will be imported to this instance. All settings on the current 
+instance will be overwritten by the synced settings. Whenever a setting is changed, that change is pushed to the 
+database.
 </p>
 <h3>Available In-Game Commands</h3>
 <p>
-<u><b>You can edit the text typed for each command to suit your needs in plugin settings.</b></u> Usage of all
-commands is database logged by default, but each command can be told whether to log or not. Logging all is useful 
-especially when you have to hold 40+ admins accountable, and has not caused any noticable lag.<br/><br/>
+<u><b>You can edit the text for each command to suit your needs in plugin settings.</b></u> Usage of all
+commands is database logged in the database.<br/><br/>
 <table>
 	<tr>
 		<td><b>Command</b></td>
