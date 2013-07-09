@@ -38,8 +38,8 @@ configured to your needs.<br/>
 <br/>
 After a player is 'punished' (and the Punish log is made in the database), their total points are calculated using 
 this very basic formula: <b>(Punishment Points - Forgiveness Points) = Total Points</b> 
-Then an action is decided using Total Points from the punishment hierarchy. Punishments should get more harsh as the
-player gets more points. A player cannot be punished more than once every 20 seconds, this prevents multiple admins from 
+Then an action is decided using Total Points from the punishment hierarchy. Punishments should get harsher as the
+player gets more points. A player cannot be punished more than once every 20 seconds; this prevents multiple admins from 
 accidentally punishing a player multiple times for the same thing.<br/>
 <br/>
 IRO Punishments: When a player is punished, and has already been punished in the past 5 minutes, the new punish counts 
@@ -116,8 +116,8 @@ Players may also be 'forgiven', which will reduce their Total Points value by 1 
 website where players can apologize for their actions in-game. Players can be forgiven into negative total point values 
 which is why a 'less than 1' clause is needed. <br/><br/>
 
-You can run multiple servers with this plugin on the same database, just use different serverIDs for each 
-one in plugin settings. If you want punishments to increase on this server when infractions are commited on others set 
+You can run multiple servers with this plugin on the same database; a different ID is automatically assigned to each 
+server. If you want punishments to increase on this server when infractions are committed on others set 
 "Combine Server Punishments" to true. Rule breaking on another server won't cause increase in punishments on the current 
 server if "Combine Server Punishments" is false. This is available since many groups run different rule sets on each 
 server they own, so players breaking rules on one server may not know rules on another, so they get a clean slate.
@@ -126,12 +126,12 @@ server they own, so players breaking rules on one server may not know rules on a
 <b>Suggestions:</b> When deciding to use this system, 'punish' should be the only command used for player rule-breaking. Other commands 
 like kill, or kick are not counted in the system since sometimes players ask to be killed, admins kill/kick themselves, 
 or players get kicked for AFKing. Kill and kick should only be used for server management. Direct tban 
-and ban are of course still available for hacker/glitching situations, but that is the ONLY time they should be used.
+and ban are of course still available for hacking/glitching situations, but that is the ONLY time they should be used.
 </p>
 <h3>Ban Enforcer (Requires <a href="http://gcp.adkats.info/" target="_blank">AdKats WebAdmin</a>*)</h3>
 <p>
-AdKats can enforce bans accross all of your servers. Enabling the ban enforcer will import all bans from both the procon 
-ban list and "ban manager" plugin, this happens accross all servers running on your database. Bans made on one of your 
+AdKats can enforce bans across all of your servers. Enabling the ban enforcer will import all bans from both the procon 
+ban list and "ban manager" plugin, this happens across all servers running on your database. Bans made on one of your 
 servers will be enforced on all others within seconds of issuing the ban. Bans can be made by name, GUID, IP, any 
 combination, or all at once. Enforcer will shut down plugins that interfere with its functionality, this currently 
 includes Ban Manager, CRemoteBanlist, and the enforcement setting in the Metabans plugin. Metabans will be left running 
@@ -214,7 +214,7 @@ usage option. http://www.freesqldatabase.com/ But any online accessible MySql da
 free option though, the size is limited, and these things can log A LOT of data if it's an active server.
 
 AdKats checks the database for needed tables on connect. If it doesn't find the proper tables/views it will run 
-the script linked below. You can run the script beforehand if you dont want the plugin changing table structure in 
+the script linked below. You can run the script beforehand if you don't want the plugin changing table structure in 
 your database.<br/>
 <br/>
 <a href="https://github.com/ColColonCleaner/AdKats/blob/master/adkats.sql" target="_blank">SQL Code</a>
@@ -670,7 +670,7 @@ Valid 'command_type's that can be acted on include the following:<br/>
 </ul>
 <h3>A13. Debug Settings:</h3>
 <ul>
-  <li><b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step. Don't edit unless you really wanna be spammed with console logs, it will also slow down the plugin when turned up.</li>
+  <li><b>'Debug level'</b> - Indicates how much debug-output is printed to the plugin-console. 0 turns off debug messages (just shows important warnings/exceptions), 6 documents nearly every step. Don't edit unless you really want to be spammed with console logs, it will also slow down the plugin when turned up.</li>
   <li><b>'Debug Soldier Name'</b> - When this soldier issues commands in your server, the time for any command to complete is told in-game. Duration is from the time you entered the message, until all aspects of the command have been completed.</li>
   <li><b>'Command Entry'</b> - Enter commands here just like in game, mainly for debug purposes. Don't let more than one person use this at any time.</li>
 </ul>
