@@ -4,7 +4,7 @@
  * player muting, yell/say pre-recording, and internal implementation of TeamSwap. It requires a MySQL Database 
  * connection for proper use, and will set up needed tables in the database if they are not there already.
  * 
- * © 2013 A Different Kind, LLC
+ * Copyright 2013 A Different Kind, LLC
  * 
  * AdKats was inspired by the gaming community A Different Kind (ADK), with help from the BF3 Admins within the 
  * community. Visit http://www.adkgamers.com/ for more information.
@@ -64,6 +64,8 @@ namespace PRoConEvents
         #region Variables
 
         string plugin_version = "0.3.0.0";
+
+        private MatchCommand AdKatsAvailableIndicator;
 
         //Enumerations
         //Messaging
@@ -149,7 +151,7 @@ namespace PRoConEvents
         private CServerInfo serverInfo = null;
 
         // Player Lists
-        Dictionary<string, AdKat_Player> playerDictionary = new Dictionary<string, AdKat_Player>();
+        private Dictionary<string, AdKat_Player> playerDictionary = new Dictionary<string, AdKat_Player>();
         //player counts per team
         private int USPlayerCount = 0;
         private int RUPlayerCount = 0;
@@ -298,14 +300,14 @@ namespace PRoConEvents
 
         //Multi-Threading
         //Threads
-        Thread MessagingThread;
-        Thread CommandParsingThread;
-        Thread DatabaseCommThread;
-        Thread ActionHandlingThread;
-        Thread TeamSwapThread;
-        Thread BanEnforcerThread;
-        Thread activator;
-        Thread finalizer;
+        private Thread MessagingThread;
+        private Thread CommandParsingThread;
+        private Thread DatabaseCommThread;
+        private Thread ActionHandlingThread;
+        private Thread TeamSwapThread;
+        private Thread BanEnforcerThread;
+        private Thread activator;
+        private Thread finalizer;
 
         //Mutexes
         public Object playersMutex = new Object();
@@ -323,40 +325,40 @@ namespace PRoConEvents
         public Object banEnforcerMutex = new Object();
 
         //Handles
-        EventWaitHandle teamswapHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-        EventWaitHandle listPlayersHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-        EventWaitHandle messageParsingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-        EventWaitHandle commandParsingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-        EventWaitHandle dbCommHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-        EventWaitHandle actionHandlingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-        EventWaitHandle banEnforcerHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-        EventWaitHandle serverInfoHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private EventWaitHandle teamswapHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private EventWaitHandle listPlayersHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private EventWaitHandle messageParsingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private EventWaitHandle commandParsingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private EventWaitHandle dbCommHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private EventWaitHandle actionHandlingHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private EventWaitHandle banEnforcerHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private EventWaitHandle serverInfoHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
 
         //Threading Queues
-        Queue<KeyValuePair<String, String>> unparsedMessageQueue = new Queue<KeyValuePair<String, String>>();
-        Queue<KeyValuePair<String, String>> unparsedCommandQueue = new Queue<KeyValuePair<String, String>>();
+        private Queue<KeyValuePair<String, String>> unparsedMessageQueue = new Queue<KeyValuePair<String, String>>();
+        private Queue<KeyValuePair<String, String>> unparsedCommandQueue = new Queue<KeyValuePair<String, String>>();
 
-        Queue<AdKat_Record> unprocessedRecordQueue = new Queue<AdKat_Record>();
-        Queue<AdKat_Record> unprocessedActionQueue = new Queue<AdKat_Record>();
+        private Queue<AdKat_Record> unprocessedRecordQueue = new Queue<AdKat_Record>();
+        private Queue<AdKat_Record> unprocessedActionQueue = new Queue<AdKat_Record>();
 
-        Queue<AdKat_Access> playerAccessUpdateQueue = new Queue<AdKat_Access>();
-        Queue<String> playerAccessRemovalQueue = new Queue<String>();
+        private Queue<AdKat_Access> playerAccessUpdateQueue = new Queue<AdKat_Access>();
+        private Queue<String> playerAccessRemovalQueue = new Queue<String>();
 
         private Queue<AdKat_Player> banEnforcerCheckingQueue = new Queue<AdKat_Player>();
         private Queue<AdKat_Ban> banEnforcerProcessingQueue = new Queue<AdKat_Ban>();
 
         //Force move action queue
-        Queue<CPlayerInfo> teamswapForceMoveQueue = new Queue<CPlayerInfo>();
+        private Queue<CPlayerInfo> teamswapForceMoveQueue = new Queue<CPlayerInfo>();
         //Delayed move list
         private Dictionary<String, CPlayerInfo> teamswapOnDeathMoveDic = new Dictionary<String, CPlayerInfo>();
         //Delayed move checking queue
-        Queue<CPlayerInfo> teamswapOnDeathCheckingQueue = new Queue<CPlayerInfo>();
+        private Queue<CPlayerInfo> teamswapOnDeathCheckingQueue = new Queue<CPlayerInfo>();
+
+        private Queue<CPluginVariable> settingUploadQueue = new Queue<CPluginVariable>();
 
         //Ban Settings
         private Boolean useBanEnforcer = true;
-        private Boolean defaultEnforceGUID = true;
-        private Boolean defaultEnforceIP = false;
-        private Boolean defaultEnforceName = false;
+        private Boolean processingBanList = false;
         private DateTime lastDBBanFetch = DateTime.Now;
         private int dbBanFetchFrequency = 60;
         private Dictionary<string, AdKat_Ban> AdKat_BanList_Name = new Dictionary<string, AdKat_Ban>();
@@ -364,15 +366,15 @@ namespace PRoConEvents
         private Dictionary<string, AdKat_Ban> AdKat_BanList_IP = new Dictionary<string, AdKat_Ban>();
         private DateTime permaBanEndTime = DateTime.Now.AddYears(1000);
 
-        //Teamspeak info
-        private string tsinfo = "ts.adkgamers.com:3796";
-
         #endregion
 
         public AdKats()
         {
             this.isEnabled = false;
             this.threadsReady = false;
+
+            this.AdKatsAvailableIndicator = new MatchCommand("AdKats", "NoCallableMethod", new List<string>(), "AdKats_NoCallableMethod", new List<MatchArgumentFormat>(), new ExecutionRequirements(ExecutionScope.None), "Useable by other plugins to determine whether this one is installed and enabled.");
+
             debugLevel = 0;
 
             this.externalCommandAccessKey = AdKats.GetRandom64BitHashCode();
@@ -567,10 +569,10 @@ namespace PRoConEvents
                 lstReturn.Add(new CPluginVariable("3. Player Access Settings|Remove Access", typeof(string), ""));
                 if (this.playerAccessCache.Count > 0)
                 {
-                    foreach (string playerName in this.playerAccessCache.Keys)
+                    foreach (AdKat_Access access in this.playerAccessCache.Values)
                     {
-                        lstReturn.Add(new CPluginVariable("3. Player Access Settings|" + playerName + "|Access Level", typeof(int), this.playerAccessCache[playerName].access_level));
-                        lstReturn.Add(new CPluginVariable("3. Player Access Settings|" + playerName + "|Email Address", typeof(string), this.playerAccessCache[playerName].player_email));
+                        lstReturn.Add(new CPluginVariable("3. Player Access Settings|" + access.player_name + "|Access Level", typeof(int), access.access_level));
+                        lstReturn.Add(new CPluginVariable("3. Player Access Settings|" + access.player_name + "|Email Address", typeof(string), access.player_email));
                     }
                 }
                 else
@@ -701,10 +703,6 @@ namespace PRoConEvents
             try
             {
                 string[] variableParse = CPluginVariable.DecodeStringArray(strVariable);
-                foreach (string parse in variableParse)
-                {
-                    this.DebugWrite("Set Parse: " + parse, 5);
-                }
 
                 if (strVariable.Equals("UpdateSettings"))
                 {
@@ -739,24 +737,34 @@ namespace PRoConEvents
                 else if (Regex.Match(strVariable, @"Debug level").Success)
                 {
                     int tmp = 2;
-                    int.TryParse(strValue, out tmp);
-                    this.debugLevel = tmp;
+                    if (int.TryParse(strValue, out tmp))
+                    {
+                        this.debugLevel = tmp;
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Debug level", typeof(Int32), tmp));
+                    }
                 }
                 else if (Regex.Match(strVariable, @"Debug Soldier Name").Success)
                 {
                     this.debugSoldierName = strValue;
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Debug Soldier Name", typeof(string), strValue));
                 }
                 #endregion
                 #region HTTP settings
                 else if (Regex.Match(strVariable, @"External Access Key").Success)
                 {
                     this.externalCommandAccessKey = strValue;
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"External Access Key", typeof(string), strValue));
                 }
                 else if (Regex.Match(strVariable, @"Fetch Actions from Database").Success)
                 {
                     if (fetchActionsFromDB = Boolean.Parse(strValue))
                     {
                         this.dbCommHandle.Set();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Fetch Actions from Database", typeof(Boolean), this.fetchActionsFromDB));
                     }
                 }
                 #endregion
@@ -764,6 +772,8 @@ namespace PRoConEvents
                 else if (Regex.Match(strVariable, @"Use Additional Ban Message").Success)
                 {
                     this.useBanAppend = Boolean.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Use Additional Ban Message", typeof(Boolean), this.useBanAppend));
                 }
                 else if (Regex.Match(strVariable, @"Additional Ban Message").Success)
                 {
@@ -772,13 +782,20 @@ namespace PRoConEvents
                         strValue = strValue.Substring(0, 30);
                         this.ConsoleError("Ban append cannot be more than 30 characters.");
                     }
-                    this.banAppend = strValue;
+                    else
+                    {
+                        this.banAppend = strValue;
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Additional Ban Message", typeof(string), strValue));
+                    }
                 }
                 #endregion
                 #region In-Game Command Settings
                 else if (Regex.Match(strVariable, @"Minimum Required Reason Length").Success)
                 {
                     this.requiredReasonLength = Int32.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Minimum Required Reason Length", typeof(Int32), this.requiredReasonLength));
                 }
                 else if (Regex.Match(strVariable, @"Confirm Command").Success)
                 {
@@ -792,6 +809,8 @@ namespace PRoConEvents
                         }
                         this.m_strConfirmCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Confirm Command", typeof(string), strValue));
                     }
                     else
                     {
@@ -810,6 +829,8 @@ namespace PRoConEvents
                         }
                         this.m_strCancelCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Cancel Command", typeof(string), strValue));
                     }
                     else
                     {
@@ -822,6 +843,8 @@ namespace PRoConEvents
                     {
                         this.m_strKillCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Kill Player", typeof(string), strValue));
                     }
                     else
                     {
@@ -834,6 +857,8 @@ namespace PRoConEvents
                     {
                         this.m_strKickCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Kick Player", typeof(string), strValue));
                     }
                     else
                     {
@@ -846,6 +871,8 @@ namespace PRoConEvents
                     {
                         this.m_strTemporaryBanCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Temp-Ban Player", typeof(string), strValue));
                     }
                     else
                     {
@@ -858,6 +885,8 @@ namespace PRoConEvents
                     {
                         this.m_strPermanentBanCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Permaban Player", typeof(string), strValue));
                     }
                     else
                     {
@@ -875,6 +904,8 @@ namespace PRoConEvents
                         }
                         this.m_strPunishCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Punish Player", typeof(string), strValue));
                     }
                     else
                     {
@@ -892,6 +923,8 @@ namespace PRoConEvents
                         }
                         this.m_strForgiveCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Forgive Player", typeof(string), strValue));
                     }
                     else
                     {
@@ -904,6 +937,8 @@ namespace PRoConEvents
                     {
                         this.m_strMuteCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Mute Player", typeof(string), strValue));
                     }
                     else
                     {
@@ -916,6 +951,8 @@ namespace PRoConEvents
                     {
                         this.m_strRoundWhitelistCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Round Whitelist Player", typeof(string), strValue));
                     }
                     else
                     {
@@ -928,6 +965,8 @@ namespace PRoConEvents
                     {
                         this.m_strMoveCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"OnDeath Move Player", typeof(string), strValue));
                     }
                     else
                     {
@@ -940,6 +979,8 @@ namespace PRoConEvents
                     {
                         this.m_strForceMoveCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Force Move Player", typeof(string), strValue));
                     }
                     else
                     {
@@ -952,6 +993,8 @@ namespace PRoConEvents
                     {
                         this.m_strTeamswapCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Teamswap Self", typeof(string), strValue));
                     }
                     else
                     {
@@ -964,6 +1007,8 @@ namespace PRoConEvents
                     {
                         this.m_strReportCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Report Player", typeof(string), strValue));
                     }
                     else
                     {
@@ -976,6 +1021,8 @@ namespace PRoConEvents
                     {
                         this.m_strCallAdminCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Call Admin on Player", typeof(string), strValue));
                     }
                     else
                     {
@@ -988,6 +1035,8 @@ namespace PRoConEvents
                     {
                         this.m_strSayCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Admin Say", typeof(string), strValue));
                     }
                     else
                     {
@@ -1000,6 +1049,8 @@ namespace PRoConEvents
                     {
                         this.m_strPlayerSayCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Player Say", typeof(string), strValue));
                     }
                     else
                     {
@@ -1012,6 +1063,8 @@ namespace PRoConEvents
                     {
                         this.m_strYellCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Admin Yell", typeof(string), strValue));
                     }
                     else
                     {
@@ -1024,6 +1077,8 @@ namespace PRoConEvents
                     {
                         this.m_strPlayerYellCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Player Yell", typeof(string), strValue));
                     }
                     else
                     {
@@ -1042,6 +1097,8 @@ namespace PRoConEvents
                         }
                         this.m_strWhatIsCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"What Is", typeof(string), strValue));
                     }
                     else
                     {
@@ -1054,6 +1111,8 @@ namespace PRoConEvents
                     {
                         this.m_strRestartLevelCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Restart Level", typeof(string), strValue));
                     }
                     else
                     {
@@ -1066,6 +1125,8 @@ namespace PRoConEvents
                     {
                         this.m_strNextLevelCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Next Level", typeof(string), strValue));
                     }
                     else
                     {
@@ -1078,6 +1139,8 @@ namespace PRoConEvents
                     {
                         this.m_strEndLevelCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"End Level", typeof(string), strValue));
                     }
                     else
                     {
@@ -1090,6 +1153,8 @@ namespace PRoConEvents
                     {
                         this.m_strNukeCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Nuke Server", typeof(string), strValue));
                     }
                     else
                     {
@@ -1102,6 +1167,8 @@ namespace PRoConEvents
                     {
                         this.m_strKickAllCommand = strValue;
                         rebindAllCommands();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Kick All NonAdmins", typeof(string), strValue));
                     }
                     else
                     {
@@ -1113,22 +1180,32 @@ namespace PRoConEvents
                 else if (Regex.Match(strVariable, @"Punishment Hierarchy").Success)
                 {
                     this.punishmentHierarchy = CPluginVariable.DecodeStringArray(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Punishment Hierarchy", typeof(string), strValue));
                 }
                 else if (Regex.Match(strVariable, @"Combine Server Punishments").Success)
                 {
                     this.combineServerPunishments = Boolean.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Combine Server Punishments", typeof(Boolean), this.combineServerPunishments));
                 }
                 else if (Regex.Match(strVariable, @"Only Kill Players when Server in low population").Success)
                 {
                     this.onlyKillOnLowPop = Boolean.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Only Kill Players when Server in low population", typeof(Boolean), this.onlyKillOnLowPop));
                 }
                 else if (Regex.Match(strVariable, @"Low Population Value").Success)
                 {
                     this.lowPopPlayerCount = Int32.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Low Population Value", typeof(Int32), this.lowPopPlayerCount));
                 }
                 else if (Regex.Match(strVariable, @"IRO Punishment Overrides Low Pop").Success)
                 {
                     this.IROOverridesLowPop = Boolean.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"IRO Punishment Overrides Low Pop", typeof(Boolean), this.IROOverridesLowPop));
                 }
                 #endregion
                 #region sql settings
@@ -1137,6 +1214,8 @@ namespace PRoConEvents
                     mySqlHostname = strValue;
                     this.dbSettingsChanged = true;
                     this.dbCommHandle.Set();
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"MySQL Hostname", typeof(string), strValue));
                 }
                 else if (Regex.Match(strVariable, @"MySQL Port").Success)
                 {
@@ -1145,49 +1224,65 @@ namespace PRoConEvents
                     if (tmp > 0 && tmp < 65536)
                     {
                         mySqlPort = strValue;
+                        this.dbSettingsChanged = true;
+                        this.dbCommHandle.Set();
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"MySQL Port", typeof(string), strValue));
                     }
                     else
                     {
                         ConsoleException("Invalid value for MySQL Port: '" + strValue + "'. Must be number between 1 and 65535!");
                     }
-                    this.dbSettingsChanged = true;
-                    this.dbCommHandle.Set();
                 }
                 else if (Regex.Match(strVariable, @"MySQL Database").Success)
                 {
                     this.mySqlDatabaseName = strValue;
                     this.dbSettingsChanged = true;
                     this.dbCommHandle.Set();
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"MySQL Database", typeof(string), strValue));
                 }
                 else if (Regex.Match(strVariable, @"MySQL Username").Success)
                 {
                     mySqlUsername = strValue;
                     this.dbSettingsChanged = true;
                     this.dbCommHandle.Set();
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"MySQL Username", typeof(string), strValue));
                 }
                 else if (Regex.Match(strVariable, @"MySQL Password").Success)
                 {
                     mySqlPassword = strValue;
                     this.dbSettingsChanged = true;
                     this.dbCommHandle.Set();
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"MySQL Password", typeof(string), strValue));
                 }
                 #endregion
                 #region email settings
                 else if (strVariable.CompareTo("Send Emails") == 0)
                 {
                     this.sendmail = Boolean.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable("Send Emails", typeof(Boolean), this.sendmail));
                 }
                 else if (strVariable.CompareTo("Admin Request Email?") == 0)
                 {
                     //this.blNotifyEmail = Boolean.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable("Admin Request Email?", typeof(string), strValue));
                 }
                 else if (strVariable.CompareTo("Use SSL?") == 0)
                 {
                     this.emailHandler.blUseSSL = Boolean.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable("Use SSL?", typeof(Boolean), this.emailHandler.blUseSSL));
                 }
                 else if (strVariable.CompareTo("SMTP-Server address") == 0)
                 {
                     this.emailHandler.strSMTPServer = strValue;
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable("SMTP-Server address", typeof(string), strValue));
                 }
                 else if (strVariable.CompareTo("SMTP-Server port") == 0)
                 {
@@ -1195,6 +1290,8 @@ namespace PRoConEvents
                     if (iPort > 0)
                     {
                         this.emailHandler.iSMTPPort = iPort;
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable("SMTP-Server port", typeof(Int32), iPort));
                     }
                 }
                 else if (strVariable.CompareTo("Sender address") == 0)
@@ -1207,6 +1304,8 @@ namespace PRoConEvents
                     else
                     {
                         this.emailHandler.strSenderMail = strValue;
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable("Sender address", typeof(string), strValue));
                     }
                 }
                 else if (strVariable.CompareTo("SMTP-Server username") == 0)
@@ -1219,6 +1318,8 @@ namespace PRoConEvents
                     else
                     {
                         this.emailHandler.strSMTPUser = strValue;
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable("SMTP-Server username", typeof(string), strValue));
                     }
                 }
                 else if (strVariable.CompareTo("SMTP-Server password") == 0)
@@ -1231,6 +1332,8 @@ namespace PRoConEvents
                     else
                     {
                         this.emailHandler.strSMTPPassword = strValue;
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable("SMTP-Server password", typeof(string), strValue));
                     }
                 }
                 #endregion
@@ -1238,26 +1341,36 @@ namespace PRoConEvents
                 else if (Regex.Match(strVariable, @"On-Player-Muted Message").Success)
                 {
                     this.mutedPlayerMuteMessage = strValue;
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"On-Player-Muted Message", typeof(string), strValue));
                 }
                 else if (Regex.Match(strVariable, @"On-Player-Killed Message").Success)
                 {
                     this.mutedPlayerKillMessage = strValue;
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"On-Player-Killed Message", typeof(string), strValue));
                 }
                 else if (Regex.Match(strVariable, @"On-Player-Kicked Message").Success)
                 {
                     this.mutedPlayerKickMessage = strValue;
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"On-Player-Kicked Message", typeof(string), strValue));
                 }
                 if (Regex.Match(strVariable, @"# Chances to give player before kicking").Success)
                 {
                     int tmp = 5;
                     int.TryParse(strValue, out tmp);
                     this.mutedPlayerChances = tmp;
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"# Chances to give player before kicking", typeof(Int32), tmp));
                 }
                 #endregion
                 #region teamswap settings
                 else if (Regex.Match(strVariable, @"Require Whitelist for Access").Success)
                 {
                     this.requireTeamswapWhitelist = Boolean.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Require Whitelist for Access", typeof(Boolean), this.requireTeamswapWhitelist));
                 }
                 else if (Regex.Match(strVariable, @"Auto-Whitelist Count").Success)
                 {
@@ -1266,28 +1379,38 @@ namespace PRoConEvents
                     if (tmp < 1)
                         tmp = 1;
                     this.playersToAutoWhitelist = tmp;
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Auto-Whitelist Count", typeof(Int32), tmp));
                 }
                 else if (Regex.Match(strVariable, @"Ticket Window High").Success)
                 {
                     int tmp = 2;
                     int.TryParse(strValue, out tmp);
                     this.teamSwapTicketWindowHigh = tmp;
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Ticket Window High", typeof(Int32), tmp));
                 }
                 else if (Regex.Match(strVariable, @"Ticket Window Low").Success)
                 {
                     int tmp = 2;
                     int.TryParse(strValue, out tmp);
                     this.teamSwapTicketWindowLow = tmp;
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Ticket Window Low", typeof(Int32), tmp));
                 }
                 #endregion
                 #region Admin Assistants
                 else if (Regex.Match(strVariable, @"Enable Admin Assistant Perk").Success)
                 {
                     this.enableAdminAssistants = Boolean.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Enable Admin Assistant Perk", typeof(Boolean), this.enableAdminAssistants));
                 }
                 else if (Regex.Match(strVariable, @"Minimum Confirmed Reports Per Week").Success)
                 {
                     this.minimumRequiredWeeklyReports = Int32.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Minimum Confirmed Reports Per Week", typeof(Int32), this.minimumRequiredWeeklyReports));
                 }
                 #endregion
                 #region Messaging Settings
@@ -1295,14 +1418,20 @@ namespace PRoConEvents
                 {
                     this.m_iShowMessageLength = Int32.Parse(strValue);
                     this.m_strShowMessageLength = m_iShowMessageLength + "";
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Yell display time seconds", typeof(Int32), this.m_iShowMessageLength));
                 }
                 else if (Regex.Match(strVariable, @"Pre-Message List").Success)
                 {
                     this.preMessageList = new List<string>(CPluginVariable.DecodeStringArray(strValue));
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Pre-Message List", typeof(string), strValue));
                 }
                 else if (Regex.Match(strVariable, @"Require Use of Pre-Messages").Success)
                 {
                     this.requirePreMessageUse = Boolean.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Require Use of Pre-Messages", typeof(Boolean), this.requirePreMessageUse));
                 }
                 #endregion
                 #region access settings
@@ -1708,6 +1837,10 @@ namespace PRoConEvents
 
                         this.threadsReady = true;
                         this.updateSettingPage();
+
+                        //Register a command to indicate availibility to other plugins
+                        this.RegisterCommand(AdKatsAvailableIndicator);
+
                         this.ConsoleWrite("^b^2Enabled!^n^0 Version: " + this.GetPluginVersion() + " in " + duration.TotalMilliseconds + "ms.");
                     }
                     catch (Exception e)
@@ -1738,6 +1871,8 @@ namespace PRoConEvents
                     {
                         ConsoleWrite("Disabling all functionality. Please Wait.");
                         this.isEnabled = false;
+
+                        this.UnregisterCommand(AdKatsAvailableIndicator);
 
                         //Open all handles. Threads will finish on their own.
                         this.setAllHandles();
@@ -1981,6 +2116,17 @@ namespace PRoConEvents
             }
         }
 
+        private void queueSettingForUpload(CPluginVariable setting)
+        {
+            this.DebugWrite("Preparing to queue setting for upload", 6);
+            lock (this.settingUploadQueue)
+            {
+                this.settingUploadQueue.Enqueue(setting);
+                this.DebugWrite("Player setting for upload", 6);
+                this.dbCommHandle.Set();
+            }
+        }
+
         private void queueBanForProcessing(AdKat_Ban aBan)
         {
             this.DebugWrite("Preparing to queue ban for processing", 6);
@@ -2103,6 +2249,7 @@ namespace PRoConEvents
 
         public override void OnBanList(List<CBanInfo> banList)
         {
+            this.processingBanList = true;
             if (!this.isEnabled) return;
             this.DebugWrite("OnBanList fired", 6);
             AdKat_Ban aBan;
@@ -2133,9 +2280,9 @@ namespace PRoConEvents
                 aBan.ban_reason = cBan.Reason;
 
                 //Update the ban enforcement depending on available information
-                aBan.ban_enforceGUID = !String.IsNullOrEmpty(record.target_player.player_guid) && this.defaultEnforceGUID;
-                aBan.ban_enforceIP = !String.IsNullOrEmpty(record.target_player.player_ip) && this.defaultEnforceIP;
-                aBan.ban_enforceName = !String.IsNullOrEmpty(record.target_player.player_name) && this.defaultEnforceName;
+                aBan.ban_enforceName = !String.IsNullOrEmpty(record.target_player.player_name);
+                aBan.ban_enforceGUID = !String.IsNullOrEmpty(record.target_player.player_guid);
+                aBan.ban_enforceIP = !String.IsNullOrEmpty(record.target_player.player_ip);
 
                 this.queueBanForProcessing(aBan);
             }
@@ -2149,6 +2296,7 @@ namespace PRoConEvents
         public override void OnBanListClear()
         {
             this.DebugWrite("Ban list cleared", 5);
+            this.processingBanList = false;
         }
         public override void OnBanListSave()
         {
@@ -4678,6 +4826,7 @@ namespace PRoConEvents
                 Queue<AdKat_Ban> inboundBans;
                 Queue<AdKat_Access> inboundAccessUpdates;
                 Queue<String> inboundAccessRemoval;
+                Queue<CPluginVariable> inboundSettingUpload;
                 while (true)
                 {
                     this.DebugWrite("DBCOMM: Entering Database Comm Thread Loop", 7);
@@ -4728,7 +4877,7 @@ namespace PRoConEvents
                     }
                     else
                     {
-                        this.DebugWrite("Skipping server ID fetch. Server ID: " + this.server_id, 6);
+                        this.DebugWrite("Skipping server ID fetch. Server ID: " + this.server_id, 7);
                     }
 
                     //Database access is successful, sync all bans
@@ -4831,11 +4980,32 @@ namespace PRoConEvents
                         this.DebugWrite("DBCOMM: Skipping DB ban fetch", 7);
                     }
 
+                    //Handle Inbound Setting Uploads
+                    if (this.settingUploadQueue.Count > 0)
+                    {
+                        this.DebugWrite("DBCOMM: Preparing to lock inbound setting queue to retrive new settings", 7);
+                        lock (this.settingUploadQueue)
+                        {
+                            this.DebugWrite("DBCOMM: Inbound settings found. Grabbing.", 6);
+                            //Grab all settings in the queue
+                            inboundSettingUpload = new Queue<CPluginVariable>(this.settingUploadQueue.ToArray());
+                            //Clear the queue for next run
+                            this.settingUploadQueue.Clear();
+                        }
+                        //Loop through all settings in order that they came in
+                        while (inboundSettingUpload != null && inboundSettingUpload.Count > 0)
+                        {
+                            CPluginVariable setting = inboundSettingUpload.Dequeue();
+
+                            this.uploadSetting(setting);
+                        }
+                    }
+
                     //Handle Inbound Records
                     if (this.unprocessedRecordQueue.Count > 0)
                     {
                         this.DebugWrite("DBCOMM: Preparing to lock inbound record queue to retrive new records", 7);
-                        lock (unprocessedRecordMutex)
+                        lock (this.unprocessedRecordMutex)
                         {
                             this.DebugWrite("DBCOMM: Inbound records found. Grabbing.", 6);
                             //Grab all messages in the queue
@@ -4992,56 +5162,56 @@ namespace PRoConEvents
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkats_accesslist"))
+                /*if (!this.confirmTable("adkats_accesslist", connection))
                 {
                     ConsoleError("Access Table not present in the database.");
-                    this.runDBSetupScript();
-                    if (!this.confirmTable("adkats_accesslist"))
+                    this.runDBSetupScript(null);
+                    if (!this.confirmTable("adkats_accesslist", connection))
                     {
                         this.ConsoleError("After running setup script access table still not present.");
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkats_serverPlayerPoints"))
+                if (!this.confirmTable("adkats_serverPlayerPoints", connection))
                 {
                     ConsoleError("Server Points Table not present in the database.");
-                    this.runDBSetupScript();
-                    if (!this.confirmTable("adkats_serverPlayerPoints"))
+                    this.runDBSetupScript(null);
+                    if (!this.confirmTable("adkats_serverPlayerPoints", connection))
                     {
                         this.ConsoleError("After running setup script Server Points table still not present.");
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkats_globalPlayerPoints"))
+                if (!this.confirmTable("adkats_globalPlayerPoints", connection))
                 {
                     ConsoleError("Global Points Table not present in the database.");
-                    this.runDBSetupScript();
-                    if (!this.confirmTable("adkats_globalPlayerPoints"))
+                    this.runDBSetupScript(null);
+                    if (!this.confirmTable("adkats_globalPlayerPoints", connection))
                     {
                         this.ConsoleError("After running setup script Global Points table still not present.");
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkats_banlist"))
+                if (!this.confirmTable("adkats_banlist", connection))
                 {
                     ConsoleError("Ban List not present in the database.");
-                    this.runDBSetupScript();
-                    if (!this.confirmTable("adkats_accesslist"))
+                    this.runDBSetupScript(null);
+                    if (!this.confirmTable("adkats_accesslist", connection))
                     {
                         this.ConsoleError("After running setup script banlist still not present.");
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkats_settings"))
+                if (!this.confirmTable("adkats_settings", connection))
                 {
                     ConsoleError("Settings Table not present in the database.");
-                    this.runDBSetupScript();
-                    if (!this.confirmTable("adkats_settings"))
+                    this.runDBSetupScript(null);
+                    if (!this.confirmTable("adkats_settings", connection))
                     {
                         this.ConsoleError("After running setup script Settings Table still not present.");
                         confirmed = false;
                     }
-                }
+                }*/
                 if (confirmed)
                 {
                     this.ConsoleSuccess("Database confirmed functional for AdKats use.");
@@ -5138,57 +5308,6 @@ namespace PRoConEvents
 
         #region Queries
 
-        private void uploadAllSettings()
-        {
-            DebugWrite("uploadAllSettings starting!", 6);
-
-            List<CPluginVariable> vars = this.GetPluginVariables();
-
-            try
-            {
-                using (MySqlConnection connection = this.getDatabaseConnection())
-                {
-                    using (MySqlCommand command = connection.CreateCommand())
-                    {
-                        //Set the insert command structure
-                        string commandTotal = "";
-                        foreach (CPluginVariable var in vars)
-                        {
-                            //Fill the command
-                            commandTotal += @"
-                            INSERT INTO `" + this.mySqlDatabaseName + @"`.`adkats_settings` 
-                            (
-                                `server_id`, 
-                                `setting_name`, 
-                                `setting_value`
-                            ) 
-                            VALUES 
-                            ( 
-                                " + this.server_id + @", 
-                                '" + var.Name + @"', 
-                                '" + var.Value + @"'
-                            ) 
-                            ON DUPLICATE KEY 
-                            UPDATE 
-                                `setting_value` = '" + var.Value + @"'; 
-                            ";
-                        }
-                        //Attempt to execute the query
-                        if (command.ExecuteNonQuery() > 0)
-                        {
-                            this.DebugWrite("All Settings pushed to database", 3);
-                        }
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                ConsoleException(e.ToString());
-            }
-
-            DebugWrite("uploadAllSettings finished!", 6);
-        }
-
         private void uploadSetting(CPluginVariable var)
         {
             DebugWrite("uploadSetting starting!", 6);
@@ -5201,23 +5320,27 @@ namespace PRoConEvents
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
+                        string value = var.Value.Replace("'", "*").Replace('"', '*');
+                        this.DebugWrite(value, 5);
                         //Set the insert command structure
-                        string commandTotal = @"
+                        command.CommandText = @"
                         INSERT INTO `" + this.mySqlDatabaseName + @"`.`adkats_settings` 
                         (
                             `server_id`, 
                             `setting_name`, 
+                            `setting_type`, 
                             `setting_value`
                         ) 
                         VALUES 
                         ( 
                             " + this.server_id + @", 
                             '" + var.Name + @"', 
-                            '" + var.Value + @"'
+                            '" + var.Type + @"', 
+                            '" + value + @"'
                         ) 
                         ON DUPLICATE KEY 
                         UPDATE 
-                            `setting_value` = '" + var.Value + @"'";
+                            `setting_value` = '" + value + @"'";
                         //Attempt to execute the query
                         if (command.ExecuteNonQuery() > 0)
                         {
@@ -6762,10 +6885,10 @@ namespace PRoConEvents
                 sb.Append("<td><b>Player Name</b></td>");
                 sb.Append("<td><b>Report Reason</b></td>");
                 sb.Append("</tr>");
-                //<tr>
-                //  <td><b>PLAYERNAME</b></td>
-                //  <td>REPORTREASON</td>
-                //</tr>
+                        //<tr>
+                          //  <td><b>PLAYERNAME</b></td>
+                          //  <td>REPORTREASON</td>
+                        //</tr>
                 sb.Append("</tbody>");
                 sb.Append("</table>");
                 sb.Append("<p>");
