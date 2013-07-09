@@ -596,6 +596,7 @@ Valid 'command_type's that can be acted on include the following:<br/>
   <li><b>'Server ID'</b> - ID of this server. Automatically set via the database.</li>
   <li><b>'Server IP'</b> - IP address and port of this server. Automatically set via procon.<br/></li>
   <li><b>'Setting Import'</b> - Enter an existing server ID here and all settings from that instance will be imported here. All settings on this instance will be overwritten.<br/></li>
+  <li><b>'Using AdKats WebAdmin'</b> - Makes sure all settings are set to allow WebAdmin Use. Enables Ban Enforcer, and begins fetching actions from database.<br/></li>
 </ul>
 <h3>2. MySQL Settings:</h3>
 <ul>
