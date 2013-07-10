@@ -133,6 +133,7 @@ namespace PRoConEvents
         private Int64 settingImportID = -1;
         private DateTime lastDBSettingFetch = DateTime.Now;
         private int dbSettingFetchFrequency = 300;
+        private Boolean usingAWA = false;
         //Whether to get the release version of plugin description and setup scripts, or the dev version.
         //This setting is unchangeable by users, and will always be TRUE for released versions of the plugin.
         private bool isRelease = false;
@@ -294,11 +295,12 @@ namespace PRoConEvents
         private int minimumRequiredWeeklyReports = 5;
 
         //Twitter Settings
+        private Boolean useTwitter = false;
         private TwitterHandler twitterHandler = null;
-        private Boolean tweetedPluginEnable = false;
+        //private Boolean tweetedPluginEnable = false;
 
         //Mail Settings
-        private Boolean sendmail = false;
+        private Boolean useEmail = false;
         private EmailHandler emailHandler = null;
 
         //Multi-Threading
@@ -360,8 +362,11 @@ namespace PRoConEvents
         private Queue<CPluginVariable> settingUploadQueue = new Queue<CPluginVariable>();
 
         //Ban Settings
-        private Boolean useBanEnforcer = true;
-        private Boolean processingBanList = false;
+        private Boolean useBanEnforcer = false;
+        private Boolean useBanEnforcerPrevious = false;
+        private Boolean defaultEnforceName = false;
+        private Boolean defaultEnforceGUID = true;
+        private Boolean defaultEnforceIP = false;
         private DateTime lastDBBanFetch = DateTime.Now;
         private int dbBanFetchFrequency = 60;
         private Dictionary<string, AdKat_Ban> AdKat_BanList_Name = new Dictionary<string, AdKat_Ban>();
@@ -596,6 +601,10 @@ namespace PRoConEvents
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID (Display)", typeof(int), this.server_id));
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Server IP (Display)", typeof(string), this.server_ip));
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Setting Import", typeof(string), ""));
+                if (this.usingAWA)
+                {
+                    lstReturn.Add(new CPluginVariable("1. Server Settings|Using AdKats WebAdmin (Set Automatically)", typeof(Boolean), this.usingAWA));
+                }
 
                 //SQL Settings
                 lstReturn.Add(new CPluginVariable("2. MySQL Settings|MySQL Hostname", typeof(string), mySqlHostname));
@@ -643,8 +652,8 @@ namespace PRoConEvents
                 }
 
                 //Player Report Settings
-                lstReturn.Add(new CPluginVariable("6. Email Settings|Send Emails", typeof(bool), this.sendmail));
-                if (this.sendmail == true && false)
+                lstReturn.Add(new CPluginVariable("6. Email Settings|Send Emails", typeof(bool), this.useEmail));
+                if (this.useEmail == true && false)
                 {
                     lstReturn.Add(new CPluginVariable("6. Email Settings|Email: Use SSL?", typeof(Boolean), this.emailHandler.blUseSSL));
                     lstReturn.Add(new CPluginVariable("6. Email Settings|SMTP-Server address", typeof(string), this.emailHandler.strSMTPServer));
@@ -679,17 +688,22 @@ namespace PRoConEvents
                 lstReturn.Add(new CPluginVariable("A10. Messaging Settings|Require Use of Pre-Messages", typeof(Boolean), this.requirePreMessageUse));
 
                 //Ban Settings
-                lstReturn.Add(new CPluginVariable("A11. Banning Settings|Ban Type", "enum.AdKats_BanType(Frostbite - Name|Frostbite - EA GUID|Punkbuster - GUID)", this.m_strBanTypeOption));
                 lstReturn.Add(new CPluginVariable("A11. Banning Settings|Use Additional Ban Message", typeof(Boolean), this.useBanAppend));
                 if (this.useBanAppend)
                 {
                     lstReturn.Add(new CPluginVariable("A11. Banning Settings|Additional Ban Message", typeof(string), this.banAppend));
                 }
+                if (!this.usingAWA)
+                {
+                    lstReturn.Add(new CPluginVariable("A11. Banning Settings|Use Ban Enforcer", typeof(Boolean), this.useBanEnforcer));
+                }
 
                 //External Command Settings
                 lstReturn.Add(new CPluginVariable("A12. External Command Settings|HTTP External Access Key", typeof(string), this.externalCommandAccessKey));
-                lstReturn.Add(new CPluginVariable("A12. External Command Settings|Fetch Actions from Database", typeof(Boolean), this.fetchActionsFromDB));
-
+                if (!this.useBanEnforcer && !this.usingAWA)
+                {
+                    lstReturn.Add(new CPluginVariable("A12. External Command Settings|Fetch Actions from Database", typeof(Boolean), this.fetchActionsFromDB));
+                }
                 //Debug settings
                 lstReturn.Add(new CPluginVariable("A13. Debugging|Debug level", typeof(int), this.debugLevel));
                 lstReturn.Add(new CPluginVariable("A13. Debugging|Debug Soldier Name", typeof(string), this.debugSoldierName));
@@ -714,14 +728,37 @@ namespace PRoConEvents
                 }
                 else if (Regex.Match(strVariable, @"Setting Import").Success)
                 {
-                    int tmp = 2;
+                    int tmp = -1;
                     if (int.TryParse(strValue, out tmp))
                     {
-                        this.queueSettingImport(tmp);
+                        if(tmp != -1)
+                            this.queueSettingImport(tmp);
                     }
                     else
                     {
                         this.ConsoleError("Invalid Input for Setting Import");
+                    }
+                }
+                else if (Regex.Match(strVariable, @"Using AdKats WebAdmin").Success)
+                {
+                    Boolean tmp = false;
+                    if (Boolean.TryParse(strValue, out tmp))
+                    {
+                        this.usingAWA = tmp;
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Using AdKats WebAdmin", typeof(Boolean), tmp));
+                        
+                        //Update necessary settings for AWA use
+                        if (this.usingAWA)
+                        {
+                            this.useBanEnforcer = true;
+                            this.fetchActionsFromDB = true;
+                            this.dbCommHandle.Set();
+                        }
+                    }
+                    else
+                    {
+                        this.ConsoleError("Invalid Input for Using AdKats WebAdmin");
                     }
                 }
                 #region debugging
@@ -739,11 +776,6 @@ namespace PRoConEvents
                     else if (strValue.StartsWith("/"))
                     {
                         strValue = strValue.Substring(1);
-                    }
-                    else
-                    {
-                        //If the message does not cause either of the above clauses, then ignore it.
-                        return;
                     }
                     AdKat_Record recordItem = new AdKat_Record();
                     recordItem.command_source = AdKat_CommandSource.Settings;
@@ -803,6 +835,17 @@ namespace PRoConEvents
                         this.banAppend = strValue;
                         //Once setting has been changed, upload the change to database
                         this.queueSettingForUpload(new CPluginVariable(@"Additional Ban Message", typeof(string), strValue));
+                    }
+                }
+                else if (Regex.Match(strVariable, @"Use Ban Enforcer").Success)
+                {
+                    this.useBanEnforcer = Boolean.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Use Ban Enforcer", typeof(Boolean), this.useBanEnforcer));
+                    if (this.useBanEnforcer)
+                    {
+                        this.fetchActionsFromDB = true;
+                        this.dbCommHandle.Set();
                     }
                 }
                 #endregion
@@ -1268,9 +1311,10 @@ namespace PRoConEvents
                 #region email settings
                 else if (strVariable.CompareTo("Send Emails") == 0)
                 {
-                    this.sendmail = Boolean.Parse(strValue);
+                    //Disabled
+                    this.useEmail = false;// Boolean.Parse(strValue);
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable("Send Emails", typeof(Boolean), this.sendmail));
+                    this.queueSettingForUpload(new CPluginVariable("Send Emails", typeof(Boolean), this.useEmail));
                 }
                 else if (strVariable.CompareTo("Admin Request Email?") == 0)
                 {
@@ -1999,24 +2043,12 @@ namespace PRoConEvents
 
                 this.serverInfoHandle.Set();
 
-                if (!this.tweetedPluginEnable)
+                /*if (!this.tweetedPluginEnable)
                 {
                     string tweet = "Server '" + serverInfo.ServerName + "' [" + serverInfo.ServerRegion + "] has ENABLED Adkats " + this.GetPluginVersion() + "!";
                     this.twitterHandler.sendTweet(tweet);
                     this.tweetedPluginEnable = true;
-                }
-            }
-        }
-
-        public override void OnPunkbusterPlayerInfo(CPunkbusterInfo cPunkbusterInfo)
-        {
-            if (this.isEnabled)
-            {
-                //Do check for banned player IP, report to admins
-
-                //AdKat_Player player = new AdKat_Player();
-                //player.PBPlayerInfo = cPunkbusterInfo;
-                //this.queuePlayerForBanCheck(player);
+                }*/
             }
         }
 
@@ -2262,54 +2294,55 @@ namespace PRoConEvents
 
         public override void OnBanList(List<CBanInfo> banList)
         {
-            this.processingBanList = true;
             if (!this.isEnabled) return;
             this.DebugWrite("OnBanList fired", 6);
-            AdKat_Ban aBan;
-            AdKat_Record record;
-            Boolean bansFound = false;
-            foreach (CBanInfo cBan in banList)
+            if (this.useBanEnforcer)
             {
-                bansFound = true;
-                //Create the record
-                record = new AdKat_Record();
-                record.command_source = AdKat_CommandSource.InGame;
-                record.command_type = AdKat_CommandType.TempBanPlayer;
-                record.command_action = AdKat_CommandType.TempBanPlayer;
-                record.command_numeric = cBan.BanLength.Seconds / 60;
-                record.source_name = "BanEnforcer";
-                record.server_id = this.server_id;
-                record.target_player = this.fetchPlayer(-1, cBan.SoldierName, cBan.Guid, cBan.IpAddress);
-                if (!String.IsNullOrEmpty(record.target_player.player_name))
+                AdKat_Ban aBan;
+                AdKat_Record record;
+                Boolean bansFound = false;
+                foreach (CBanInfo cBan in banList)
                 {
-                    record.target_name = record.target_player.player_name;
+                    bansFound = true;
+                    //Create the record
+                    record = new AdKat_Record();
+                    record.command_source = AdKat_CommandSource.InGame;
+                    record.command_type = AdKat_CommandType.TempBanPlayer;
+                    record.command_action = AdKat_CommandType.TempBanPlayer;
+                    record.command_numeric = cBan.BanLength.Seconds / 60;
+                    record.source_name = "BanEnforcer";
+                    record.server_id = this.server_id;
+                    record.target_player = this.fetchPlayer(-1, cBan.SoldierName, cBan.Guid, cBan.IpAddress);
+                    if (!String.IsNullOrEmpty(record.target_player.player_name))
+                    {
+                        record.target_name = record.target_player.player_name;
+                    }
+                    record.isIRO = false;
+                    record.record_message = cBan.Reason;
+
+                    //Create the ban
+                    aBan = new AdKat_Ban();
+                    aBan.ban_record = record;
+                    aBan.ban_reason = cBan.Reason;
+
+                    //Update the ban enforcement depending on available information
+                    aBan.ban_enforceName = !String.IsNullOrEmpty(record.target_player.player_name) && this.defaultEnforceName;
+                    aBan.ban_enforceGUID = !String.IsNullOrEmpty(record.target_player.player_guid) && this.defaultEnforceGUID;
+                    aBan.ban_enforceIP = !String.IsNullOrEmpty(record.target_player.player_ip) && this.defaultEnforceIP;
+
+                    this.queueBanForProcessing(aBan);
                 }
-                record.isIRO = false;
-                record.record_message = cBan.Reason;
-
-                //Create the ban
-                aBan = new AdKat_Ban();
-                aBan.ban_record = record;
-                aBan.ban_reason = cBan.Reason;
-
-                //Update the ban enforcement depending on available information
-                aBan.ban_enforceName = !String.IsNullOrEmpty(record.target_player.player_name);
-                aBan.ban_enforceGUID = !String.IsNullOrEmpty(record.target_player.player_guid);
-                aBan.ban_enforceIP = !String.IsNullOrEmpty(record.target_player.player_ip);
-
-                this.queueBanForProcessing(aBan);
-            }
-            if (bansFound)
-            {
-                //Database access is successful, sync all bans
-                this.ExecuteCommand("procon.protected.send", "banList.clear");
+                if (bansFound)
+                {
+                    //Database access is successful, sync all bans
+                    this.ExecuteCommand("procon.protected.send", "banList.clear");
+                }
             }
         }
 
         public override void OnBanListClear()
         {
             this.DebugWrite("Ban list cleared", 5);
-            this.processingBanList = false;
         }
         public override void OnBanListSave()
         {
@@ -4398,7 +4431,7 @@ namespace PRoConEvents
             {
                 //For now, route all bans through procon's banlist and read back from there.
                 //Currently the only way to tell players "you have been BANNED" instead of just "you have been KICKED".
-                if (false)//this.useBanEnforcer)
+                if (false && this.useBanEnforcer)
                 {
                     //Create the ban
                     AdKat_Ban aBan = new AdKat_Ban();
@@ -4432,6 +4465,21 @@ namespace PRoConEvents
                         this.ExecuteCommand("procon.protected.send", "banList.save");
                         this.ExecuteCommand("procon.protected.send", "banList.list");
                     }
+                    else
+                    {
+                        this.ConsoleError("Player has no information to ban with.");
+                        return "ERROR";
+                    }
+
+                    //If the player is currently in the player list, remove them
+                    if (!String.IsNullOrEmpty(record.target_player.player_name) && this.playerDictionary.ContainsKey(record.target_player.player_name))
+                    {
+                        lock (this.playersMutex)
+                        {
+                            this.DebugWrite("Removing " + record.target_player.player_name + " from current player list.", 5);
+                            this.playerDictionary.Remove(record.target_player.player_name);
+                        }
+                    }
                 }
             }
             this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was BANNED by admin for " + record.record_message + " " + additionalMessage, "all");
@@ -4455,7 +4503,7 @@ namespace PRoConEvents
             {
                 //For now, route all bans through procon's banlist and read back from there.
                 //Currently the only way to tell players "you have been BANNED" instead of just kicked.
-                if (false)//this.useBanEnforcer)
+                if (false && this.useBanEnforcer)
                 {
                     //Create the ban
                     AdKat_Ban aBan = new AdKat_Ban();
@@ -4488,6 +4536,21 @@ namespace PRoConEvents
                         this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_player.player_name, "perm", banReason);
                         this.ExecuteCommand("procon.protected.send", "banList.save");
                         this.ExecuteCommand("procon.protected.send", "banList.list");
+                    }
+                    else
+                    {
+                        this.ConsoleError("Player has no information to ban with.");
+                        return "ERROR";
+                    }
+
+                    //If the player is currently in the player list, remove them
+                    if (!String.IsNullOrEmpty(record.target_player.player_name) && this.playerDictionary.ContainsKey(record.target_player.player_name))
+                    {
+                        lock (this.playersMutex)
+                        {
+                            this.DebugWrite("Removing " + record.target_player.player_name + " from current player list.", 5);
+                            this.playerDictionary.Remove(record.target_player.player_name);
+                        }
                     }
                 }
             }
@@ -4840,7 +4903,6 @@ namespace PRoConEvents
                 Queue<AdKat_Access> inboundAccessUpdates;
                 Queue<String> inboundAccessRemoval;
                 Queue<CPluginVariable> inboundSettingUpload;
-                Boolean initialThreadRun = true;
                 while (true)
                 {
                     this.DebugWrite("DBCOMM: Entering Database Comm Thread Loop", 7);
@@ -4898,11 +4960,32 @@ namespace PRoConEvents
                     if (this.settingImportID != this.server_id || this.lastDBSettingFetch.AddSeconds(this.dbSettingFetchFrequency) < DateTime.Now)
                     {
                         this.DebugWrite("Preparing to fetch settings from server " + server_id, 6);
+                        //Fetch new settings from the database
                         this.fetchSettings(this.settingImportID);
+                        //Update the database with setting logic employed here
+                        this.uploadAllSettings();
                     }
 
-                    //Database access is successful, sync all bans
-                    this.ExecuteCommand("procon.protected.send", "banList.list");
+                    //Handle Inbound Setting Uploads
+                    if (this.settingUploadQueue.Count > 0)
+                    {
+                        this.DebugWrite("DBCOMM: Preparing to lock inbound setting queue to retrive new settings", 7);
+                        lock (this.settingUploadQueue)
+                        {
+                            this.DebugWrite("DBCOMM: Inbound settings found. Grabbing.", 6);
+                            //Grab all settings in the queue
+                            inboundSettingUpload = new Queue<CPluginVariable>(this.settingUploadQueue.ToArray());
+                            //Clear the queue for next run
+                            this.settingUploadQueue.Clear();
+                        }
+                        //Loop through all settings in order that they came in
+                        while (inboundSettingUpload != null && inboundSettingUpload.Count > 0)
+                        {
+                            CPluginVariable setting = inboundSettingUpload.Dequeue();
+
+                            this.uploadSetting(setting);
+                        }
+                    }
 
                     //Check for new actions from the database at given interval
                     if (this.fetchActionsFromDB && (DateTime.Now > this.lastDBActionFetch.AddSeconds(this.dbActionFrequency)))
@@ -4956,76 +5039,64 @@ namespace PRoConEvents
                         this.DebugWrite("DBCOMM: No inbound access changes.", 7);
                     }
 
-                    //Handle Inbound Ban Comms
-                    if (this.useBanEnforcer && this.banEnforcerProcessingQueue.Count > 0)
+                    if (this.useBanEnforcer)
                     {
-                        this.DebugWrite("DBCOMM: Preparing to lock inbound ban enforcer queue to retrive new bans", 7);
-                        lock (this.banEnforcerMutex)
-                        {
-                            this.DebugWrite("DBCOMM: Inbound bans found. Grabbing.", 6);
-                            //Grab all messages in the queue
-                            inboundBans = new Queue<AdKat_Ban>(this.banEnforcerProcessingQueue.ToArray());
-                            //Clear the queue for next run
-                            this.banEnforcerProcessingQueue.Clear();
-                        }
-                        Int32 index = 1;
-                        //Loop through all bans in order that they came in
-                        while (inboundBans != null && inboundBans.Count > 0)
-                        {
-                            //Grab the ban
-                            AdKat_Ban aBan = inboundBans.Dequeue();
-
-                            this.DebugWrite("DBCOMM: Processing Frostbite Ban: " + index++, 6);
-
-                            //Upload the ban
-                            this.uploadBan(aBan);
-
-                            //Update this server's ban lists
-                            this.updateBanLists(aBan);
-
-                            //Queue the player for bancheck
-                            this.queuePlayerForBanCheck(aBan.ban_record.target_player);
-                        }
-
-                        //Call Ban Enforcer thread to enforce any updated bans
-                        this.banEnforcerHandle.Set();
-                    }
-
-                    //Check for new bans from the database at given interval
-                    if (this.useBanEnforcer && (DateTime.Now > this.lastDBBanFetch.AddSeconds(this.dbBanFetchFrequency)))
-                    {
-                        if (initialThreadRun)
+                        //Load all bans on startup
+                        if (this.AdKat_BanList_GUID.Count == 0 && this.AdKat_BanList_Name.Count == 0 && this.AdKat_BanList_IP.Count == 0)
                         {
                             this.fetchAllDatabaseBans();
                         }
-                        else
+                        //Check for new bans from the database at given interval
+                        else if (DateTime.Now > this.lastDBBanFetch.AddSeconds(this.dbBanFetchFrequency))
                         {
                             this.fetchNewDatabaseBans();
                         }
+                        else
+                        {
+                            this.DebugWrite("DBCOMM: Skipping DB ban fetch", 7);
+                        }
+
+                        //Handle Inbound Ban Comms
+                        if (this.banEnforcerProcessingQueue.Count > 0)
+                        {
+                            this.DebugWrite("DBCOMM: Preparing to lock inbound ban enforcer queue to retrive new bans", 7);
+                            lock (this.banEnforcerMutex)
+                            {
+                                this.DebugWrite("DBCOMM: Inbound bans found. Grabbing.", 6);
+                                //Grab all messages in the queue
+                                inboundBans = new Queue<AdKat_Ban>(this.banEnforcerProcessingQueue.ToArray());
+                                //Clear the queue for next run
+                                this.banEnforcerProcessingQueue.Clear();
+                            }
+                            Int32 index = 1;
+                            //Loop through all bans in order that they came in
+                            while (inboundBans != null && inboundBans.Count > 0)
+                            {
+                                //Grab the ban
+                                AdKat_Ban aBan = inboundBans.Dequeue();
+
+                                this.DebugWrite("DBCOMM: Processing Frostbite Ban: " + index++, 6);
+
+                                //Upload the ban
+                                this.uploadBan(aBan);
+
+                                //Update this server's ban lists
+                                this.updateBanLists(aBan);
+                            }
+
+                            //Call Ban Enforcer thread to enforce any updated bans
+                            this.banEnforcerHandle.Set();
+                        }
+
+                        this.useBanEnforcerPrevious = true;
                     }
                     else
                     {
-                        this.DebugWrite("DBCOMM: Skipping DB ban fetch", 7);
-                    }
-
-                    //Handle Inbound Setting Uploads
-                    if (this.settingUploadQueue.Count > 0)
-                    {
-                        this.DebugWrite("DBCOMM: Preparing to lock inbound setting queue to retrive new settings", 7);
-                        lock (this.settingUploadQueue)
+                        //If the ban enforcer was previously enabled, and the user disabled it, repopulate procon's ban list
+                        if (this.useBanEnforcerPrevious)
                         {
-                            this.DebugWrite("DBCOMM: Inbound settings found. Grabbing.", 6);
-                            //Grab all settings in the queue
-                            inboundSettingUpload = new Queue<CPluginVariable>(this.settingUploadQueue.ToArray());
-                            //Clear the queue for next run
-                            this.settingUploadQueue.Clear();
-                        }
-                        //Loop through all settings in order that they came in
-                        while (inboundSettingUpload != null && inboundSettingUpload.Count > 0)
-                        {
-                            CPluginVariable setting = inboundSettingUpload.Dequeue();
-
-                            this.uploadSetting(setting);
+                            this.repopulateProconBanList();
+                            this.useBanEnforcerPrevious = false;
                         }
                     }
 
@@ -5063,7 +5134,6 @@ namespace PRoConEvents
                     {
                         this.DebugWrite("DBCOMM: No unprocessed records. Waiting for input", 7);
                         this.dbCommHandle.Reset();
-                        initialThreadRun = false;
                         if (!this.fetchActionsFromDB)
                         {
                             //Maximum wait time is DB access fetch time
@@ -5191,56 +5261,56 @@ namespace PRoConEvents
                         confirmed = false;
                     }
                 }
-                /*if (!this.confirmTable("adkats_accesslist", connection))
+                if (!this.confirmTable("adkats_accesslist"))
                 {
                     ConsoleError("Access Table not present in the database.");
-                    this.runDBSetupScript(null);
-                    if (!this.confirmTable("adkats_accesslist", connection))
+                    this.runDBSetupScript();
+                    if (!this.confirmTable("adkats_accesslist"))
                     {
                         this.ConsoleError("After running setup script access table still not present.");
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkats_serverPlayerPoints", connection))
+                if (!this.confirmTable("adkats_serverPlayerPoints"))
                 {
                     ConsoleError("Server Points Table not present in the database.");
-                    this.runDBSetupScript(null);
-                    if (!this.confirmTable("adkats_serverPlayerPoints", connection))
+                    this.runDBSetupScript();
+                    if (!this.confirmTable("adkats_serverPlayerPoints"))
                     {
                         this.ConsoleError("After running setup script Server Points table still not present.");
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkats_globalPlayerPoints", connection))
+                if (!this.confirmTable("adkats_globalPlayerPoints"))
                 {
                     ConsoleError("Global Points Table not present in the database.");
-                    this.runDBSetupScript(null);
-                    if (!this.confirmTable("adkats_globalPlayerPoints", connection))
+                    this.runDBSetupScript();
+                    if (!this.confirmTable("adkats_globalPlayerPoints"))
                     {
                         this.ConsoleError("After running setup script Global Points table still not present.");
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkats_banlist", connection))
+                if (!this.confirmTable("adkats_banlist"))
                 {
                     ConsoleError("Ban List not present in the database.");
-                    this.runDBSetupScript(null);
-                    if (!this.confirmTable("adkats_accesslist", connection))
+                    this.runDBSetupScript();
+                    if (!this.confirmTable("adkats_accesslist"))
                     {
                         this.ConsoleError("After running setup script banlist still not present.");
                         confirmed = false;
                     }
                 }
-                if (!this.confirmTable("adkats_settings", connection))
+                if (!this.confirmTable("adkats_settings"))
                 {
                     ConsoleError("Settings Table not present in the database.");
-                    this.runDBSetupScript(null);
-                    if (!this.confirmTable("adkats_settings", connection))
+                    this.runDBSetupScript();
+                    if (!this.confirmTable("adkats_settings"))
                     {
                         this.ConsoleError("After running setup script Settings Table still not present.");
                         confirmed = false;
                     }
-                }*/
+                }
                 if (confirmed)
                 {
                     this.ConsoleSuccess("Database confirmed functional for AdKats use.");
@@ -5336,12 +5406,63 @@ namespace PRoConEvents
         #endregion
 
         #region Queries
+        
+        private void uploadAllSettings()
+        {
+            DebugWrite("uploadAllSettings starting!", 6);
+
+            List<CPluginVariable> vars = this.GetPluginVariables();
+
+            try
+            {
+                using (MySqlConnection connection = this.getDatabaseConnection())
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        //Set the delete/insert command structure
+                        string commandTotal = "DELETE FROM `adkat_settings` WHERE `server_id` = " + this.server_id + "; ";
+                        foreach (CPluginVariable var in vars)
+                        {
+                            //Fill the command
+                            commandTotal += @"
+                            INSERT INTO `" + this.mySqlDatabaseName + @"`.`adkats_settings` 
+                            (
+                                `server_id`, 
+                                `setting_name`, 
+                                `setting_value`
+                            ) 
+                            VALUES 
+                            ( 
+                                " + this.server_id + @", 
+                                '" + var.Name + @"', 
+                                '" + var.Value + @"'
+                            ) 
+                            ON DUPLICATE KEY 
+                            UPDATE 
+                                `setting_value` = '" + var.Value + @"'; 
+                            ";
+                        }
+                        //Attempt to execute the query
+                        if (command.ExecuteNonQuery() > 0)
+                        {
+                            this.DebugWrite("All Settings pushed to database", 3);
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                ConsoleException(e.ToString());
+            }
+
+            DebugWrite("uploadAllSettings finished!", 6);
+        }
 
         private void uploadSetting(CPluginVariable var)
         {
             DebugWrite("uploadSetting starting!", 6);
 
-            List<CPluginVariable> vars = this.GetPluginVariables();
+            //List<CPluginVariable> vars = this.GetPluginVariables();
 
             try
             {
@@ -5412,7 +5533,7 @@ namespace PRoConEvents
                             //Grab the settings
                             CPluginVariable var = null;
                             while (reader.Read())
-                            { 
+                            {
                                 success = true;
                                 //Create as variable in case needed later
                                 var = new CPluginVariable(reader.GetString("setting_name"), reader.GetString("setting_type"), reader.GetString("setting_value"));
@@ -6407,15 +6528,15 @@ namespace PRoConEvents
                     if (aBan.ban_status == "Expired" || aBan.ban_status == "Disabled")
                     {
                         this.DebugWrite("Ban " + aBan.ban_id + " removed.", 5);
-                        if (aBan.ban_record.target_player.player_name != null)
+                        if (!String.IsNullOrEmpty(aBan.ban_record.target_player.player_name))
                         {
                             this.AdKat_BanList_Name.Remove(aBan.ban_record.target_player.player_name);
                         }
-                        if (aBan.ban_record.target_player.player_guid != null)
+                        if (!String.IsNullOrEmpty(aBan.ban_record.target_player.player_guid))
                         {
                             this.AdKat_BanList_GUID.Remove(aBan.ban_record.target_player.player_guid);
                         }
-                        if (aBan.ban_record.target_player.player_ip != null)
+                        if (!String.IsNullOrEmpty(aBan.ban_record.target_player.player_ip))
                         {
                             this.AdKat_BanList_IP.Remove(aBan.ban_record.target_player.player_ip);
                         }
@@ -6549,6 +6670,27 @@ namespace PRoConEvents
 
             DebugWrite("updateBanSync finished!", 6);
             return success;
+        }
+
+        private void repopulateProconBanList()
+        {
+            foreach (AdKat_Ban ban in this.AdKat_BanList_Name.Values)
+            {
+                this.ExecuteCommand("procon.protected.send", "banList.add", "name", ban.ban_record.target_player.player_name, "seconds",  ban.ban_durationMinutes*60 + "", ban.ban_reason);
+            }
+            this.AdKat_BanList_Name.Clear();
+            foreach (AdKat_Ban ban in this.AdKat_BanList_IP.Values)
+            {
+                this.ExecuteCommand("procon.protected.send", "banList.add", "ip", ban.ban_record.target_player.player_ip, "seconds", ban.ban_durationMinutes * 60 + "", ban.ban_reason);
+            }
+            this.AdKat_BanList_IP.Clear();
+            foreach (AdKat_Ban ban in this.AdKat_BanList_GUID.Values)
+            {
+                this.ExecuteCommand("procon.protected.send", "banList.add", "guid", ban.ban_record.target_player.player_guid, "seconds", ban.ban_durationMinutes * 60 + "", ban.ban_reason);
+            }
+            this.AdKat_BanList_GUID.Clear();
+            this.ExecuteCommand("procon.protected.send", "banList.save");
+            this.ExecuteCommand("procon.protected.send", "banList.list");
         }
 
         //DONE
@@ -6915,7 +7057,7 @@ namespace PRoConEvents
 
                         //Set the source
                         string sourceName = dataCollection["source_name"];
-                        if (sourceName != null)
+                        if (!String.IsNullOrEmpty(sourceName))
                             record.source_name = sourceName;
                         else
                             record.source_name = "HTTPAdmin";
@@ -6931,7 +7073,7 @@ namespace PRoConEvents
                         }
 
                         string message = dataCollection["record_message"];
-                        if (message != null)
+                        if (!String.IsNullOrEmpty(message))
                         {
                             if (message.Length >= this.requiredReasonLength)
                             {
@@ -6940,7 +7082,7 @@ namespace PRoConEvents
                                 //Check the target
                                 string targetName = dataCollection["target_name"];
                                 //Check for an exact match
-                                if (targetName != null && targetName.Length > 0)
+                                if (!String.IsNullOrEmpty(targetName))
                                 {
                                     record.target_name = targetName;
                                     responseString += this.completeTargetInformation(record, false);
@@ -7024,10 +7166,10 @@ namespace PRoConEvents
                 sb.Append("<td><b>Player Name</b></td>");
                 sb.Append("<td><b>Report Reason</b></td>");
                 sb.Append("</tr>");
-                        //<tr>
-                          //  <td><b>PLAYERNAME</b></td>
-                          //  <td>REPORTREASON</td>
-                        //</tr>
+                //<tr>
+                //  <td><b>PLAYERNAME</b></td>
+                //  <td>REPORTREASON</td>
+                //</tr>
                 sb.Append("</tbody>");
                 sb.Append("</table>");
                 sb.Append("<p>");
