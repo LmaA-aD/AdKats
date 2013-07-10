@@ -130,6 +130,9 @@ namespace PRoConEvents
 
         // General settings
         private Int64 server_id = -1;
+        private Int64 settingImportID = -1;
+        private DateTime lastDBSettingFetch = DateTime.Now;
+        private int dbSettingFetchFrequency = 300;
         //Whether to get the release version of plugin description and setup scripts, or the dev version.
         //This setting is unchangeable by users, and will always be TRUE for released versions of the plugin.
         private bool isRelease = false;
@@ -592,6 +595,7 @@ namespace PRoConEvents
                 //Server Settings
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID (Display)", typeof(int), this.server_id));
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Server IP (Display)", typeof(string), this.server_ip));
+                lstReturn.Add(new CPluginVariable("1. Server Settings|Setting Import", typeof(string), ""));
 
                 //SQL Settings
                 lstReturn.Add(new CPluginVariable("2. MySQL Settings|MySQL Hostname", typeof(string), mySqlHostname));
@@ -707,6 +711,18 @@ namespace PRoConEvents
                 if (strVariable.Equals("UpdateSettings"))
                 {
                     //Do nothing. Settings page will be updated after return.
+                }
+                else if (Regex.Match(strVariable, @"Setting Import").Success)
+                {
+                    int tmp = 2;
+                    if (int.TryParse(strValue, out tmp))
+                    {
+                        this.queueSettingImport(tmp);
+                    }
+                    else
+                    {
+                        this.ConsoleError("Invalid Input for Setting Import");
+                    }
                 }
                 #region debugging
                 else if (Regex.Match(strVariable, @"Command Entry").Success)
@@ -1214,8 +1230,6 @@ namespace PRoConEvents
                     mySqlHostname = strValue;
                     this.dbSettingsChanged = true;
                     this.dbCommHandle.Set();
-                    //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"MySQL Hostname", typeof(string), strValue));
                 }
                 else if (Regex.Match(strVariable, @"MySQL Port").Success)
                 {
@@ -1226,8 +1240,6 @@ namespace PRoConEvents
                         mySqlPort = strValue;
                         this.dbSettingsChanged = true;
                         this.dbCommHandle.Set();
-                        //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"MySQL Port", typeof(string), strValue));
                     }
                     else
                     {
@@ -1239,24 +1251,18 @@ namespace PRoConEvents
                     this.mySqlDatabaseName = strValue;
                     this.dbSettingsChanged = true;
                     this.dbCommHandle.Set();
-                    //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"MySQL Database", typeof(string), strValue));
                 }
                 else if (Regex.Match(strVariable, @"MySQL Username").Success)
                 {
                     mySqlUsername = strValue;
                     this.dbSettingsChanged = true;
                     this.dbCommHandle.Set();
-                    //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"MySQL Username", typeof(string), strValue));
                 }
                 else if (Regex.Match(strVariable, @"MySQL Password").Success)
                 {
                     mySqlPassword = strValue;
                     this.dbSettingsChanged = true;
                     this.dbCommHandle.Set();
-                    //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"MySQL Password", typeof(string), strValue));
                 }
                 #endregion
                 #region email settings
@@ -2114,6 +2120,13 @@ namespace PRoConEvents
                 this.DebugWrite("Player queued for checking", 6);
                 this.banEnforcerHandle.Set();
             }
+        }
+
+        private void queueSettingImport(int serverID)
+        {
+            this.DebugWrite("Preparing to queue server ID for setting import", 6);
+            this.settingImportID = serverID;
+            this.dbCommHandle.Set();
         }
 
         private void queueSettingForUpload(CPluginVariable setting)
@@ -4827,6 +4840,7 @@ namespace PRoConEvents
                 Queue<AdKat_Access> inboundAccessUpdates;
                 Queue<String> inboundAccessRemoval;
                 Queue<CPluginVariable> inboundSettingUpload;
+                Boolean initialThreadRun = true;
                 while (true)
                 {
                     this.DebugWrite("DBCOMM: Entering Database Comm Thread Loop", 7);
@@ -4878,6 +4892,13 @@ namespace PRoConEvents
                     else
                     {
                         this.DebugWrite("Skipping server ID fetch. Server ID: " + this.server_id, 7);
+                    }
+
+                    //Check if settings need sync
+                    if (this.settingImportID != this.server_id || this.lastDBSettingFetch.AddSeconds(this.dbSettingFetchFrequency) < DateTime.Now)
+                    {
+                        this.DebugWrite("Preparing to fetch settings from server " + server_id, 6);
+                        this.fetchSettings(this.settingImportID);
                     }
 
                     //Database access is successful, sync all bans
@@ -4973,7 +4994,14 @@ namespace PRoConEvents
                     //Check for new bans from the database at given interval
                     if (this.useBanEnforcer && (DateTime.Now > this.lastDBBanFetch.AddSeconds(this.dbBanFetchFrequency)))
                     {
-                        this.fetchDatabaseBans();
+                        if (initialThreadRun)
+                        {
+                            this.fetchAllDatabaseBans();
+                        }
+                        else
+                        {
+                            this.fetchNewDatabaseBans();
+                        }
                     }
                     else
                     {
@@ -5035,6 +5063,7 @@ namespace PRoConEvents
                     {
                         this.DebugWrite("DBCOMM: No unprocessed records. Waiting for input", 7);
                         this.dbCommHandle.Reset();
+                        initialThreadRun = false;
                         if (!this.fetchActionsFromDB)
                         {
                             //Maximum wait time is DB access fetch time
@@ -5360,6 +5389,7 @@ namespace PRoConEvents
         private void fetchSettings(Int64 server_id)
         {
             DebugWrite("fetchSettings starting!", 6);
+            Boolean success = false;
             try
             {
                 //Success fetching settings
@@ -5382,10 +5412,22 @@ namespace PRoConEvents
                             //Grab the settings
                             CPluginVariable var = null;
                             while (reader.Read())
-                            {
+                            { 
+                                success = true;
                                 //Create as variable in case needed later
                                 var = new CPluginVariable(reader.GetString("setting_name"), reader.GetString("setting_type"), reader.GetString("setting_value"));
                                 this.SetPluginVariable(var.Name, var.Value);
+                            }
+                            if (success)
+                            {
+                                this.ConsoleSuccess("Settings imported from server " + server_id);
+                                this.settingImportID = this.server_id;
+                                this.lastDBSettingFetch = DateTime.Now;
+                                this.updateSettingPage();
+                            }
+                            else
+                            {
+                                this.ConsoleError("Settings could not be loaded. Server " + server_id + " invalid.");
                             }
                         }
                     }
@@ -6139,9 +6181,9 @@ namespace PRoConEvents
         }
 
         //DONE
-        private Boolean fetchDatabaseBans()
+        private Boolean fetchNewDatabaseBans()
         {
-            DebugWrite("fetchDatabaseBans starting!", 6);
+            DebugWrite("fetchNewDatabaseBans starting!", 6);
 
             List<AdKat_Ban> updatedBans = new List<AdKat_Ban>();
             try
@@ -6228,8 +6270,104 @@ namespace PRoConEvents
                         //Queue all current players for a ban check
                         this.banCheckAllPlayers();
 
-                        //Call enforcer thread to enforce new bans
-                        this.banEnforcerHandle.Set();
+                        return true;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                ConsoleException(e.ToString());
+            }
+            return false;
+        }
+
+        //DONE
+        private Boolean fetchAllDatabaseBans()
+        {
+            DebugWrite("fetchAllDatabaseBans starting!", 6);
+
+            List<AdKat_Ban> updatedBans = new List<AdKat_Ban>();
+            try
+            {
+                //Success fetching bans
+                Boolean success = false;
+                List<AdKat_Ban> tempBanList = new List<AdKat_Ban>();
+
+                using (MySqlConnection connection = this.getDatabaseConnection())
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = @"
+                        SELECT 
+                            `ban_id`, 
+                            `player_id`, 
+                            `latest_record_id`, 
+	                        `ban_status`, 
+	                        `ban_reason`, 
+                            `ban_notes`, 
+	                        `ban_sync`, 
+	                        `ban_startTime`, 
+	                        `ban_endTime`, 
+	                        `ban_enforceName`, 
+	                        `ban_enforceGUID`, 
+	                        `ban_enforceIP` 
+                        FROM 
+	                        `adkats_banlist`";
+
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+
+                            //Loop through all incoming bans
+                            while (reader.Read())
+                            {
+                                //Bans have been found
+                                success = true;
+
+                                //Create the ban element
+                                AdKat_Ban ban = new AdKat_Ban();
+                                ban.ban_id = reader.GetInt64("ban_id");
+                                ban.ban_status = reader.GetString("ban_status");
+                                ban.ban_reason = reader.GetString("ban_reason");
+                                ban.ban_notes = reader.GetString("ban_notes");
+                                ban.ban_sync = reader.GetString("ban_sync");
+                                ban.ban_startTime = reader.GetDateTime("ban_startTime");
+                                ban.ban_endTime = reader.GetDateTime("ban_endTime");
+
+                                if (reader.GetString("ban_enforceName").Equals("Y"))
+                                    ban.ban_enforceName = true;
+                                else
+                                    ban.ban_enforceName = false;
+
+                                if (reader.GetString("ban_enforceGUID").Equals("Y"))
+                                    ban.ban_enforceGUID = true;
+                                else
+                                    ban.ban_enforceGUID = false;
+
+                                if (reader.GetString("ban_enforceIP").Equals("Y"))
+                                    ban.ban_enforceIP = true;
+                                else
+                                    ban.ban_enforceIP = false;
+
+                                //Get the record information
+                                ban.ban_record = new AdKat_Record();
+                                ban.ban_record.record_id = reader.GetInt64("latest_record_id");
+
+                                //Add it to the temp banlist
+                                tempBanList.Add(ban);
+                            }
+                        }
+                    }
+                    //If bans were fetched successfully, update the ban lists and sync back
+                    if (success)
+                    {
+                        foreach (AdKat_Ban aBan in tempBanList)
+                        {
+                            aBan.ban_record = this.fetchRecordByID(aBan.ban_record.record_id);
+                            this.updateBanLists(aBan);
+                        }
+
+                        //Queue all current players for a ban check
+                        this.banCheckAllPlayers();
 
                         return true;
                     }
@@ -6713,6 +6851,7 @@ namespace PRoConEvents
                                 else
                                 {
                                     this.server_id = returnVal;
+                                    this.settingImportID = this.server_id;
                                     this.DebugWrite("Server ID fetched: " + this.server_id, 1);
                                 }
                             }
