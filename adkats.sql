@@ -3,9 +3,6 @@
 -- This is run automatically if AdKats senses the database is not set up properly.
 -- If you don't want the plugin changing tables/views in your database, you must run this beforehand.
 
--- Scheduling is needed for update events
-SET GLOBAL event_scheduler = ON;
-
 CREATE TABLE IF NOT EXISTS `adkats_accesslist` ( 
 	`player_name` VARCHAR(20) NOT NULL, 
 	`member_id` INT(11) UNSIGNED NOT NULL DEFAULT 0, 
@@ -572,3 +569,8 @@ SELECT
 
   (SELECT COUNT(*)
    FROM adkats_records) AS 'TotalCommands';
+   
+   
+-- Scheduling is needed for update events
+-- If this fails, it means user does not have superpowers
+SET GLOBAL event_scheduler = ON;
