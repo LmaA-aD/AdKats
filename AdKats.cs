@@ -363,7 +363,7 @@ namespace PRoConEvents
 
         //Ban Settings
         private Boolean useBanEnforcer = false;
-        private Boolean useBanEnforcerPrevious = false;
+        private Boolean useBanEnforcerPreviousState = false;
         private Boolean defaultEnforceName = false;
         private Boolean defaultEnforceGUID = true;
         private Boolean defaultEnforceIP = false;
@@ -2289,7 +2289,7 @@ namespace PRoConEvents
         {
             if (!this.isEnabled) return;
             this.DebugWrite("OnBanAdded fired", 6);
-            this.ExecuteCommand("procon.protected.send", "banList.list");
+            //this.ExecuteCommand("procon.protected.send", "banList.list");
         }
 
         public override void OnBanList(List<CBanInfo> banList)
@@ -2326,10 +2326,18 @@ namespace PRoConEvents
                     aBan.ban_reason = cBan.Reason;
 
                     //Update the ban enforcement depending on available information
-                    aBan.ban_enforceName = !String.IsNullOrEmpty(record.target_player.player_name) && this.defaultEnforceName;
-                    aBan.ban_enforceGUID = !String.IsNullOrEmpty(record.target_player.player_guid) && this.defaultEnforceGUID;
-                    aBan.ban_enforceIP = !String.IsNullOrEmpty(record.target_player.player_ip) && this.defaultEnforceIP;
-
+                    Boolean nameAvailable = !String.IsNullOrEmpty(record.target_player.player_name);
+                    Boolean GUIDAvailable = !String.IsNullOrEmpty(record.target_player.player_guid);
+                    Boolean IPAvailable = !String.IsNullOrEmpty(record.target_player.player_ip);
+                    aBan.ban_enforceName = nameAvailable && (this.defaultEnforceName || (!GUIDAvailable && !IPAvailable));
+                    aBan.ban_enforceGUID = GUIDAvailable && (this.defaultEnforceGUID || (!nameAvailable && !IPAvailable));
+                    aBan.ban_enforceIP = IPAvailable && (this.defaultEnforceIP || (!nameAvailable && !GUIDAvailable));
+                    if (!aBan.ban_enforceName && !aBan.ban_enforceGUID && !aBan.ban_enforceIP)
+                    {
+                        this.ConsoleError("Unable to create ban, no proper player information");
+                        continue;
+                    }
+                    //Queue the ban for processing
                     this.queueBanForProcessing(aBan);
                 }
                 if (bansFound)
@@ -4409,6 +4417,16 @@ namespace PRoConEvents
             if (!this.isTesting)
             {
                 ExecuteCommand("procon.protected.send", "admin.kickPlayer", record.target_player.player_name, kickReason);
+
+                //If the player is currently in the player list, remove them
+                if (!String.IsNullOrEmpty(record.target_player.player_name) && this.playerDictionary.ContainsKey(record.target_player.player_name))
+                {
+                    lock (this.playersMutex)
+                    {
+                        this.DebugWrite("Removing " + record.target_player.player_name + " from current player list.", 5);
+                        this.playerDictionary.Remove(record.target_player.player_name);
+                    }
+                }
             }
             this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was KICKED by admin for " + record.record_message + " " + additionalMessage, "all");
             return this.sendMessageToSource(record, "You KICKED " + record.target_name + " for " + record.record_message + ". " + additionalMessage);
@@ -4429,9 +4447,7 @@ namespace PRoConEvents
             //Perform Actions
             if (!this.isTesting)
             {
-                //For now, route all bans through procon's banlist and read back from there.
-                //Currently the only way to tell players "you have been BANNED" instead of just "you have been KICKED".
-                if (false && this.useBanEnforcer)
+                if (this.useBanEnforcer)
                 {
                     //Create the ban
                     AdKat_Ban aBan = new AdKat_Ban();
@@ -4501,9 +4517,7 @@ namespace PRoConEvents
             //Perform Actions
             if (!this.isTesting)
             {
-                //For now, route all bans through procon's banlist and read back from there.
-                //Currently the only way to tell players "you have been BANNED" instead of just kicked.
-                if (false && this.useBanEnforcer)
+                if (this.useBanEnforcer)
                 {
                     //Create the ban
                     AdKat_Ban aBan = new AdKat_Ban();
@@ -5082,22 +5096,22 @@ namespace PRoConEvents
 
                                 //Update this server's ban lists
                                 this.updateBanLists(aBan);
-                            }
 
-                            //Call Ban Enforcer thread to enforce any updated bans
-                            this.banEnforcerHandle.Set();
+                                //TODO call enforcer in some cases?
+                            }
                         }
 
-                        this.useBanEnforcerPrevious = true;
+                        this.useBanEnforcerPreviousState = true;
                     }
                     else
                     {
                         //If the ban enforcer was previously enabled, and the user disabled it, repopulate procon's ban list
-                        if (this.useBanEnforcerPrevious)
+                        if (this.useBanEnforcerPreviousState)
                         {
                             this.repopulateProconBanList();
-                            this.useBanEnforcerPrevious = false;
+                            this.useBanEnforcerPreviousState = false;
                         }
+                        //If not, completely ignore all ban enforcer code
                     }
 
                     //Handle Inbound Records
@@ -5134,15 +5148,16 @@ namespace PRoConEvents
                     {
                         this.DebugWrite("DBCOMM: No unprocessed records. Waiting for input", 7);
                         this.dbCommHandle.Reset();
-                        if (!this.fetchActionsFromDB)
+                        if (this.fetchActionsFromDB || this.useBanEnforcer || this.usingAWA)
                         {
-                            //Maximum wait time is DB access fetch time
-                            this.dbCommHandle.WaitOne(this.dbAccessFetchFrequency * 1000);
+
+                            //If waiting on DB input, the maximum time we can wait is "db action frequency"
+                            this.dbCommHandle.WaitOne(this.dbActionFrequency * 1000);
                         }
                         else
                         {
-                            //If waiting on DB input, the maximum time we can wait is "db action frequency"
-                            this.dbCommHandle.WaitOne(this.dbActionFrequency * 1000);
+                            //Maximum wait time is DB access fetch time
+                            this.dbCommHandle.WaitOne(this.dbAccessFetchFrequency * 1000);
                         }
                     }
                 }
@@ -6102,9 +6117,9 @@ namespace PRoConEvents
                             if (String.IsNullOrEmpty(aBan.ban_notes))
                                 aBan.ban_notes = "NoNotes";
                             command.Parameters.AddWithValue("@ban_notes", aBan.ban_notes);
-                            command.Parameters.AddWithValue("@ban_enforceName", aBan.ban_enforceName && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_name) ? ('Y') : ('N'));
-                            command.Parameters.AddWithValue("@ban_enforceGUID", aBan.ban_enforceGUID && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_guid) ? ('Y') : ('N'));
-                            command.Parameters.AddWithValue("@ban_enforceIP", aBan.ban_enforceIP && !String.IsNullOrEmpty(aBan.ban_record.target_player.player_ip) ? ('Y') : ('N'));
+                            command.Parameters.AddWithValue("@ban_enforceName", aBan.ban_enforceName ? ('Y') : ('N'));
+                            command.Parameters.AddWithValue("@ban_enforceGUID", aBan.ban_enforceGUID ? ('Y') : ('N'));
+                            command.Parameters.AddWithValue("@ban_enforceIP", aBan.ban_enforceIP ? ('Y') : ('N'));
                             command.Parameters.AddWithValue("@ban_sync", "*" + this.server_id + "*");
                             command.Parameters.AddWithValue("@ban_durationMinutes", aBan.ban_record.command_numeric);
                             //Attempt to execute the query
@@ -6120,7 +6135,9 @@ namespace PRoConEvents
                             {
                                 command.CommandText = @"
                                 SELECT 
-                                    `ban_id` 
+                                    `ban_id`,
+                                    `ban_startTime`, 
+                                    `ban_endTime` 
                                 FROM 
                                     `adkats_banlist` 
                                 WHERE 
@@ -6134,11 +6151,13 @@ namespace PRoConEvents
                                     if (reader.Read())
                                     {
                                         aBan.ban_id = reader.GetInt64("ban_id");
+                                        aBan.ban_startTime = reader.GetDateTime("ban_startTime");
+                                        aBan.ban_endTime = reader.GetDateTime("ban_endTime");
                                         this.DebugWrite("Ban ID: " + aBan.ban_id, 5);
                                     }
                                     else
                                     {
-                                        this.ConsoleError("Could not fetch Ban ID");
+                                        this.ConsoleError("Could not fetch ban information after upload");
                                     }
                                 }
                             }
