@@ -731,7 +731,7 @@ namespace PRoConEvents
                     int tmp = -1;
                     if (int.TryParse(strValue, out tmp))
                     {
-                        if(tmp != -1)
+                        if (tmp != -1)
                             this.queueSettingImport(tmp);
                     }
                     else
@@ -747,7 +747,7 @@ namespace PRoConEvents
                         this.usingAWA = tmp;
                         //Once setting has been changed, upload the change to database
                         this.queueSettingForUpload(new CPluginVariable(@"Using AdKats WebAdmin", typeof(Boolean), tmp));
-                        
+
                         //Update necessary settings for AWA use
                         if (this.usingAWA)
                         {
@@ -5170,7 +5170,7 @@ namespace PRoConEvents
                 (this.mySqlPort != null && this.mySqlPort.Length > 0) &&
                 (this.mySqlUsername != null && this.mySqlUsername.Length > 0))
             {
-                this.DebugWrite("MySql Connection capable. All variables in place.", 6);
+                this.DebugWrite("MySql Connection capable. All variables in place.", 7);
                 return true;
             }
             return false;
@@ -5406,7 +5406,7 @@ namespace PRoConEvents
         #endregion
 
         #region Queries
-        
+
         private void uploadAllSettings()
         {
             DebugWrite("uploadAllSettings starting!", 6);
@@ -6676,7 +6676,7 @@ namespace PRoConEvents
         {
             foreach (AdKat_Ban ban in this.AdKat_BanList_Name.Values)
             {
-                this.ExecuteCommand("procon.protected.send", "banList.add", "name", ban.ban_record.target_player.player_name, "seconds",  ban.ban_durationMinutes*60 + "", ban.ban_reason);
+                this.ExecuteCommand("procon.protected.send", "banList.add", "name", ban.ban_record.target_player.player_name, "seconds", ban.ban_durationMinutes * 60 + "", ban.ban_reason);
             }
             this.AdKat_BanList_Name.Clear();
             foreach (AdKat_Ban ban in this.AdKat_BanList_IP.Values)
