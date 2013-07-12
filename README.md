@@ -4,9 +4,22 @@ View new in 0.3.0.0 in the changelog
 Download link below.
 <h1>AdKats</h1>
 <p>
-An advanced admin toolset that includes editable in-game commands, an out-of-game controller, database 
-reflected punishment and forgiveness, proper player report and admin call handling, fuzzy player name completion, 
-player muting, yell/say pre-recording, and internal implementation of TeamSwap.<br/><br/>
+Admin Toolset with a plethora of features. This tool was designed for use by groups with high traffic servers and many 
+admins, but will function just as well for small servers.<br/>
+<ul>
+  <li><b>Punishment and Forgiveness.</b> Advanced player infraction tracking system.</li>
+  <li><b>Editable In-Game Commands.</b> All command text and logging options can be edited to your needs.</li>
+  <li><b>Proper Player Report and Admin Call Handling.</b> Notification system and quick handling features for all admin 
+  calls and player reports.</li>
+  <li><b>Fuzzy Player Name Completion.</b> System will fully complete accurate or misspelled player names.</li>
+  <li><b>Player Muting.</b> Players can be muted if necessary.</li>
+  <li><b>Yell/Say Pre-Recording.</b> Usable along side plugins such as "server rules on request". Use numbers to 
+  reference predefined messages, avoid typing long messages.</li>
+  <li><b>External Controller API.</b> AdKats can be controlled from outside the game, through systems like 
+  <a href="http://gcp.adkats.info/" target="_blank">AdKats WebAdmin</a></li>
+  <li><b>Internal Implementation of TeamSwap.</b> Server-smart player moving system described below.</li>
+</ul>
+<br/>
 
 Visit the tool's github page 
 <a href="https://github.com/ColColonCleaner/AdKats/" target="_blank">here</a> 
@@ -16,15 +29,10 @@ Download the latest version here:
 <a href="http://sourceforge.net/projects/adkats/files/AdKats_v0.3.0.0.zip/download" target="_blank">Version 3.0.0</a>
 </p>
 <p>
-AdKats was inspired by the gaming community A Different Kind (ADK). With help from the BF3 Admins within the community the plugin was born.
-Visit <a href="http://www.adkgamers.com/" target="_blank">http://www.adkgamers.com/</a> to say thanks for the awesome plugin!
+AdKats was inspired by the gaming community A Different Kind (ADK). Visit 
+<a href="http://www.adkgamers.com/" target="_blank">http://www.adkgamers.com/</a> to say thanks for the awesome tool!
 </p>
 <h2>Features</h2>
-<h3>Main</h3>
-<p>
-This tool was designed for use by groups with high traffic servers and many admins, but will function just as well 
-for small servers.
-</p>
 <h3>Punishment/Forgiveness System</h3>
 <p>
 <b>NOTE:</b> This is NOT the player-based punish/forgive system normally used for teamkilling, and is only usable by
