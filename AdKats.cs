@@ -115,7 +115,9 @@ namespace PRoConEvents
             WhatIs,
             //Power Corner
             NukeServer,
-            KickAll
+            KickAll, 
+            //Ban Enforcer
+            EnforceBan
         };
         //Source of commands
         public enum AdKat_CommandSource
@@ -436,6 +438,8 @@ namespace PRoConEvents
             this.AdKat_RecordTypes.Add(AdKat_CommandType.NukeServer, "Nuke");
             this.AdKat_RecordTypes.Add(AdKat_CommandType.KickAll, "KickAll");
 
+            this.AdKat_RecordTypes.Add(AdKat_CommandType.EnforceBan, "EnforceBan");
+
             //Fill DB Inverse record types for incoming database commands
             this.AdKat_RecordTypesInv.Add("Move", AdKat_CommandType.MovePlayer);
             this.AdKat_RecordTypesInv.Add("ForceMove", AdKat_CommandType.ForceMovePlayer);
@@ -465,6 +469,8 @@ namespace PRoConEvents
 
             this.AdKat_RecordTypesInv.Add("Nuke", AdKat_CommandType.NukeServer);
             this.AdKat_RecordTypesInv.Add("KickAll", AdKat_CommandType.KickAll);
+
+            this.AdKat_RecordTypesInv.Add("EnforceBan", AdKat_CommandType.EnforceBan);
 
             //Fill all command access ranks
             this.AdKat_CommandAccessRank.Add(AdKat_CommandType.RestartLevel, 0);
@@ -2258,12 +2264,10 @@ namespace PRoConEvents
                             record.target_name = ban.ban_record.target_player.player_name;
                             record.target_player = ban.ban_record.target_player;
                             record.command_source = AdKat_CommandSource.InGame;
-                            record.command_type = AdKat_CommandType.KickPlayer;
+                            record.command_type = AdKat_CommandType.EnforceBan;
                             record.record_message = ban.ban_reason;
                             //Queue record for handling
                             this.queueRecordForProcessing(record);
-                            //Inform the server of the enforced ban
-                            this.adminSay("Enforcing ban on " + record.target_player.player_name + " for " + record.record_message);
                         }
                         else
                         {
@@ -2773,7 +2777,6 @@ namespace PRoConEvents
         }
 
         //The index of a player in the move queue
-        //TODO make this accessible via in-game command
         private Int32 indexOfCPlayerInfo(Queue<CPlayerInfo> queueList, String player)
         {
             CPlayerInfo[] playerArray = queueList.ToArray();
@@ -4430,6 +4433,35 @@ namespace PRoConEvents
             }
             this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was KICKED by admin for " + record.record_message + " " + additionalMessage, "all");
             return this.sendMessageToSource(record, "You KICKED " + record.target_name + " for " + record.record_message + ". " + additionalMessage);
+        }TODO
+        public string banEnforceTarget(AdKat_Ban aBan)
+        {
+            string kickReason = "BanEnforcer - " + aBan.ban_record.record_message;
+            int cutLength = kickReason.Length - 80;
+            if (cutLength > 0)
+            {
+                string cutReason = record.record_message.Substring(0, record.record_message.Length - cutLength);
+                kickReason = record.source_name + " - " + cutReason + additionalMessage + ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
+            }
+            this.DebugWrite("Kick Message: '" + kickReason + "'", 3);
+            //Perform Actions
+            if (!this.isTesting)
+            {
+                ExecuteCommand("procon.protected.send", "admin.kickPlayer", record.target_player.player_name, kickReason);
+
+                //If the player is currently in the player list, remove them
+                if (!String.IsNullOrEmpty(record.target_player.player_name) && this.playerDictionary.ContainsKey(record.target_player.player_name))
+                {
+                    lock (this.playersMutex)
+                    {
+                        this.DebugWrite("Removing " + record.target_player.player_name + " from current player list.", 5);
+                        this.playerDictionary.Remove(record.target_player.player_name);
+                    }
+                }
+            }
+            //Inform the server of the enforced ban
+            this.adminSay("Enforcing ban on " + record.target_player.player_name + " for " + record.record_message);
+            return "Ban Enforced";
         }
 
         public string tempBanTarget(AdKat_Record record, string additionalMessage)
@@ -5096,8 +5128,12 @@ namespace PRoConEvents
 
                                 //Update this server's ban lists
                                 this.updateBanLists(aBan);
+                                
+                                //Only perform special kick when ban is direct
+                                if (!aBan.ban_record.source_name.Equals("BanEnforcer"))
+                                {
 
-                                //TODO call enforcer in some cases?
+                                }
                             }
                         }
 
@@ -6817,7 +6853,6 @@ namespace PRoConEvents
             {
                 foreach (AdKat_Record record in this.fetchUnreadRecords())
                 {
-                    //TODO finish
                     this.queueRecordForActionHandling(record);
                 }
                 //Update the last time this was fetched
