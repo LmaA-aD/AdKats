@@ -78,7 +78,6 @@ CREATE TABLE IF NOT EXISTS `adkats_banlist` (
 	`ban_id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT, 
 	`player_id` INT(11) UNSIGNED NOT NULL, 
 	`latest_record_id` INT(11) UNSIGNED NOT NULL, 
-	`ban_reason` VARCHAR(100) NOT NULL DEFAULT 'NoReason', 
 	`ban_notes` VARCHAR(150) NOT NULL DEFAULT 'NoNotes', 
 	`ban_status` enum('Active', 'Expired', 'Disabled') NOT NULL DEFAULT 'Active',
 	`ban_startTime` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
