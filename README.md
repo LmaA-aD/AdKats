@@ -4,7 +4,7 @@ View new in 0.3.0.0 in the changelog
 Download link below.
 <h1>AdKats</h1>
 <p>
-Admin Toolset with a plethora of features. This tool was designed for use by groups with high traffic servers and many 
+Admin Toolset with a plethora of features. It is designed for use by groups with high traffic servers and many 
 admins, but will function just as well for small servers.<br/>
 <ul>
   <li><b>Punishment and Forgiveness.</b> Advanced player infraction tracking system.</li>
