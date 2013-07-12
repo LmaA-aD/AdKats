@@ -166,7 +166,7 @@ namespace PRoConEvents
         private Dictionary<string, AdKat_Access> playerAccessCache = new Dictionary<string, AdKat_Access>();
         private Boolean toldCol = false;
 
-        // MySQL Settings
+        //MySQL Settings
         private volatile Boolean dbSettingsChanged = true;
         private string mySqlHostname = "";
         private string mySqlPort = "";
@@ -180,6 +180,8 @@ namespace PRoConEvents
         private Boolean fetchActionsFromDB = false;
         private DateTime lastDBActionFetch = DateTime.Now;
         private int dbActionFrequency = 10;
+        //Database Time Conversion (default to no difference)
+        private TimeSpan dbTimeConversion = new TimeSpan(0);
 
         //current ban type
         private string m_strBanTypeOption = "Frostbite - EA GUID";
@@ -2125,24 +2127,18 @@ namespace PRoConEvents
         //DONE
         public override void OnPlayerLeft(CPlayerInfo playerInfo)
         {
-            if (this.playerDictionary.ContainsKey(playerInfo.SoldierName))
+            this.removePlayerFromDictionary(playerInfo.SoldierName);
+
+            if (playerInfo.TeamID == USTeamID)
             {
-                lock (this.playersMutex)
-                {
-                    this.playerDictionary.Remove(playerInfo.SoldierName);
-
-                    if (playerInfo.TeamID == USTeamID)
-                    {
-                        this.USPlayerCount--;
-                    }
-                    else
-                    {
-                        this.RUPlayerCount--;
-                    }
-
-                    this.teamswapHandle.Set();
-                }
+                this.USPlayerCount--;
             }
+            else
+            {
+                this.RUPlayerCount--;
+            }
+
+            this.teamswapHandle.Set();
         }
 
         #endregion
@@ -2239,21 +2235,21 @@ namespace PRoConEvents
 
                         this.DebugWrite("Checking " + aPlayer.player_name + " Against " + this.AdKat_BanList_Name.Count + " Name Bans. " + this.AdKat_BanList_GUID.Count + " GUID Bans. And " + this.AdKat_BanList_IP.Count + " IP Bans.", 5);
 
-                        AdKat_Ban ban = null;
-                        if (!String.IsNullOrEmpty(aPlayer.player_name) && ban == null)
+                        AdKat_Ban aBan = null;
+                        if (!String.IsNullOrEmpty(aPlayer.player_name) && aBan == null)
                         {
-                            this.AdKat_BanList_Name.TryGetValue(aPlayer.player_name, out ban);
+                            this.AdKat_BanList_Name.TryGetValue(aPlayer.player_name, out aBan);
                         }
-                        if (!String.IsNullOrEmpty(aPlayer.player_guid) && ban == null)
+                        if (!String.IsNullOrEmpty(aPlayer.player_guid) && aBan == null)
                         {
-                            this.AdKat_BanList_GUID.TryGetValue(aPlayer.player_guid, out ban);
+                            this.AdKat_BanList_GUID.TryGetValue(aPlayer.player_guid, out aBan);
                         }
-                        if (!String.IsNullOrEmpty(aPlayer.player_ip) && ban == null)
+                        if (!String.IsNullOrEmpty(aPlayer.player_ip) && aBan == null)
                         {
-                            this.AdKat_BanList_IP.TryGetValue(aPlayer.player_ip, out ban);
+                            this.AdKat_BanList_IP.TryGetValue(aPlayer.player_ip, out aBan);
                         }
 
-                        if (ban != null)
+                        if (aBan != null)
                         {
                             this.DebugWrite("BANENF: BAN ENFORCED", 5);
                             //Create the new record
@@ -2261,13 +2257,15 @@ namespace PRoConEvents
                             record.source_name = "BanEnforcer";
                             record.isIRO = false;
                             record.server_id = this.server_id;
-                            record.target_name = ban.ban_record.target_player.player_name;
-                            record.target_player = ban.ban_record.target_player;
+                            record.target_name = aBan.ban_record.target_player.player_name;
+                            record.target_player = aBan.ban_record.target_player;
                             record.command_source = AdKat_CommandSource.InGame;
                             record.command_type = AdKat_CommandType.EnforceBan;
-                            record.record_message = ban.ban_reason;
-                            //Queue record for handling
+                            record.record_message = aBan.ban_record.record_message;
+                            //Queue record for upload
                             this.queueRecordForProcessing(record);
+                            //Enforce the ban
+                            this.enforceBan(aBan);
                         }
                         else
                         {
@@ -2327,7 +2325,6 @@ namespace PRoConEvents
                     //Create the ban
                     aBan = new AdKat_Ban();
                     aBan.ban_record = record;
-                    aBan.ban_reason = cBan.Reason;
 
                     //Update the ban enforcement depending on available information
                     Boolean nameAvailable = !String.IsNullOrEmpty(record.target_player.player_name);
@@ -4347,6 +4344,9 @@ namespace PRoConEvents
                 case AdKat_CommandType.PlayerYell:
                     response = this.playerYell(record);
                     break;
+                case AdKat_CommandType.EnforceBan:
+                    //Don't do anything here, ban enforcer handles this
+                    break;
                 default:
                     response = "Command not recognized when running action.";
                     this.DebugWrite("Command not found in runAction", 5);
@@ -4413,7 +4413,7 @@ namespace PRoConEvents
             if (cutLength > 0)
             {
                 string cutReason = record.record_message.Substring(0, record.record_message.Length - cutLength);
-                kickReason = record.source_name + " - " + cutReason + additionalMessage + ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
+                kickReason = record.source_name + " - " + cutReason + additionalMessage;
             }
             this.DebugWrite("Kick Message: '" + kickReason + "'", 3);
             //Perform Actions
@@ -4421,61 +4421,31 @@ namespace PRoConEvents
             {
                 ExecuteCommand("procon.protected.send", "admin.kickPlayer", record.target_player.player_name, kickReason);
 
-                //If the player is currently in the player list, remove them
-                if (!String.IsNullOrEmpty(record.target_player.player_name) && this.playerDictionary.ContainsKey(record.target_player.player_name))
-                {
-                    lock (this.playersMutex)
-                    {
-                        this.DebugWrite("Removing " + record.target_player.player_name + " from current player list.", 5);
-                        this.playerDictionary.Remove(record.target_player.player_name);
-                    }
-                }
+                this.removePlayerFromDictionary(record.target_player.player_name);
             }
             this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was KICKED by admin for " + record.record_message + " " + additionalMessage, "all");
             return this.sendMessageToSource(record, "You KICKED " + record.target_name + " for " + record.record_message + ". " + additionalMessage);
-        }TODO
-        public string banEnforceTarget(AdKat_Ban aBan)
-        {
-            string kickReason = "BanEnforcer - " + aBan.ban_record.record_message;
-            int cutLength = kickReason.Length - 80;
-            if (cutLength > 0)
-            {
-                string cutReason = record.record_message.Substring(0, record.record_message.Length - cutLength);
-                kickReason = record.source_name + " - " + cutReason + additionalMessage + ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
-            }
-            this.DebugWrite("Kick Message: '" + kickReason + "'", 3);
-            //Perform Actions
-            if (!this.isTesting)
-            {
-                ExecuteCommand("procon.protected.send", "admin.kickPlayer", record.target_player.player_name, kickReason);
-
-                //If the player is currently in the player list, remove them
-                if (!String.IsNullOrEmpty(record.target_player.player_name) && this.playerDictionary.ContainsKey(record.target_player.player_name))
-                {
-                    lock (this.playersMutex)
-                    {
-                        this.DebugWrite("Removing " + record.target_player.player_name + " from current player list.", 5);
-                        this.playerDictionary.Remove(record.target_player.player_name);
-                    }
-                }
-            }
-            //Inform the server of the enforced ban
-            this.adminSay("Enforcing ban on " + record.target_player.player_name + " for " + record.record_message);
-            return "Ban Enforced";
         }
 
         public string tempBanTarget(AdKat_Record record, string additionalMessage)
         {
             Int32 seconds = record.command_numeric * 60;
-            additionalMessage = (additionalMessage != null && additionalMessage.Length > 0) ? (" " + additionalMessage) : ("");
-            string banReason = record.source_name + " - " + record.record_message + additionalMessage + ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
-            int cutLength = banReason.Length - 80;
+
+            //Create the prefix and suffix for the ban
+            string banMessagePrefix = "[" + record.source_name + "][" + TimeSpan.FromSeconds(seconds).ToString() + "]";
+            string banMessageSuffix = ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
+            //Create the total kick message
+            string banMessage = banMessagePrefix + record.record_message + banMessageSuffix;
+
+            //Trim the kick message if necessary
+            int cutLength = banMessage.Length - 80;
             if (cutLength > 0)
             {
                 string cutReason = record.record_message.Substring(0, record.record_message.Length - cutLength);
-                banReason = record.source_name + " - " + cutReason + additionalMessage + ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
+                banMessage = banMessagePrefix + cutReason + banMessageSuffix;
             }
-            this.DebugWrite("Ban Message: '" + banReason + "'", 3);
+            this.DebugWrite("Ban Message: '" + banMessage + "'", 3);
+
             //Perform Actions
             if (!this.isTesting)
             {
@@ -4484,7 +4454,6 @@ namespace PRoConEvents
                     //Create the ban
                     AdKat_Ban aBan = new AdKat_Ban();
                     aBan.ban_record = record;
-                    aBan.ban_reason = record.record_message;
 
                     //Update the ban enforcement depending on available information
                     aBan.ban_enforceName = false;
@@ -4497,19 +4466,19 @@ namespace PRoConEvents
                 {
                     if (!String.IsNullOrEmpty(record.target_player.player_guid))
                     {
-                        this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_player.player_guid, "seconds", seconds + "", banReason);
+                        this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_player.player_guid, "seconds", seconds + "", banMessage);
                         this.ExecuteCommand("procon.protected.send", "banList.save");
                         this.ExecuteCommand("procon.protected.send", "banList.list");
                     }
                     else if (!String.IsNullOrEmpty(record.target_player.player_ip))
                     {
-                        this.ExecuteCommand("procon.protected.send", "banList.add", "ip", record.target_player.player_ip, "seconds", seconds + "", banReason);
+                        this.ExecuteCommand("procon.protected.send", "banList.add", "ip", record.target_player.player_ip, "seconds", seconds + "", banMessage);
                         this.ExecuteCommand("procon.protected.send", "banList.save");
                         this.ExecuteCommand("procon.protected.send", "banList.list");
                     }
                     else if (!String.IsNullOrEmpty(record.target_player.player_name))
                     {
-                        this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_player.player_name, "seconds", seconds + "", banReason);
+                        this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_player.player_name, "seconds", seconds + "", banMessage);
                         this.ExecuteCommand("procon.protected.send", "banList.save");
                         this.ExecuteCommand("procon.protected.send", "banList.list");
                     }
@@ -4519,15 +4488,7 @@ namespace PRoConEvents
                         return "ERROR";
                     }
 
-                    //If the player is currently in the player list, remove them
-                    if (!String.IsNullOrEmpty(record.target_player.player_name) && this.playerDictionary.ContainsKey(record.target_player.player_name))
-                    {
-                        lock (this.playersMutex)
-                        {
-                            this.DebugWrite("Removing " + record.target_player.player_name + " from current player list.", 5);
-                            this.playerDictionary.Remove(record.target_player.player_name);
-                        }
-                    }
+                    this.removePlayerFromDictionary(record.target_player.player_name);
                 }
             }
             this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was BANNED by admin for " + record.record_message + " " + additionalMessage, "all");
@@ -4537,15 +4498,21 @@ namespace PRoConEvents
 
         public string permaBanTarget(AdKat_Record record, string additionalMessage)
         {
-            additionalMessage = (additionalMessage != null && additionalMessage.Length > 0) ? (" " + additionalMessage) : ("");
-            string banReason = record.source_name + " - " + record.record_message + additionalMessage + ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
-            int cutLength = banReason.Length - 80;
+            //Create the prefix and suffix for the ban
+            string banMessagePrefix = "[" + record.source_name + "][perm]";
+            string banMessageSuffix = ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
+            //Create the total kick message
+            string banMessage = banMessagePrefix + record.record_message + banMessageSuffix;
+
+            //Trim the kick message if necessary
+            int cutLength = banMessage.Length - 80;
             if (cutLength > 0)
             {
                 string cutReason = record.record_message.Substring(0, record.record_message.Length - cutLength);
-                banReason = record.source_name + " - " + cutReason + additionalMessage + ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
+                banMessage = banMessagePrefix + cutReason + banMessageSuffix;
             }
-            this.DebugWrite("Ban Message: '" + banReason + "'", 6);
+            this.DebugWrite("Ban Message: '" + banMessage + "'", 3);
+
             //Perform Actions
             if (!this.isTesting)
             {
@@ -4554,7 +4521,6 @@ namespace PRoConEvents
                     //Create the ban
                     AdKat_Ban aBan = new AdKat_Ban();
                     aBan.ban_record = record;
-                    aBan.ban_reason = record.record_message;
 
                     //Update the ban enforcement depending on available information
                     aBan.ban_enforceName = false;
@@ -4567,19 +4533,19 @@ namespace PRoConEvents
                 {
                     if (!String.IsNullOrEmpty(record.target_player.player_guid))
                     {
-                        this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_player.player_guid, "perm", banReason);
+                        this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_player.player_guid, "perm", banMessage);
                         this.ExecuteCommand("procon.protected.send", "banList.save");
                         this.ExecuteCommand("procon.protected.send", "banList.list");
                     }
                     else if (!String.IsNullOrEmpty(record.target_player.player_ip))
                     {
-                        this.ExecuteCommand("procon.protected.send", "banList.add", "ip", record.target_player.player_ip, "perm", banReason);
+                        this.ExecuteCommand("procon.protected.send", "banList.add", "ip", record.target_player.player_ip, "perm", banMessage);
                         this.ExecuteCommand("procon.protected.send", "banList.save");
                         this.ExecuteCommand("procon.protected.send", "banList.list");
                     }
                     else if (!String.IsNullOrEmpty(record.target_player.player_name))
                     {
-                        this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_player.player_name, "perm", banReason);
+                        this.ExecuteCommand("procon.protected.send", "banList.add", "name", record.target_player.player_name, "perm", banMessage);
                         this.ExecuteCommand("procon.protected.send", "banList.save");
                         this.ExecuteCommand("procon.protected.send", "banList.list");
                     }
@@ -4589,20 +4555,52 @@ namespace PRoConEvents
                         return "ERROR";
                     }
 
-                    //If the player is currently in the player list, remove them
-                    if (!String.IsNullOrEmpty(record.target_player.player_name) && this.playerDictionary.ContainsKey(record.target_player.player_name))
-                    {
-                        lock (this.playersMutex)
-                        {
-                            this.DebugWrite("Removing " + record.target_player.player_name + " from current player list.", 5);
-                            this.playerDictionary.Remove(record.target_player.player_name);
-                        }
-                    }
+                    this.removePlayerFromDictionary(record.target_player.player_name);
                 }
             }
             this.ExecuteCommand("procon.protected.send", "admin.say", "Player " + record.target_name + " was BANNED by admin for " + record.record_message + additionalMessage, "all");
 
             return this.sendMessageToSource(record, "You PERMA BANNED " + record.target_name + "! Get a vet admin NOW!" + additionalMessage);
+        }
+
+        public string enforceBan(AdKat_Ban aBan)
+        {
+            //Create the prefix and suffix for the ban
+            string kickMessagePrefix = "[" + aBan.ban_record.source_name + "]";
+            //If ban time > 1000 days just say perm ban
+            TimeSpan remainingTime = this.getRemainingBanTime(aBan);
+            if (remainingTime.TotalDays > 1000)
+            {
+                kickMessagePrefix += "[perm]";
+            }
+            //
+            else
+            {
+                kickMessagePrefix += "[" + remainingTime.ToString() + "]";
+            }
+            string kickMessageSuffix = ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
+            //Create the total kick message
+            string kickMessage = kickMessagePrefix + aBan.ban_record.record_message + kickMessageSuffix;
+
+            //Trim the kick message if necessary
+            int cutLength = kickMessage.Length - 80;
+            if (cutLength > 0)
+            {
+                string cutReason = aBan.ban_record.record_message.Substring(0, aBan.ban_record.record_message.Length - cutLength);
+                kickMessage = kickMessagePrefix + cutReason + kickMessageSuffix;
+            }
+            this.DebugWrite("Ban Enforce Message: '" + kickMessage + "'", 3);
+
+            //Perform Actions
+            if (!this.isTesting)
+            {
+                ExecuteCommand("procon.protected.send", "admin.kickPlayer", aBan.ban_record.target_player.player_name, kickMessage);
+
+                this.removePlayerFromDictionary(aBan.ban_record.target_player.player_name);
+            }
+            //Inform the server of the enforced ban
+            this.adminSay("Enforcing ban on " + aBan.ban_record.target_player.player_name + " for " + aBan.ban_record.record_message);
+            return "Ban Enforced";
         }
 
         public string punishTarget(AdKat_Record record)
@@ -5129,10 +5127,12 @@ namespace PRoConEvents
                                 //Update this server's ban lists
                                 this.updateBanLists(aBan);
                                 
-                                //Only perform special kick when ban is direct
+                                //Only perform special action when ban is direct
+                                //Indirect bans are through the banlist, so the player has already been kicked
                                 if (!aBan.ban_record.source_name.Equals("BanEnforcer"))
                                 {
-
+                                    //Enforce the ban
+                                    this.enforceBan(aBan);
                                 }
                             }
                         }
@@ -5172,7 +5172,12 @@ namespace PRoConEvents
                             {
                                 //Action is only called after initial upload, not after update
                                 this.DebugWrite("DBCOMM: Upload success. Attempting to add to action queue.", 6);
-                                this.queueRecordForActionHandling(record);
+
+                                //Only queue the record for action handling if it's not an enforced ban
+                                if (record.command_type != AdKat_CommandType.EnforceBan)
+                                {
+                                    this.queueRecordForActionHandling(record);
+                                }
                             }
                             else
                             {
@@ -5186,7 +5191,6 @@ namespace PRoConEvents
                         this.dbCommHandle.Reset();
                         if (this.fetchActionsFromDB || this.useBanEnforcer || this.usingAWA)
                         {
-
                             //If waiting on DB input, the maximum time we can wait is "db action frequency"
                             this.dbCommHandle.WaitOne(this.dbActionFrequency * 1000);
                         }
@@ -5273,8 +5277,11 @@ namespace PRoConEvents
                         //Make sure database structure is good
                         if (confirmDatabaseSetup())
                         {
-                            //If the structure is good, fetch all access lists
+                            //Fetch all access lists
                             this.fetchAccessList();
+                            //Fetch the database time conversion
+                            this.fetchDBTimeConversion();
+                            //Confirm the database is valid
                             databaseValid = true;
                         }
                     }
@@ -6108,7 +6115,6 @@ namespace PRoConEvents
 	                            `player_id`, 
 	                            `latest_record_id`, 
 	                            `ban_status`, 
-	                            `ban_reason`, 
 	                            `ban_notes`, 
 	                            `ban_startTime`, 
 	                            `ban_endTime`, 
@@ -6122,7 +6128,6 @@ namespace PRoConEvents
 	                            @player_id, 
 	                            @latest_record_id, 
 	                            @ban_status, 
-	                            @ban_reason, 
 	                            @ban_notes, 
 	                            NOW(), 
 	                            DATE_ADD(NOW(), INTERVAL @ban_durationMinutes MINUTE), 
@@ -6135,7 +6140,6 @@ namespace PRoConEvents
                             UPDATE 
 	                            `latest_record_id` = @latest_record_id, 
 	                            `ban_status` = @ban_status, 
-	                            `ban_reason` = @ban_reason, 
 	                            `ban_notes` = @ban_notes, 
 	                            `ban_startTime` = NOW(), 
 	                            `ban_endTime` = DATE_ADD(NOW(), INTERVAL @ban_durationMinutes MINUTE), 
@@ -6147,9 +6151,6 @@ namespace PRoConEvents
                             command.Parameters.AddWithValue("@player_id", aBan.ban_record.target_player.player_id);
                             command.Parameters.AddWithValue("@latest_record_id", aBan.ban_record.record_id);
                             command.Parameters.AddWithValue("@ban_status", "Active");
-                            if (String.IsNullOrEmpty(aBan.ban_reason))
-                                aBan.ban_reason = "NoReason";
-                            command.Parameters.AddWithValue("@ban_reason", aBan.ban_reason);
                             if (String.IsNullOrEmpty(aBan.ban_notes))
                                 aBan.ban_notes = "NoNotes";
                             command.Parameters.AddWithValue("@ban_notes", aBan.ban_notes);
@@ -6157,6 +6158,11 @@ namespace PRoConEvents
                             command.Parameters.AddWithValue("@ban_enforceGUID", aBan.ban_enforceGUID ? ('Y') : ('N'));
                             command.Parameters.AddWithValue("@ban_enforceIP", aBan.ban_enforceIP ? ('Y') : ('N'));
                             command.Parameters.AddWithValue("@ban_sync", "*" + this.server_id + "*");
+                            //Handle permaban case
+                            if (aBan.ban_record.command_type == AdKat_CommandType.PermabanPlayer)
+                            {
+                                aBan.ban_record.command_numeric = (int)this.permaBanEndTime.Subtract(DateTime.Now).TotalMinutes;
+                            }
                             command.Parameters.AddWithValue("@ban_durationMinutes", aBan.ban_record.command_numeric);
                             //Attempt to execute the query
                             if (command.ExecuteNonQuery() >= 0)
@@ -6378,7 +6384,6 @@ namespace PRoConEvents
                             `player_id`, 
                             `latest_record_id`, 
 	                        `ban_status`, 
-	                        `ban_reason`, 
                             `ban_notes`, 
 	                        `ban_sync`, 
 	                        `ban_startTime`, 
@@ -6404,7 +6409,6 @@ namespace PRoConEvents
                                 AdKat_Ban ban = new AdKat_Ban();
                                 ban.ban_id = reader.GetInt64("ban_id");
                                 ban.ban_status = reader.GetString("ban_status");
-                                ban.ban_reason = reader.GetString("ban_reason");
                                 ban.ban_notes = reader.GetString("ban_notes");
                                 ban.ban_sync = reader.GetString("ban_sync");
                                 ban.ban_startTime = reader.GetDateTime("ban_startTime");
@@ -6479,7 +6483,6 @@ namespace PRoConEvents
                             `player_id`, 
                             `latest_record_id`, 
 	                        `ban_status`, 
-	                        `ban_reason`, 
                             `ban_notes`, 
 	                        `ban_sync`, 
 	                        `ban_startTime`, 
@@ -6503,7 +6506,6 @@ namespace PRoConEvents
                                 AdKat_Ban ban = new AdKat_Ban();
                                 ban.ban_id = reader.GetInt64("ban_id");
                                 ban.ban_status = reader.GetString("ban_status");
-                                ban.ban_reason = reader.GetString("ban_reason");
                                 ban.ban_notes = reader.GetString("ban_notes");
                                 ban.ban_sync = reader.GetString("ban_sync");
                                 ban.ban_startTime = reader.GetDateTime("ban_startTime");
@@ -6731,17 +6733,17 @@ namespace PRoConEvents
         {
             foreach (AdKat_Ban ban in this.AdKat_BanList_Name.Values)
             {
-                this.ExecuteCommand("procon.protected.send", "banList.add", "name", ban.ban_record.target_player.player_name, "seconds", ban.ban_durationMinutes * 60 + "", ban.ban_reason);
+                this.ExecuteCommand("procon.protected.send", "banList.add", "name", ban.ban_record.target_player.player_name, "seconds", ban.ban_durationMinutes * 60 + "", ban.ban_record.record_message);
             }
             this.AdKat_BanList_Name.Clear();
             foreach (AdKat_Ban ban in this.AdKat_BanList_IP.Values)
             {
-                this.ExecuteCommand("procon.protected.send", "banList.add", "ip", ban.ban_record.target_player.player_ip, "seconds", ban.ban_durationMinutes * 60 + "", ban.ban_reason);
+                this.ExecuteCommand("procon.protected.send", "banList.add", "ip", ban.ban_record.target_player.player_ip, "seconds", ban.ban_durationMinutes * 60 + "", ban.ban_record.record_message);
             }
             this.AdKat_BanList_IP.Clear();
             foreach (AdKat_Ban ban in this.AdKat_BanList_GUID.Values)
             {
-                this.ExecuteCommand("procon.protected.send", "banList.add", "guid", ban.ban_record.target_player.player_guid, "seconds", ban.ban_durationMinutes * 60 + "", ban.ban_reason);
+                this.ExecuteCommand("procon.protected.send", "banList.add", "guid", ban.ban_record.target_player.player_guid, "seconds", ban.ban_durationMinutes * 60 + "", ban.ban_record.record_message);
             }
             this.AdKat_BanList_GUID.Clear();
             this.ExecuteCommand("procon.protected.send", "banList.save");
@@ -7061,6 +7063,51 @@ namespace PRoConEvents
             }
 
             DebugWrite("fetchServerID finished!", 6);
+
+            return returnVal;
+        }
+
+        //DONE
+        private TimeSpan fetchDBTimeConversion()
+        {
+            DebugWrite("fetchDBTimeConversion starting!", 6);
+
+            TimeSpan returnVal = new TimeSpan(0);
+
+            try
+            {
+                using (MySqlConnection connection = this.getDatabaseConnection())
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = @"SELECT NOW() AS `current_time`";
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                //Get the db time
+                                DateTime dbTime = reader.GetDateTime("current_time");
+                                DateTime proconTime = DateTime.Now;
+                                //Calculate the difference between database time and procon time
+                                this.dbTimeConversion = proconTime.Subtract(dbTime);
+                                returnVal = this.dbTimeConversion;
+
+                                this.DebugWrite("Time conversion fetched: PT(" + proconTime + ") - DT(" + dbTime + ") = (" + this.dbTimeConversion + ")", 2);
+                            }
+                            else
+                            {
+                                this.ConsoleError("Could not fetch database time conversion");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                DebugWrite(e.ToString(), 3);
+            }
+
+            DebugWrite("fetchDBTimeConversion finished!", 6);
 
             return returnVal;
         }
@@ -7872,6 +7919,34 @@ namespace PRoConEvents
 
         #region Helper Methods and Classes
 
+        private void removePlayerFromDictionary(String player_name)
+        {
+            //If the player is currently in the player list, remove them
+            if (!String.IsNullOrEmpty(player_name) && this.playerDictionary.ContainsKey(player_name))
+            {
+                lock (this.playersMutex)
+                {
+                    this.DebugWrite("Removing " + player_name + " from current player list.", 5);
+                    this.playerDictionary.Remove(player_name);
+                }
+            }
+        }
+
+        private DateTime converToDBTime(DateTime proconTime)
+        {
+            return proconTime.Subtract(this.dbTimeConversion);
+        }
+
+        private DateTime converToProconTime(DateTime DBTime)
+        {
+            return DBTime.Add(this.dbTimeConversion);
+        }
+
+        private TimeSpan getRemainingBanTime(AdKat_Ban aBan)
+        {
+            return aBan.ban_endTime.Subtract(this.converToDBTime(DateTime.Now));
+        }
+
         public bool isStatLoggerEnabled()
         {
             List<MatchCommand> registered = this.GetRegisteredCommands();
@@ -8058,7 +8133,6 @@ namespace PRoConEvents
             public Int64 ban_id = -1;
             public AdKat_Record ban_record = null;
             public string ban_status = "Enabled";
-            public string ban_reason = null;
             public string ban_notes = null;
             public string ban_sync = null;
             public int ban_durationMinutes = 0;
