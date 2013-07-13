@@ -16,7 +16,7 @@ admins, but will function just as well for small servers.<br/>
   <li><b>Yell/Say Pre-Recording.</b> Usable along side plugins such as "server rules on request". Use numbers to 
   reference predefined messages, avoid typing long messages.</li>
   <li><b>External Controller API.</b> AdKats can be controlled from outside the game, through systems like 
-  <a href="http://gcp.adkats.info/" target="_blank">AdKats WebAdmin</a></li>
+  AdKats WebAdmin</li>
   <li><b>Internal Implementation of TeamSwap.</b> Server-smart player moving system described below.</li>
 </ul>
 <br/>
@@ -136,7 +136,7 @@ like kill, or kick are not counted in the system since sometimes players ask to 
 or players get kicked for AFKing. Kill and kick should only be used for server management. Direct tban 
 and ban are of course still available for hacking/glitching situations, but that is the ONLY time they should be used.
 </p>
-<h3>Ban Enforcer (Requires <a href="http://gcp.adkats.info/" target="_blank">AdKats WebAdmin</a>*)</h3>
+<h3>Ban Enforcer (Requires AdKats WebAdmin*)</h3>
 <p>
 AdKats can enforce bans across all of your servers. Enabling the ban enforcer will import all bans from both the procon 
 ban list and "ban manager" plugin, this happens across all servers running on your database. Bans made on one of your 
@@ -475,7 +475,7 @@ All players are defaulted to level 6 in the system, and have no special access, 
 </table>
 </p>
 <h3>Commanding AdKats from Outside the Game</h3>
-<h4><a href="http://gcp.adkats.info/" target="_blank">AdKats WebAdmin</a> can be used for this.</h4>
+<h4>AdKats WebAdmin can be used for this.</h4>
 <p>
 If you have an external system (such as a web-based tool with access to bf3 server information), then there are two 
 ways to interact with AdKats externally.<br/>
