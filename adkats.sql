@@ -396,23 +396,6 @@ BEGIN
 END;
 |
 
-CREATE EVENT ban_status_update
-	ON SCHEDULE EVERY 5 MINUTE 
-	COMMENT 'Updates expired bans for sync every 5 minutes.' 
-	DO 
-	BEGIN
-		UPDATE 
-			`adkats_banlist` 
-		SET 
-			`ban_status` = 'Expired', 
-			`ban_sync` = '' 
-		WHERE 
-			`ban_status` != 'Expired' 
-		AND 
-			`ban_endTime` < NOW();
-	END;
-|
-
 -- Updates player points when punishments or forgivness logs are added in the record table
 CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkats_records`
 	FOR EACH ROW 
@@ -568,8 +551,3 @@ SELECT
 
   (SELECT COUNT(*)
    FROM adkats_records) AS 'TotalCommands';
-   
-   
--- Scheduling is needed for update events
--- If this fails, it means user does not have superpowers
-SET GLOBAL event_scheduler = ON;
