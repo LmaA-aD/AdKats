@@ -18,6 +18,8 @@ admins, but will function just as well for small servers.<br/>
   <li><b>External Controller API.</b> AdKats can be controlled from outside the game, through systems like 
   AdKats WebAdmin</li>
   <li><b>Internal Implementation of TeamSwap.</b> Server-smart player moving system described below.</li>
+  <li><b>AdKats Ban Enforcer.</b> Bans will be enforced across all of your servers through the internal Ban Enforcer. 
+  Optional for use, but is suggested for optimal performance.</li>
 </ul>
 <br/>
 
@@ -32,13 +34,19 @@ Download the latest version here:
 AdKats was inspired by the gaming community A Different Kind (ADK). Visit 
 <a href="http://www.adkgamers.com/" target="_blank">http://www.adkgamers.com/</a> to say thanks for the awesome tool!
 </p>
+<h2>Dependencies</h2>
+<h3>XpKiller's "BF3 Chat, GUID, Stats and Mapstats Logger"</h3>
+<p>
+Version 1.1.0.0+ of this plugin is required for use of AdKats. AdKats will only run if this plugin is (1) running 
+on the same database AdKats uses, and (2) running on every BF3 Server AdKats is installed on. TODO add link.
+</p>
 <h2>Features</h2>
 <h3>Punishment/Forgiveness System</h3>
 <p>
 <b>NOTE:</b> This is NOT the player-based punish/forgive system normally used for teamkilling, and is only usable by
 admins.<br/>
 <br/>
-Punish and forgive commands take the load off admins remembering what players have broken 
+Punish and forgive commands take the load off admins remembering which players have broken 
 server rules, and how many times. Each time a player is punished it's logged in the database, and the more punishes 
 they get the more severe the punishment. Available punishments include kill, kick, temp-ban 60 minutes, temp-ban 1 day, 
 temp-ban 1 week, temp-ban 2 weeks, temp-ban 1 month, and permaban. The order that punishments are given in can be 
@@ -136,15 +144,19 @@ like kill, or kick are not counted in the system since sometimes players ask to 
 or players get kicked for AFKing. Kill and kick should only be used for server management. Direct tban 
 and ban are of course still available for hacking/glitching situations, but that is the ONLY time they should be used.
 </p>
-<h3>Ban Enforcer (Requires AdKats WebAdmin*)</h3>
+<h3>Ban Enforcer</h3>
 <p>
-AdKats can enforce bans across all of your servers. Enabling the ban enforcer will import all bans from both the procon 
-ban list and "ban manager" plugin, this happens across all servers running on your database. Bans made on one of your 
-servers will be enforced on all others within seconds of issuing the ban. Bans can be made by name, GUID, IP, any 
-combination, or all at once. Enforcer will shut down plugins that interfere with its functionality, this currently 
-includes Ban Manager, CRemoteBanlist, and the enforcement setting in the Metabans plugin. Metabans will be left running 
-and can continue posting new bans, but enforcement of bans using metabans will not be allowed. *You can use this without 
-WebAdmin, but you will be unable to manage any bans, lift them, or modify them in any way once submitted.
+AdKats can now enforce bans accross all of your servers. The Ban Enforcer can import and consolidate all bans from every 
+procon instance it's enabled on. Once enabled, bans made on one of your servers will be enforced on all others within 
+seconds of issuing the ban. Bans can be made by name, GUID, IP, any combination, or all at once. Banned players are told 
+how long their ban will last, and when a banned player attempts to re-join they are told the remaining time on their 
+ban.<br/><br/>
+
+The enforcer works with all existing auto-admins, and requires AdKats WebAdmin for ban management. You can use it 
+without WebAdmin, but you will be unable to manage any bans, lift them early, or modify them in any way once submitted. 
+Use of the ban enforcer is optional because of this dependency, and is disabled by default.<br/><br/>
+
+Ban Enforcer can be enabled with the "Use Ban Enforcer" setting.
 </p>
 <h3>Report/CallAdmin System</h3>
 <p>
