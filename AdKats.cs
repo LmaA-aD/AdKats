@@ -733,6 +733,12 @@ namespace PRoConEvents
                 {
                     lstReturn.Add(new CPluginVariable("A11. Banning Settings|Use Ban Enforcer", typeof(Boolean), this.useBanEnforcer));
                 }
+                if (this.useBanEnforcer)
+                {
+                    lstReturn.Add(new CPluginVariable("A11. Banning Settings|Enforce New Bans by NAME", typeof(Boolean), this.defaultEnforceName));
+                    lstReturn.Add(new CPluginVariable("A11. Banning Settings|Enforce New Bans by GUID", typeof(Boolean), this.defaultEnforceGUID));
+                    lstReturn.Add(new CPluginVariable("A11. Banning Settings|Enforce New Bans by IP", typeof(Boolean), this.defaultEnforceIP));
+                }
 
                 //External Command Settings
                 lstReturn.Add(new CPluginVariable("A12. External Command Settings|HTTP External Access Key", typeof(string), this.externalCommandAccessKey));
@@ -830,7 +836,7 @@ namespace PRoConEvents
                 }
                 else if (Regex.Match(strVariable, @"Debug Soldier Name").Success)
                 {
-                    this.debugSoldierName = strValue;
+                    this.debugSoldierName = this.trimSoldierName(strValue);
                     //Once setting has been changed, upload the change to database
                     this.queueSettingForUpload(new CPluginVariable(@"Debug Soldier Name", typeof(string), strValue));
                 }
@@ -883,6 +889,24 @@ namespace PRoConEvents
                         this.fetchActionsFromDB = true;
                         this.dbCommHandle.Set();
                     }
+                }
+                else if (Regex.Match(strVariable, @"Enforce New Bans by NAME").Success)
+                {
+                    this.defaultEnforceName = Boolean.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Enforce New Bans by NAME", typeof(Boolean), this.useBanEnforcer));
+                }
+                else if (Regex.Match(strVariable, @"Enforce New Bans by GUID").Success)
+                {
+                    this.defaultEnforceGUID = Boolean.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Enforce New Bans by GUID", typeof(Boolean), this.useBanEnforcer));
+                }
+                else if (Regex.Match(strVariable, @"Enforce New Bans by IP").Success)
+                {
+                    this.defaultEnforceIP = Boolean.Parse(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Enforce New Bans by IP", typeof(Boolean), this.useBanEnforcer));
                 }
                 #endregion
                 #region In-Game Command Settings
@@ -1620,38 +1644,23 @@ namespace PRoConEvents
                 #region access settings
                 else if (Regex.Match(strVariable, @"Add Access").Success)
                 {
-                    if (this.isEnabled)
+                    //Check for empty case
+                    if (String.IsNullOrEmpty(strValue))
                     {
-                        //Check for empty case
-                        if (String.IsNullOrEmpty(strValue))
-                        {
-                            this.ConsoleError("Player name for add access cannot be empty!");
-                            return;
-                        }
-                        //Remove all non-alphanumeric characters
-                        Regex rgx = new Regex("[^a-zA-Z0-9_-]");
-                        strValue = rgx.Replace(strValue, "");
-                        //Create the access 
-                        AdKat_Access access = new AdKat_Access();
-                        access.player_name = strValue;
-                        access.access_level = 6;
-                        this.queueAccessUpdate(access);
+                        this.ConsoleError("Player name for add access cannot be empty!");
+                        return;
                     }
-                    else
-                    {
-                        this.ConsoleError("Enable AdKats before changing admins.");
-                    }
+                    strValue = this.trimSoldierName(strValue);
+                    //Create the access object
+                    AdKat_Access access = new AdKat_Access();
+                    access.player_name = strValue;
+                    access.access_level = 6;
+                    //Queue it for processing
+                    this.queueAccessUpdate(access);
                 }
                 else if (Regex.Match(strVariable, @"Remove Access").Success)
                 {
-                    if (this.isEnabled)
-                    {
-                        this.queueAccessRemoval(strValue);
-                    }
-                    else
-                    {
-                        this.ConsoleError("Enable AdKats before changing admins.");
-                    }
+                    this.queueAccessRemoval(strValue);
                 }
                 else if (this.playerAccessCache.ContainsKey(variableParse[0]))
                 {
@@ -1935,7 +1944,10 @@ namespace PRoConEvents
                     try
                     {
                         ConsoleWrite("Enabling command functionality. Please Wait.");
+                        DateTime startTime = DateTime.Now;
 
+                        //Temporarily remove this code, official stat logger does not allow this functionality
+                        /*
                         //Sleep for 1 second, waiting on other plugins to enable since AdKats is alphabetically enabled first.
                         Thread.Sleep(1000);
                         //Check for stat logger
@@ -1961,7 +1973,7 @@ namespace PRoConEvents
                                 this.disable();
                                 return;
                             }
-                        }
+                        }*/
 
                         this.twitterHandler = new TwitterHandler(this);
 
@@ -1977,7 +1989,6 @@ namespace PRoConEvents
                         this.InitThreads();
                         this.StartThreads();
 
-                        DateTime startTime = DateTime.Now;
                         TimeSpan duration = TimeSpan.MinValue;
                         while (!this.allThreadsReady())
                         {
@@ -2475,8 +2486,11 @@ namespace PRoConEvents
                 {
                     this.commandStartTime = DateTime.Now;
                 }
-                this.DebugWrite("Spkr: " + speaker + " | Msg: " + message, 5);
-                this.queueMessageForParsing(speaker, message);
+                //Only queue the message for parsing if it's from a player
+                if (!speaker.Equals("Server"))
+                {
+                    this.queueMessageForParsing(speaker, message);
+                }
             }
         }
         public override void OnTeamChat(string speaker, string message, int teamId) { this.OnGlobalChat(speaker, message); }
@@ -5106,7 +5120,7 @@ namespace PRoConEvents
                         else
                         {
                             //Inform the user
-                            this.ConsoleError("Database Server info could not be fetched! Make sure stat logger is running!");
+                            this.ConsoleError("Database Server info could not be fetched! Make sure XpKiller's Stat Logger is running on this server!");
                             //Disable the plugin
                             this.disable();
                             break;
@@ -5200,6 +5214,7 @@ namespace PRoConEvents
                         this.DebugWrite("DBCOMM: No inbound access changes.", 7);
                     }
 
+                    //Ban Enforcer
                     if (this.useBanEnforcer)
                     {
                         if (initialBanFetch || (DateTime.Now > this.lastDBBanFetch.AddSeconds(this.dbBanFetchFrequency)))
@@ -5302,7 +5317,12 @@ namespace PRoConEvents
                             }
                             else
                             {
-                                this.DebugWrite("DBCOMM: Record does not need action handling.", 6);
+                                //Performance testing area
+                                if (record.source_name == this.debugSoldierName)
+                                {
+                                    this.sendMessageToSource(record, "Duration: " + ((int)DateTime.Now.Subtract(this.commandStartTime).TotalMilliseconds) + "ms");
+                                }
+                                this.DebugWrite("DBCOMM: Update success. Record does not need action handling.", 6);
                             }
                         }
                     }
@@ -5396,7 +5416,7 @@ namespace PRoConEvents
                     if (success)
                     {
                         //Make sure database structure is good
-                        if (confirmDatabaseSetup())
+                        if (this.confirmDatabaseSetup())
                         {
                             //Fetch all access lists
                             this.fetchAccessList();
@@ -5442,7 +5462,7 @@ namespace PRoConEvents
                 }
                 if (!this.confirmTable("adkats_accesslist"))
                 {
-                    ConsoleError("Access Table not present in the database.");
+                    this.ConsoleError("Access Table not present in the database.");
                     this.runDBSetupScript();
                     if (!this.confirmTable("adkats_accesslist"))
                     {
@@ -5452,7 +5472,7 @@ namespace PRoConEvents
                 }
                 if (!this.confirmTable("adkats_serverPlayerPoints"))
                 {
-                    ConsoleError("Server Points Table not present in the database.");
+                    this.ConsoleError("Server Points Table not present in the database.");
                     this.runDBSetupScript();
                     if (!this.confirmTable("adkats_serverPlayerPoints"))
                     {
@@ -5462,7 +5482,7 @@ namespace PRoConEvents
                 }
                 if (!this.confirmTable("adkats_globalPlayerPoints"))
                 {
-                    ConsoleError("Global Points Table not present in the database.");
+                    this.ConsoleError("Global Points Table not present in the database.");
                     this.runDBSetupScript();
                     if (!this.confirmTable("adkats_globalPlayerPoints"))
                     {
@@ -5472,7 +5492,7 @@ namespace PRoConEvents
                 }
                 if (!this.confirmTable("adkats_banlist"))
                 {
-                    ConsoleError("Ban List not present in the database.");
+                    this.ConsoleError("Ban List not present in the database.");
                     this.runDBSetupScript();
                     if (!this.confirmTable("adkats_accesslist"))
                     {
@@ -5482,13 +5502,18 @@ namespace PRoConEvents
                 }
                 if (!this.confirmTable("adkats_settings"))
                 {
-                    ConsoleError("Settings Table not present in the database.");
+                    this.ConsoleError("Settings Table not present in the database.");
                     this.runDBSetupScript();
                     if (!this.confirmTable("adkats_settings"))
                     {
                         this.ConsoleError("After running setup script Settings Table still not present.");
-                        confirmed = false;
                     }
+                }
+                if (!this.confirmTable("tbl_playerdata") || !this.confirmTable("tbl_server"))
+                {
+                    this.ConsoleError("Tables from XPKiller's Stat Logger not found in the database. Enable that plugin then re-run AdKats!");
+                    this.disable();
+                    confirmed = false;
                 }
                 if (confirmed)
                 {
@@ -7056,8 +7081,18 @@ namespace PRoConEvents
                                 access.member_id = reader.GetInt32("member_id");
                                 access.player_email = reader.GetString("player_email");
                                 access.access_level = reader.GetInt32("access_level");
-                                tempAccessCache.Add(access.player_name, access);
-                                DebugWrite("Admin found: " + access.player_name, 6);
+                                if (!String.IsNullOrEmpty(access.player_name))
+                                {
+                                    //Trim the soldier name
+                                    access.player_name = this.trimSoldierName(access.player_name);
+                                    //Add to the access cache
+                                    tempAccessCache.Add(access.player_name, access);
+                                    DebugWrite("Admin found: " + access.player_name, 6);
+                                }
+                                else
+                                {
+                                    this.ConsoleError("Blank admin name found in database, ignoring that entry.");
+                                }
                             }
                         }
                     }
@@ -8039,6 +8074,13 @@ namespace PRoConEvents
         #endregion
 
         #region Helper Methods and Classes
+
+        public string trimSoldierName(string input)
+        {
+            //Remove all characters not possible in a soldier name
+            Regex rgx = new Regex("[^a-zA-Z0-9_-]");
+            return rgx.Replace(input, "");
+        }
 
         public string formatTimeString(TimeSpan timeSpan)
         {
