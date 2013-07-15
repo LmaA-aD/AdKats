@@ -37,8 +37,8 @@ AdKats was inspired by the gaming community A Different Kind (ADK). Visit
 <h2>Dependencies</h2>
 <h3>XpKiller's "BF3 Chat, GUID, Stats and Mapstats Logger"</h3>
 <p>
-Version 1.1.0.0+ of this plugin is required for use of AdKats. AdKats will only run if this plugin is (1) running 
-on the same database AdKats uses, and (2) running on every BF3 Server AdKats is installed on. TODO add link.
+Version 1.1.0.0+ of this plugin is required. AdKats will only run if this plugin is (1) running on the same database 
+AdKats uses, and (2) running on every BF3 Server AdKats is installed on. TODO add link.
 </p>
 <h2>Features</h2>
 <h3>Punishment/Forgiveness System</h3>
@@ -147,14 +147,16 @@ and ban are of course still available for hacking/glitching situations, but that
 <h3>Ban Enforcer</h3>
 <p>
 AdKats can now enforce bans accross all of your servers. The Ban Enforcer can import and consolidate all bans from every 
-procon instance it's enabled on. Once enabled, bans made on one of your servers will be enforced on all others within 
-seconds of issuing the ban. Bans can be made by name, GUID, IP, any combination, or all at once. Banned players are told 
-how long their ban will last, and when a banned player attempts to re-join they are told the remaining time on their 
-ban.<br/><br/>
+procon instance it's enabled on. Once enabled, bans added on one of your servers will be enforced on all others within 
+seconds of issuing the ban. Bans can be made by name, GUID, IP, any combination, or all at once. The default ban is by 
+EA GUID only, this default can be edited but is not recommended. PB Bans will NOT be used by this system, and metabans 
+enforcement should be disabled for proper functionality. <br/><br/>
 
-The enforcer works with all existing auto-admins, and requires AdKats WebAdmin for ban management. You can use it 
-without WebAdmin, but you will be unable to manage any bans, lift them early, or modify them in any way once submitted. 
-Use of the ban enforcer is optional because of this dependency, and is disabled by default.<br/><br/>
+The enforcer works with all existing auto-admins, and requires AdKats WebAdmin for ban management. Banned players are 
+told how long their ban will last, and when a banned player attempts to re-join they are told the remaining time on 
+their ban. You can use Ban Enforcer without WebAdmin, but you will be unable to manage any bans, lift them early, or 
+modify them in any way once submitted. Use of the ban enforcer is optional because of this dependency, and is disabled 
+by default.<br/><br/>
 
 Ban Enforcer can be enabled with the "Use Ban Enforcer" setting.
 </p>
