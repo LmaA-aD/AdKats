@@ -38,7 +38,9 @@ AdKats was inspired by the gaming community A Different Kind (ADK). Visit
 <h3>XpKiller's "BF3 Chat, GUID, Stats and Mapstats Logger"</h3>
 <p>
 Version 1.1.0.0+ of this plugin is required. AdKats will only run if this plugin is (1) running on the same database 
-AdKats uses, and (2) running on every BF3 Server AdKats is installed on. TODO add link.
+AdKats uses, and (2) running on every BF3 Server AdKats is installed on.<br/><br/>
+
+<a href="https://forum.myrcon.com/showthread.php?2889-BF3-Chat-GUID-Stats-and-Mapstats-Logger-1-1-0-0-BF3/" target="_blank">BF3 Chat, GUID, Stats and Mapstats Logger</a>
 </p>
 <h2>Features</h2>
 <h3>Punishment/Forgiveness System</h3>
