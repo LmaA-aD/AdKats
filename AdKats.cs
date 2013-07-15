@@ -2441,9 +2441,9 @@ namespace PRoConEvents
                     Boolean nameAvailable = !String.IsNullOrEmpty(record.target_player.player_name);
                     Boolean GUIDAvailable = !String.IsNullOrEmpty(record.target_player.player_guid);
                     Boolean IPAvailable = !String.IsNullOrEmpty(record.target_player.player_ip);
-                    aBan.ban_enforceName = nameAvailable && (this.defaultEnforceName || (!GUIDAvailable && !IPAvailable));
-                    aBan.ban_enforceGUID = GUIDAvailable && (this.defaultEnforceGUID || (!nameAvailable && !IPAvailable));
-                    aBan.ban_enforceIP = IPAvailable && (this.defaultEnforceIP || (!nameAvailable && !GUIDAvailable));
+                    aBan.ban_enforceName = nameAvailable && (this.defaultEnforceName || (!GUIDAvailable && !IPAvailable) || !String.IsNullOrEmpty(cBan.SoldierName));
+                    aBan.ban_enforceGUID = GUIDAvailable && (this.defaultEnforceGUID || (!nameAvailable && !IPAvailable) || !String.IsNullOrEmpty(cBan.Guid));
+                    aBan.ban_enforceIP = IPAvailable && (this.defaultEnforceIP || (!nameAvailable && !GUIDAvailable) || !String.IsNullOrEmpty(cBan.IpAddress));
                     if (!aBan.ban_enforceName && !aBan.ban_enforceGUID && !aBan.ban_enforceIP)
                     {
                         this.ConsoleError("Unable to create ban, no proper player information");
@@ -6877,19 +6877,23 @@ namespace PRoConEvents
 
         private void repopulateProconBanList()
         {
-            foreach (AdKat_Ban ban in this.AdKat_BanList_Name.Values)
+            int totalSeconds;
+            foreach (AdKat_Ban aBan in this.AdKat_BanList_Name.Values)
             {
-                this.ExecuteCommand("procon.protected.send", "banList.add", "name", ban.ban_record.target_player.player_name, "seconds", ban.ban_durationMinutes * 60 + "", ban.ban_record.record_message);
+                totalSeconds = (int)this.converToProconTime(aBan.ban_endTime).Subtract(DateTime.Now).TotalSeconds;
+                this.ExecuteCommand("procon.protected.send", "banList.add", "name", aBan.ban_record.target_player.player_name, "seconds", totalSeconds + "", aBan.ban_record.record_message);
             }
             this.AdKat_BanList_Name.Clear();
-            foreach (AdKat_Ban ban in this.AdKat_BanList_IP.Values)
+            foreach (AdKat_Ban aBan in this.AdKat_BanList_IP.Values)
             {
-                this.ExecuteCommand("procon.protected.send", "banList.add", "ip", ban.ban_record.target_player.player_ip, "seconds", ban.ban_durationMinutes * 60 + "", ban.ban_record.record_message);
+                totalSeconds = (int)this.converToProconTime(aBan.ban_endTime).Subtract(DateTime.Now).TotalSeconds;
+                this.ExecuteCommand("procon.protected.send", "banList.add", "ip", aBan.ban_record.target_player.player_ip, "seconds", totalSeconds + "", aBan.ban_record.record_message);
             }
             this.AdKat_BanList_IP.Clear();
-            foreach (AdKat_Ban ban in this.AdKat_BanList_GUID.Values)
+            foreach (AdKat_Ban aBan in this.AdKat_BanList_GUID.Values)
             {
-                this.ExecuteCommand("procon.protected.send", "banList.add", "guid", ban.ban_record.target_player.player_guid, "seconds", ban.ban_durationMinutes * 60 + "", ban.ban_record.record_message);
+                totalSeconds = (int)this.converToProconTime(aBan.ban_endTime).Subtract(DateTime.Now).TotalSeconds;
+                this.ExecuteCommand("procon.protected.send", "banList.add", "guid", aBan.ban_record.target_player.player_guid, "seconds", totalSeconds + "", aBan.ban_record.record_message);
             }
             this.AdKat_BanList_GUID.Clear();
             this.ExecuteCommand("procon.protected.send", "banList.save");
