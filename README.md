@@ -38,7 +38,8 @@ AdKats was inspired by the gaming community A Different Kind (ADK). Visit
 <h3>XpKiller's "BF3 Chat, GUID, Stats and Mapstats Logger"</h3>
 <p>
 Version 1.1.0.0+ of this plugin is required. AdKats will only run if this plugin is (1) running on the same database 
-AdKats uses, and (2) running on every BF3 Server AdKats is installed on.<br/><br/>
+AdKats uses, and (2) running on every BF3 Server AdKats is installed on. Running it along-side AdKats on each layer will 
+ensure these conditions are met.<br/><br/>
 
 <a href="https://forum.myrcon.com/showthread.php?2889-BF3-Chat-GUID-Stats-and-Mapstats-Logger-1-1-0-0-BF3/" target="_blank">BF3 Chat, GUID, Stats and Mapstats Logger</a>
 </p>
@@ -49,19 +50,19 @@ AdKats uses, and (2) running on every BF3 Server AdKats is installed on.<br/><br
 admins.<br/>
 <br/>
 Punish and forgive commands take the load off admins remembering which players have broken 
-server rules, and how many times. Each time a player is punished it's logged in the database, and the more punishes 
-they get the more severe the punishment. Available punishments include kill, kick, temp-ban 60 minutes, temp-ban 1 day, 
-temp-ban 1 week, temp-ban 2 weeks, temp-ban 1 month, and permaban. The order that punishments are given in can be 
-configured to your needs.<br/>
-<br/>
-After a player is 'punished' (and the Punish log is made in the database), their total points are calculated using 
-this very basic formula: <b>(Punishment Points - Forgiveness Points) = Total Points</b> 
+server rules, and how many times. Each time a player is punished a log is made in the database; The more punishes 
+they get, the more severe the action gets. Available punishments include: kill, kick, temp-ban 60 minutes, temp-ban 1 
+day, temp-ban 1 week, temp-ban 2 weeks, temp-ban 1 month, and permaban. The order and quantity of punishments can be 
+configured to your needs.<br/><br/>
+
+After a player is punished, their total points are calculated using this very basic formula: 
+<b>(Punishment Points - Forgiveness Points) = Total Points</b> 
 Then an action is decided using Total Points from the punishment hierarchy. Punishments should get harsher as the
 player gets more points. A player cannot be punished more than once every 20 seconds; this prevents multiple admins from 
-accidentally punishing a player multiple times for the same thing.<br/>
-<br/>
+accidentally punishing a player multiple times for the same infraction.<br/><br/>
+
 IRO Punishments: When a player is punished, and has already been punished in the past 5 minutes, the new punish counts 
-for 2 points instead of 1, as the player is immediately breaking server rules after being punished. A punish worth 2 
+for 2 points instead of 1 since the player is immediately breaking server rules again. A punish worth 2 
 points is called an "IRO" punish by the plugin, standing for Immediate Repeat Offence. "[IRO]" will be appended to the 
 punish reason when this type of punish is activated. <br/><br/>
 
@@ -207,28 +208,31 @@ Use @whatis [preMessageID] to find out what a particular ID links to before usin
 </p>
 <h3>TeamSwap</h3>
 <p>
+TeamSwap is NOT an autobalancer (look up other plugins for that functionality), it is for manual player moving only.
 TeamSwap is a server-smart player moving system which offers two major benefits over the default system. Normally when 
 trying to move a player to a full team the command just fails at the server level, now the player is dropped on a 
-queue until a slot opens on that side. They can keep playing on their side until that slot opens, when it does they 
+queue until a slot opens on that side. They can keep playing on their side until that slot opens, since when it does they 
 are immediately slain and moved over to fill it. Secondly it allows whitelisted (non-admin) players the ability to move 
 themselves between teams as often as they want (within a ticket count window). This is currently not an available option 
-in default battlefield aside from procon commands, the game limits players to one switch per gaming session. Whitelisted 
-players can type '@moveme' and teamswap will queue them. This is meant to be available to players outside the admin 
-list, usually by paid usage to your community or to clan members only. Admins can also use '@moveme', and in their 
-case it bypasses the ticket window restriction.
+in default battlefield aside from procon commands since the game limits players to one switch per gaming session. 
+Whitelisted players can type '@moveme' and teamswap will queue them. This is meant to be available to players outside 
+the admin list, usually by paid usage to your community or to clan members only. Admins can also use '@moveme', and in 
+their case it bypasses the ticket window restriction.
 </p>
 <h3>Requiring Reasons</h3>
 <p>
 All commands which might lead to actions against players are required to have a reason entered, and will cancel if
-no reason is given. Players (even the most atrocious in some cases) should know what they were acted on for.
+no reason is given. Players (even the most atrocious in some cases) should know what they were acted on for. It's also 
+a good way to hold admins accountable for their actions. The minimum number of characters for reasons is editable in 
+plugin settings.
 </p>
 <h3>Performance</h3>
 <p>
-This plugin has been multi-threaded for performance in the latest version, and still needs a lot of testing in this area. 
+This plugin has been multi-threaded for performance in the latest version and still needs a lot of testing in this area. 
 The speed of commands depends on how much database interaction needs to happen for each. Preliminary thread testing 
 shows small commands like kill which require 2 or fewer database round-trips run around 150ms to completion. Large 
-commands like punish which can sometimes require 7 database round-trips to complete can run around 500ms. Use "Debug 
-Soldier Name" to get the speed of commands on your server.
+commands like punish which can sometimes require 7 database round-trips to complete can run 500ms+ under heavy load. 
+Use "Debug Soldier Name" to get the speed of commands on your server.
 </p>
 <h3>Database Usage</h3>
 <p>
@@ -253,7 +257,7 @@ database.
 <h3>Available In-Game Commands</h3>
 <p>
 <u><b>You can edit the text for each command to suit your needs in plugin settings.</b></u> Usage of all
-commands is database logged in the database.<br/><br/>
+commands is logged in the database.<br/><br/>
 <table>
 	<tr>
 		<td><b>Command</b></td>
