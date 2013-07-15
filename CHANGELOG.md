@@ -186,12 +186,14 @@ fine for performance). Right now only Punish and Forgive are required to be logg
   <li><b>AdKats WebAdmin API.</b> A website from which you can manage all aspects of your server and playerbase. 
   Direct control of players within the server, command feeds, all logs, ban management, and server statistics are all 
   included in this site.</li>
-  <li><b>AdKats Ban Enforcer.</b> AdKats can now enforce bans accross all of your servers. The Ban Enforcer will import 
-  and consolidate all bans from every procon instance it's enabled on. Once enabled, bans made on one of your servers 
-  will be enforced on all others within seconds of issuing the ban. Bans can be made by name, GUID, IP, any combination, 
-  or all at once. This ban enforcer works with all existing auto-admins. This system requires AdKats WebAdmin for ban 
-  management. You can use it without WebAdmin, but you will be unable to manage any bans, lift them early, or modify 
-  them in any way once submitted.</li>
+  <li><b>AdKats Ban Enforcer.</b> Due to lacking functionality and/or bugs in other ban managers, an internal Ban 
+  Enforcer is now coded into AdKats. AdKats can now enforce bans accross all of your servers. The Ban Enforcer will 
+  import and consolidate all bans from every procon instance it's enabled on. Once enabled, bans made on one of your 
+  servers will be enforced on all others within seconds of issuing the ban. Bans can be made by name, GUID, IP, any 
+  combination, or all at once. The enforcer works with all existing auto-admins, and requires AdKats WebAdmin for 
+  ban management. You can use it without WebAdmin, but you will be unable to manage any bans, lift them early, or modify 
+  them in any way once submitted. Use of the ban enforcer is optional because of this dependency, and is disabled by 
+  default.</li>
   <li><b>Punishment Enhancements.</b> IRO punishments can now override the low population count and act normally.</li>
   <li><b>Kick/Ban Messages Improved.</b> Frostbite has a 80 character limit for ban/kick messages, and the new ban/kick 
   messages comply with that. Also, all kick/ban messages are more descriptive than before, and ban messages in 
