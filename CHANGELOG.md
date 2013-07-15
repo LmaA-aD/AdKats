@@ -1,6 +1,6 @@
 <h2>Development</h2>
 <p>
-Started by ColColonCleaner for ADK Gamers on Apr. 20, 2013
+Started by ColColonCleaner for A Different Kind (ADK) on Apr. 20, 2013
 </p>
 <h3>Changelog</h3>
 <blockquote>
