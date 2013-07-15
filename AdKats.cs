@@ -115,7 +115,7 @@ namespace PRoConEvents
             WhatIs,
             //Power Corner
             NukeServer,
-            KickAll, 
+            KickAll,
             //Ban Enforcer
             EnforceBan
         };
@@ -184,7 +184,6 @@ namespace PRoConEvents
         private TimeSpan dbTimeConversion = new TimeSpan(0);
 
         //current ban type
-        private string m_strBanTypeOption = "Frostbite - EA GUID";
         private Boolean useBanAppend = false;
         private string banAppend = "Appeal at your_site.com";
 
@@ -508,6 +507,35 @@ namespace PRoConEvents
             this.AdKat_CommandAccessRank.Add(AdKat_CommandType.ConfirmCommand, 6);
             this.AdKat_CommandAccessRank.Add(AdKat_CommandType.CancelCommand, 6);
 
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.AdminSay, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.AdminYell, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.CallAdmin, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.CancelCommand, false);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.ConfirmCommand, false);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.ConfirmReport, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.Default, false);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.EndLevel, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.EnforceBan, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.ForceMovePlayer, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.ForgivePlayer, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.KickAll, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.KickPlayer, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.KillPlayer, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.MovePlayer, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.MutePlayer, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.NextLevel, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.NukeServer, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.PermabanPlayer, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.PlayerSay, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.PlayerYell, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.PunishPlayer, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.ReportPlayer, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.RestartLevel, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.RoundWhitelistPlayer, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.Teamswap, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.TempBanPlayer, true);
+            this.AdKat_LoggingSettings.Add(AdKat_CommandType.WhatIs, false);
+
             //Initialize the threads
             this.InitThreads();
         }
@@ -608,7 +636,7 @@ namespace PRoConEvents
                 //Server Settings
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID (Display)", typeof(int), this.server_id));
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Server IP (Display)", typeof(string), this.server_ip));
-                lstReturn.Add(new CPluginVariable("1. Server Settings|Setting Import", typeof(string), ""));
+                lstReturn.Add(new CPluginVariable("1. Server Settings|Setting Import", typeof(string), this.server_id));
                 if (this.usingAWA)
                 {
                     lstReturn.Add(new CPluginVariable("1. Server Settings|Using AdKats WebAdmin (Set Automatically)", typeof(Boolean), this.usingAWA));
@@ -868,11 +896,10 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
-                        //Confirm cannot be logged
+                        //trim variable
                         if (strValue.ToLower().EndsWith("|log"))
                         {
                             strValue = strValue.TrimEnd("|log".ToCharArray());
-                            this.ConsoleWrite("Cannot log Confirm Command");
                         }
                         this.m_strConfirmCommand = strValue;
                         rebindAllCommands();
@@ -888,11 +915,10 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
-                        //Cancel cannot be logged
+                        //trim variable
                         if (strValue.ToLower().EndsWith("|log"))
                         {
                             strValue = strValue.TrimEnd("|log".ToCharArray());
-                            this.ConsoleWrite("Cannot log Cancel Command");
                         }
                         this.m_strCancelCommand = strValue;
                         rebindAllCommands();
@@ -908,6 +934,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strKillCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -922,6 +953,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strKickCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -936,6 +972,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strTemporaryBanCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -950,6 +991,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strPermanentBanCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -964,10 +1010,10 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
-                        //Punish logging is required for functionality
-                        if (!strValue.ToLower().EndsWith("|log"))
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
                         {
-                            strValue += "|log";
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
                         }
                         this.m_strPunishCommand = strValue;
                         rebindAllCommands();
@@ -983,10 +1029,10 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
-                        //Forgive logging is required for functionality
-                        if (!strValue.ToLower().EndsWith("|log"))
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
                         {
-                            strValue += "|log";
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
                         }
                         this.m_strForgiveCommand = strValue;
                         rebindAllCommands();
@@ -1002,6 +1048,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strMuteCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1016,6 +1067,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strRoundWhitelistCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1030,6 +1086,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strMoveCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1044,6 +1105,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strForceMoveCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1058,6 +1124,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strTeamswapCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1072,6 +1143,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strReportCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1086,6 +1162,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strCallAdminCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1100,6 +1181,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strSayCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1114,6 +1200,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strPlayerSayCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1128,6 +1219,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strYellCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1142,6 +1238,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strPlayerYellCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1156,11 +1257,10 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
-                        //Confirm cannot be logged
+                        //trim variable
                         if (strValue.ToLower().EndsWith("|log"))
                         {
                             strValue = strValue.TrimEnd("|log".ToCharArray());
-                            this.ConsoleWrite("Cannot log WhatIs Command");
                         }
                         this.m_strWhatIsCommand = strValue;
                         rebindAllCommands();
@@ -1176,6 +1276,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strRestartLevelCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1190,6 +1295,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strNextLevelCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1204,6 +1314,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strEndLevelCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1218,6 +1333,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strNukeCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1232,6 +1352,11 @@ namespace PRoConEvents
                 {
                     if (strValue.Length > 0)
                     {
+                        //trim variable
+                        if (strValue.ToLower().EndsWith("|log"))
+                        {
+                            strValue = strValue.TrimEnd("|log".ToCharArray());
+                        }
                         this.m_strKickAllCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
@@ -1497,11 +1622,16 @@ namespace PRoConEvents
                 {
                     if (this.isEnabled)
                     {
+                        //Check for empty case
                         if (String.IsNullOrEmpty(strValue))
                         {
                             this.ConsoleError("Player name for add access cannot be empty!");
                             return;
                         }
+                        //Remove all non-alphanumeric characters
+                        Regex rgx = new Regex("[^a-zA-Z0-9_-]");
+                        strValue = rgx.Replace(strValue, "");
+                        //Create the access 
                         AdKat_Access access = new AdKat_Access();
                         access.player_name = strValue;
                         access.access_level = 6;
@@ -1608,8 +1738,9 @@ namespace PRoConEvents
                 if (split.Length > 1)
                 {
                     //There is additional input, check if it's valid
-                    //Right now only accepting 'log' as an additional input
-                    if (split[1] == "log")
+
+                    //TODO make access ranks for commands editable here
+                    /*if (split[1] == "log")
                     {
                         this.setLoggingForCommand(enumCommand, true);
                     }
@@ -1617,12 +1748,7 @@ namespace PRoConEvents
                     {
                         this.ConsoleError("Invalid command format for: " + enumCommand);
                         return enumCommand + " INVALID FORMAT";
-                    }
-                }
-                //Set logging to false for this command
-                else
-                {
-                    this.setLoggingForCommand(enumCommand, false);
+                    }*/
                 }
                 this.DebugWrite("parseAddCommand Finished!", 7);
                 return strCommand;
@@ -1640,32 +1766,6 @@ namespace PRoConEvents
             }
         }
 
-        private void setLoggingForCommand(AdKat_CommandType enumCommand, Boolean newLoggingEnabled)
-        {
-            try
-            {
-                //Get current value
-                bool currentLoggingEnabled = this.AdKat_LoggingSettings[enumCommand];
-                this.DebugWrite("set logging for " + enumCommand + " to " + newLoggingEnabled + " from " + currentLoggingEnabled, 7);
-                //Only perform replacement if the current value is different than what we want
-                if (currentLoggingEnabled != newLoggingEnabled)
-                {
-                    this.DebugWrite("Changing logging option for " + enumCommand + " to " + newLoggingEnabled, 2);
-                    this.AdKat_LoggingSettings[enumCommand] = newLoggingEnabled;
-                }
-                else
-                {
-                    this.DebugWrite("Logging option for " + enumCommand + " still " + currentLoggingEnabled + ".", 3);
-                }
-            }
-            catch (Exception e)
-            {
-                this.DebugWrite("Current value null?: " + e.Message, 6);
-                this.DebugWrite("Setting initial logging option for " + enumCommand + " to " + newLoggingEnabled, 6);
-                AdKat_LoggingSettings.Add(enumCommand, newLoggingEnabled);
-                this.DebugWrite("Logging option set successfuly", 6);
-            }
-        }
         #endregion
 
         #region Threading
@@ -2375,6 +2475,7 @@ namespace PRoConEvents
                 {
                     this.commandStartTime = DateTime.Now;
                 }
+                this.DebugWrite("Spkr: " + speaker + " | Msg: " + message, 5);
                 this.queueMessageForParsing(speaker, message);
             }
         }
@@ -4431,8 +4532,11 @@ namespace PRoConEvents
         {
             Int32 seconds = record.command_numeric * 60;
 
+            //Calculate the remaining ban time
+            TimeSpan remainingTime = TimeSpan.FromSeconds(seconds);
+
             //Create the prefix and suffix for the ban
-            string banMessagePrefix = "[" + record.source_name + "][" + TimeSpan.FromSeconds(seconds).ToString() + "]";
+            string banMessagePrefix = "" + record.source_name + " [" + this.formatTimeString(remainingTime) + "] ";
             string banMessageSuffix = ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
             //Create the total kick message
             string banMessage = banMessagePrefix + record.record_message + banMessageSuffix;
@@ -4459,6 +4563,9 @@ namespace PRoConEvents
                     aBan.ban_enforceName = false;
                     aBan.ban_enforceGUID = !String.IsNullOrEmpty(record.target_player.player_guid);
                     aBan.ban_enforceIP = false;
+
+                    //Set the ban duration
+                    aBan.ban_durationMinutes = record.command_numeric;
 
                     this.queueBanForProcessing(aBan);
                 }
@@ -4499,7 +4606,7 @@ namespace PRoConEvents
         public string permaBanTarget(AdKat_Record record, string additionalMessage)
         {
             //Create the prefix and suffix for the ban
-            string banMessagePrefix = "[" + record.source_name + "][perm]";
+            string banMessagePrefix = "" + record.source_name + " [perm] ";
             string banMessageSuffix = ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
             //Create the total kick message
             string banMessage = banMessagePrefix + record.record_message + banMessageSuffix;
@@ -4566,17 +4673,27 @@ namespace PRoConEvents
         public string enforceBan(AdKat_Ban aBan)
         {
             //Create the prefix and suffix for the ban
-            string kickMessagePrefix = "[" + aBan.ban_record.source_name + "]";
+            string kickMessagePrefix = "" + aBan.ban_record.source_name;
             //If ban time > 1000 days just say perm ban
             TimeSpan remainingTime = this.getRemainingBanTime(aBan);
+
+            //Remove ban if expired
+            if (remainingTime.TotalMilliseconds < 0)
+            {
+                this.playerSayMessage(aBan.ban_record.target_player.player_name, "Your ban has expired. Behave to continue enjoying this server!");
+                aBan.ban_status = "Expired";
+                this.updateBanStatus(aBan);
+                this.updateBanLists(aBan);
+                return "Ban Removed";
+            }
+
             if (remainingTime.TotalDays > 1000)
             {
-                kickMessagePrefix += "[perm]";
+                kickMessagePrefix += " [perm] ";
             }
-            //
             else
             {
-                kickMessagePrefix += "[" + remainingTime.ToString() + "]";
+                kickMessagePrefix += " [" + this.formatTimeString(remainingTime) + "] ";
             }
             string kickMessageSuffix = ((this.useBanAppend) ? (" - " + this.banAppend) : (""));
             //Create the total kick message
@@ -4941,7 +5058,7 @@ namespace PRoConEvents
             {
                 this.DebugWrite("DBCOMM: Starting Database Comm Thread", 2);
                 Thread.CurrentThread.Name = "databasecomm";
-
+                Boolean initialBanFetch = true;
                 Queue<AdKat_Record> inboundRecords;
                 Queue<AdKat_Ban> inboundBans;
                 Queue<AdKat_Access> inboundAccessUpdates;
@@ -5085,15 +5202,19 @@ namespace PRoConEvents
 
                     if (this.useBanEnforcer)
                     {
-                        //Load all bans on startup
-                        if (this.AdKat_BanList_GUID.Count == 0 && this.AdKat_BanList_Name.Count == 0 && this.AdKat_BanList_IP.Count == 0)
+                        if (initialBanFetch || (DateTime.Now > this.lastDBBanFetch.AddSeconds(this.dbBanFetchFrequency)))
                         {
-                            this.fetchAllDatabaseBans();
-                        }
-                        //Check for new bans from the database at given interval
-                        else if (DateTime.Now > this.lastDBBanFetch.AddSeconds(this.dbBanFetchFrequency))
-                        {
-                            this.fetchNewDatabaseBans();
+                            //Load all bans on startup
+                            if (initialBanFetch)
+                            {
+                                this.fetchAllDatabaseBans();
+                                initialBanFetch = false;
+                            }
+                            //Check for new bans from the database at given interval
+                            else
+                            {
+                                this.fetchNewDatabaseBans();
+                            }
                         }
                         else
                         {
@@ -5126,7 +5247,7 @@ namespace PRoConEvents
 
                                 //Update this server's ban lists
                                 this.updateBanLists(aBan);
-                                
+
                                 //Only perform special action when ban is direct
                                 //Indirect bans are through the banlist, so the player has already been kicked
                                 if (!aBan.ban_record.source_name.Equals("BanEnforcer"))
@@ -6445,6 +6566,8 @@ namespace PRoConEvents
                         {
                             aBan.ban_record = this.fetchRecordByID(aBan.ban_record.record_id);
                             this.updateBanLists(aBan);
+                            //Update the sync for this ban
+                            this.updateBanStatus(aBan);
                         }
 
                         //Queue all current players for a ban check
@@ -6673,9 +6796,6 @@ namespace PRoConEvents
                         }
                     }
                 }
-
-                //Update the sync for this ban
-                this.updateBanSync(aBan);
             }
             catch (Exception e)
             {
@@ -6684,9 +6804,9 @@ namespace PRoConEvents
         }
 
         //DONE
-        private Boolean updateBanSync(AdKat_Ban aBan)
+        private Boolean updateBanStatus(AdKat_Ban aBan)
         {
-            DebugWrite("updateBanSync starting!", 6);
+            DebugWrite("updateBanStatus starting!", 6);
 
             aBan.ban_sync += ("*" + this.server_id + "*");
 
@@ -6707,7 +6827,8 @@ namespace PRoConEvents
                             UPDATE 
                             `" + this.mySqlDatabaseName + @"`.`adkats_banlist` 
                             SET 
-                            `ban_sync` = '" + aBan.ban_sync + @"'
+                            `ban_sync` = '" + aBan.ban_sync + @"', 
+                            `ban_status` = '" + aBan.ban_status + @"'
                             WHERE 
                             `ban_id` = " + aBan.ban_id;
                             command.CommandText = query;
@@ -6725,7 +6846,7 @@ namespace PRoConEvents
                 }
             }
 
-            DebugWrite("updateBanSync finished!", 6);
+            DebugWrite("updateBanStatus finished!", 6);
             return success;
         }
 
@@ -7918,6 +8039,52 @@ namespace PRoConEvents
         #endregion
 
         #region Helper Methods and Classes
+
+        public string formatTimeString(TimeSpan timeSpan)
+        {
+            string ret = (timeSpan.TotalMilliseconds >= 0) ? ("") : ("-");
+            int days = Math.Abs(timeSpan.Days);
+            int hours = Math.Abs(timeSpan.Hours);
+            int minutes = Math.Abs(timeSpan.Minutes);
+            int seconds = Math.Abs(timeSpan.Seconds);
+            //Only show day if greater than 1 day
+            if (days > 0)
+            {
+                //Show day count
+                ret += days + "d";
+            }
+            //Only show more information if less than 30 days
+            if (days < 30)
+            {
+                //Only show hours if days exist, or hours > 0
+                if (hours > 0 || days > 0)
+                {
+                    //Show hour count
+                    ret += hours + "h";
+                }
+                //Only show more infomation if less than 1 day
+                if (days < 1)
+                {
+                    //Only show minutes if Hours exist, or minutes > 0
+                    if (minutes > 0 || hours > 0)
+                    {
+                        //Show hour count
+                        ret += minutes + "m";
+                    }
+                    //Only show more infomation if less than 1 hour
+                    if (hours < 1)
+                    {
+                        //Only show seconds if minutes exist, or seconds > 0
+                        if (seconds > 0 || minutes > 0)
+                        {
+                            //Show hour count
+                            ret += seconds + "s";
+                        }
+                    }
+                }
+            }
+            return ret;
+        }
 
         private void removePlayerFromDictionary(String player_name)
         {
