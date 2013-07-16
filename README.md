@@ -25,9 +25,9 @@ admins, but will function just as well for small servers.<br/>
 </ul>
 <br/>
 
-Visit the tool's github page 
-<a href="https://github.com/ColColonCleaner/AdKats/" target="_blank">here</a> 
-to submit bugs or wanted features.<br/><br/>
+If you find any bugs, please submit them 
+<a href="https://github.com/ColColonCleaner/AdKats/issues?state=open" target="_blank">HERE</a> 
+and they will be fixed ASAP.<br/><br/>
 
 Download the latest version here: 
 <a href="http://sourceforge.net/projects/adkats/files/AdKats_v0.3.0.0.zip/download" target="_blank">Version 3.0.0</a>
