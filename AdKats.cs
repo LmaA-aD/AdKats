@@ -190,36 +190,36 @@ namespace PRoConEvents
         //Command Strings for Input
         private DateTime commandStartTime = DateTime.Now;
         //Player Interaction
-        private string m_strKillCommand = "kill|log";
-        private string m_strKickCommand = "kick|log";
-        private string m_strTemporaryBanCommand = "tban|log";
-        private string m_strPermanentBanCommand = "ban|log";
-        private string m_strPunishCommand = "punish|log";
-        private string m_strForgiveCommand = "forgive|log";
-        private string m_strMuteCommand = "mute|log";
-        private string m_strRoundWhitelistCommand = "roundwhitelist|log";
-        private string m_strMoveCommand = "move|log";
-        private string m_strForceMoveCommand = "fmove|log";
-        private string m_strTeamswapCommand = "moveme|log";
-        private string m_strReportCommand = "report|log";
-        private string m_strCallAdminCommand = "admin|log";
+        private string m_strKillCommand = "kill";
+        private string m_strKickCommand = "kick";
+        private string m_strTemporaryBanCommand = "tban";
+        private string m_strPermanentBanCommand = "ban";
+        private string m_strPunishCommand = "punish";
+        private string m_strForgiveCommand = "forgive";
+        private string m_strMuteCommand = "mute";
+        private string m_strRoundWhitelistCommand = "roundwhitelist";
+        private string m_strMoveCommand = "move";
+        private string m_strForceMoveCommand = "fmove";
+        private string m_strTeamswapCommand = "moveme";
+        private string m_strReportCommand = "report";
+        private string m_strCallAdminCommand = "admin";
         //Admin messaging
-        private string m_strSayCommand = "say|log";
-        private string m_strPlayerSayCommand = "psay|log";
-        private string m_strYellCommand = "yell|log";
-        private string m_strPlayerYellCommand = "pyell|log";
+        private string m_strSayCommand = "say";
+        private string m_strPlayerSayCommand = "psay";
+        private string m_strYellCommand = "yell";
+        private string m_strPlayerYellCommand = "pyell";
         private string m_strWhatIsCommand = "whatis";
         private List<string> preMessageList = new List<string>();
         private Boolean requirePreMessageUse = false;
         private int m_iShowMessageLength = 5;
         private string m_strShowMessageLength = "5";
         //Map control
-        private string m_strRestartLevelCommand = "restart|log";
-        private string m_strNextLevelCommand = "nextlevel|log";
-        private string m_strEndLevelCommand = "endround|log";
+        private string m_strRestartLevelCommand = "restart";
+        private string m_strNextLevelCommand = "nextlevel";
+        private string m_strEndLevelCommand = "endround";
         //Power corner
-        private string m_strNukeCommand = "nuke|log";
-        private string m_strKickAllCommand = "kickall|log";
+        private string m_strNukeCommand = "nuke";
+        private string m_strKickAllCommand = "kickall";
         //Confirm and cancel
         private string m_strConfirmCommand = "yes";
         private string m_strCancelCommand = "no";
@@ -537,7 +537,8 @@ namespace PRoConEvents
             this.AdKat_LoggingSettings.Add(AdKat_CommandType.WhatIs, false);
 
             //Initialize the threads
-            this.InitThreads();
+            //TODO find if necessary
+            //this.InitThreads();
         }
 
         #region Plugin details
