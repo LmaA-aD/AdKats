@@ -609,20 +609,27 @@ namespace PRoConEvents
                 lstReturn = this.GetPluginVariables();
 
                 //Add display variables
-                //Admin Settings
-                lstReturn.Add(new CPluginVariable("3. Player Access Settings|Add Access", typeof(string), ""));
-                lstReturn.Add(new CPluginVariable("3. Player Access Settings|Remove Access", typeof(string), ""));
-                if (this.playerAccessCache.Count > 0)
+                if (!this.usingAWA)
                 {
-                    foreach (AdKat_Access access in this.playerAccessCache.Values)
+                    //Admin Settings
+                    lstReturn.Add(new CPluginVariable("3. Player Access Settings|Add Access", typeof(string), ""));
+                    lstReturn.Add(new CPluginVariable("3. Player Access Settings|Remove Access", typeof(string), ""));
+                    if (this.playerAccessCache.Count > 0)
                     {
-                        lstReturn.Add(new CPluginVariable("3. Player Access Settings|" + access.player_name + "|Access Level", typeof(int), access.access_level));
-                        lstReturn.Add(new CPluginVariable("3. Player Access Settings|" + access.player_name + "|Email Address", typeof(string), access.player_email));
+                        foreach (AdKat_Access access in this.playerAccessCache.Values)
+                        {
+                            lstReturn.Add(new CPluginVariable("3. Player Access Settings|" + access.player_name + "|Access Level", typeof(int), access.access_level));
+                            lstReturn.Add(new CPluginVariable("3. Player Access Settings|" + access.player_name + "|Email Address", typeof(string), access.player_email));
+                        }
+                    }
+                    else
+                    {
+                        lstReturn.Add(new CPluginVariable("3. Player Access Settings|No Players in Access List", typeof(string), "Add Players with 'Add Access', or Re-Enable AdKats to fetch."));
                     }
                 }
                 else
                 {
-                    lstReturn.Add(new CPluginVariable("3. Player Access Settings|No Players in Access List", typeof(string), "Add Players with 'Add Access', or Re-Enable AdKats to fetch."));
+                    lstReturn.Add(new CPluginVariable("3. Player Access Settings|You are using AdKats WebAdmin", typeof(string), "Manage admin settings there."));
                 }
             }
             return lstReturn;
@@ -638,10 +645,6 @@ namespace PRoConEvents
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID (Display)", typeof(int), this.server_id));
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Server IP (Display)", typeof(string), this.server_ip));
                 lstReturn.Add(new CPluginVariable("1. Server Settings|Setting Import", typeof(string), this.server_id));
-                if (this.usingAWA)
-                {
-                    lstReturn.Add(new CPluginVariable("1. Server Settings|Using AdKats WebAdmin (Set Automatically)", typeof(Boolean), this.usingAWA));
-                }
 
                 //SQL Settings
                 lstReturn.Add(new CPluginVariable("2. MySQL Settings|MySQL Hostname", typeof(string), mySqlHostname));
@@ -2043,6 +2046,7 @@ namespace PRoConEvents
                     {
                         ConsoleWrite("Disabling all functionality. Please Wait.");
                         this.isEnabled = false;
+                        this.threadsReady = false;
 
                         this.UnregisterCommand(AdKatsAvailableIndicator);
 
@@ -2069,7 +2073,6 @@ namespace PRoConEvents
                         this.unprocessedRecordQueue.Clear();
                         this.banEnforcerCheckingQueue.Clear();
 
-                        this.threadsReady = false;
                         this.updateSettingPage();
 
                         ConsoleWrite("^b^1AdKats " + this.GetPluginVersion() + " Disabled! =(^n^0");
@@ -2212,11 +2215,11 @@ namespace PRoConEvents
             if (this.isEnabled)
             {
                 Boolean informed = true;
+                string command = this.m_strTeamswapCommand;
                 if (this.enableAdminAssistants && this.adminAssistantCache.TryGetValue(soldierName, out informed))
                 {
                     if (informed == false)
                     {
-                        string command = this.m_strTeamswapCommand.TrimEnd("|log".ToCharArray());
                         this.ExecuteCommand("procon.protected.send", "admin.yell", "For your consistent player reporting you can now use TeamSwap. Type @" + command + " to move yourself between teams.", "10", "player", soldierName);
                         this.adminAssistantCache[soldierName] = true;
                     }
@@ -2225,7 +2228,6 @@ namespace PRoConEvents
                 {
                     if (informed == false)
                     {
-                        string command = this.m_strTeamswapCommand.TrimEnd("|log".ToCharArray());
                         this.ExecuteCommand("procon.protected.send", "admin.yell", "You can use TeamSwap for this round. Type @" + command + " to move yourself between teams.", "10", "player", soldierName);
                         this.teamswapRoundWhitelist[soldierName] = true;
                     }
@@ -3644,7 +3646,7 @@ namespace PRoConEvents
                     #region ReportPlayer
                     case AdKat_CommandType.ReportPlayer:
                         {
-                            string command = this.m_strReportCommand.TrimEnd("|log".ToCharArray());
+                            string command = this.m_strReportCommand;
 
                             //Remove previous commands awaiting confirmation
                             this.cancelSourcePendingAction(record);
@@ -3668,7 +3670,8 @@ namespace PRoConEvents
 
                                     DebugWrite("reason: " + record.record_message, 6);
 
-                                    if (record.record_message.Length >= this.requiredReasonLength)
+                                    //Only 1 character reasons are required for reports and admin calls
+                                    if (record.record_message.Length >= 1)
                                     {
                                         this.completeTargetInformation(record, false);
                                     }
@@ -3689,7 +3692,7 @@ namespace PRoConEvents
                     #region CallAdmin
                     case AdKat_CommandType.CallAdmin:
                         {
-                            string command = this.m_strCallAdminCommand.TrimEnd("|log".ToCharArray());
+                            string command = this.m_strCallAdminCommand;
 
                             //Remove previous commands awaiting confirmation
                             this.cancelSourcePendingAction(record);
@@ -3712,7 +3715,8 @@ namespace PRoConEvents
                                     record.record_message = this.getPreMessage(parameters[1], false);
 
                                     DebugWrite("reason: " + record.record_message, 6);
-                                    if (record.record_message.Length >= this.requiredReasonLength)
+                                    //Only 1 character reasons are required for reports and admin calls
+                                    if (record.record_message.Length >= 1)
                                     {
                                         this.completeTargetInformation(record, false);
                                     }
@@ -4854,7 +4858,7 @@ namespace PRoConEvents
                     if (this.teamswapRoundWhitelist.Count < this.playersToAutoWhitelist + 2)
                     {
                         this.teamswapRoundWhitelist.Add(record.target_name, false);
-                        string command = this.m_strTeamswapCommand.TrimEnd("|log".ToCharArray());
+                        string command = this.m_strTeamswapCommand;
                         message = record.target_name + " can now use @" + command + " for this round.";
                     }
                     else
@@ -5618,6 +5622,7 @@ namespace PRoConEvents
             DebugWrite("uploadAllSettings starting!", 6);
 
             List<CPluginVariable> vars = this.GetPluginVariables();
+            vars.Add(new CPluginVariable("1. Server Settings|Using AdKats WebAdmin (Set Automatically)", typeof(Boolean), this.usingAWA));
 
             try
             {
@@ -8455,3 +8460,4 @@ namespace PRoConEvents
         #endregion
     } // end AdKats
 } // end namespace PRoConEvents
+r
