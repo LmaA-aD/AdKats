@@ -1,5 +1,5 @@
 /* 
- * AdKats is a MySQL reflected admin tool for Procon Frostbite. Includes editable in-game commands, database 
+ * AdKats is a MySQL reflected admin tool for Procon Frostbite. It includes editable in-game commands, database 
  * reflected punishment and forgiveness, proper player report and admin call handling, player name completion, 
  * player muting, yell/say pre-recording, and internal implementation of TeamSwap. It requires a MySQL Database 
  * connection for proper use, and will set up needed tables in the database if they are not there already.
@@ -3175,17 +3175,17 @@ namespace PRoConEvents
                                         break;
                                     }
 
-                                    if (record.record_message.Length >= this.requiredReasonLength)
+                                    //Handle based on report ID if possible
+                                    if (!this.handleRoundReport(record))
                                     {
-                                        //Handle based on report ID if possible
-                                        if (!this.handleRoundReport(record))
+                                        if (record.record_message.Length >= this.requiredReasonLength)
                                         {
                                             this.completeTargetInformation(record, false);
                                         }
-                                    }
-                                    else
-                                    {
-                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        else
+                                        {
+                                            this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        }
                                     }
                                     break;
                                 default:
@@ -3234,17 +3234,17 @@ namespace PRoConEvents
                                         break;
                                     }
 
-                                    if (record.record_message.Length >= this.requiredReasonLength)
+                                    //Handle based on report ID if possible
+                                    if (!this.handleRoundReport(record))
                                     {
-                                        //Handle based on report ID if possible
-                                        if (!this.handleRoundReport(record))
+                                        if (record.record_message.Length >= this.requiredReasonLength)
                                         {
                                             this.completeTargetInformation(record, false);
                                         }
-                                    }
-                                    else
-                                    {
-                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        else
+                                        {
+                                            this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        }
                                     }
                                     break;
                                 default:
@@ -3324,18 +3324,18 @@ namespace PRoConEvents
                                         }
 
                                         DebugWrite("reason: " + record.record_message, 6);
-                                        if (record.record_message.Length >= this.requiredReasonLength)
+
+                                        //Handle based on report ID if possible
+                                        if (!this.handleRoundReport(record))
                                         {
-                                            //Handle based on report ID if possible
-                                            if (!this.handleRoundReport(record))
+                                            if (record.record_message.Length >= this.requiredReasonLength)
                                             {
                                                 this.completeTargetInformation(record, false);
                                             }
-                                        }
-                                        else
-                                        {
-                                            DebugWrite("reason too short", 6);
-                                            this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                            else
+                                            {
+                                                this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                            }
                                         }
                                     }
                                     else
@@ -3389,17 +3389,17 @@ namespace PRoConEvents
                                         break;
                                     }
 
-                                    if (record.record_message.Length >= this.requiredReasonLength)
+                                    //Handle based on report ID if possible
+                                    if (!this.handleRoundReport(record))
                                     {
-                                        //Handle based on report ID if possible
-                                        if (!this.handleRoundReport(record))
+                                        if (record.record_message.Length >= this.requiredReasonLength)
                                         {
                                             this.completeTargetInformation(record, false);
                                         }
-                                    }
-                                    else
-                                    {
-                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        else
+                                        {
+                                            this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        }
                                     }
                                     break;
                                 default:
@@ -3448,17 +3448,17 @@ namespace PRoConEvents
                                         break;
                                     }
 
-                                    if (record.record_message.Length >= this.requiredReasonLength)
+                                    //Handle based on report ID if possible
+                                    if (!this.handleRoundReport(record))
                                     {
-                                        //Handle based on report ID if possible
-                                        if (!this.handleRoundReport(record))
+                                        if (record.record_message.Length >= this.requiredReasonLength)
                                         {
                                             this.completeTargetInformation(record, false);
                                         }
-                                    }
-                                    else
-                                    {
-                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        else
+                                        {
+                                            this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        }
                                     }
                                     break;
                                 default:
@@ -3507,17 +3507,17 @@ namespace PRoConEvents
                                         break;
                                     }
 
-                                    if (record.record_message.Length >= this.requiredReasonLength)
+                                    //Handle based on report ID if possible
+                                    if (!this.handleRoundReport(record))
                                     {
-                                        //Handle based on report ID if possible
-                                        if (!this.handleRoundReport(record))
+                                        if (record.record_message.Length >= this.requiredReasonLength)
                                         {
                                             this.completeTargetInformation(record, false);
                                         }
-                                    }
-                                    else
-                                    {
-                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        else
+                                        {
+                                            this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        }
                                     }
                                     break;
                                 default:
@@ -3566,17 +3566,17 @@ namespace PRoConEvents
                                         break;
                                     }
 
-                                    if (record.record_message.Length >= this.requiredReasonLength)
+                                    //Handle based on report ID if possible
+                                    if (!this.handleRoundReport(record))
                                     {
-                                        //Handle based on report ID if possible
-                                        if (!this.handleRoundReport(record))
+                                        if (record.record_message.Length >= this.requiredReasonLength)
                                         {
                                             this.completeTargetInformation(record, false);
                                         }
-                                    }
-                                    else
-                                    {
-                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        else
+                                        {
+                                            this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        }
                                     }
                                     break;
                                 default:
@@ -3620,17 +3620,17 @@ namespace PRoConEvents
                                     //attempt to handle via pre-message ID
                                     record.record_message = this.getPreMessage(parameters[1], false);
 
-                                    if (record.record_message.Length >= this.requiredReasonLength)
+                                    //Handle based on report ID if possible
+                                    if (!this.handleRoundReport(record))
                                     {
-                                        //Handle based on report ID if possible
-                                        if (!this.handleRoundReport(record))
+                                        if (record.record_message.Length >= this.requiredReasonLength)
                                         {
                                             this.completeTargetInformation(record, false);
                                         }
-                                    }
-                                    else
-                                    {
-                                        this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        else
+                                        {
+                                            this.sendMessageToSource(record, "Reason too short, unable to submit.");
+                                        }
                                     }
                                     break;
                                 default:
@@ -3666,6 +3666,7 @@ namespace PRoConEvents
                                     record.record_message = this.getPreMessage(parameters[1], false);
 
                                     DebugWrite("reason: " + record.record_message, 6);
+
                                     if (record.record_message.Length >= this.requiredReasonLength)
                                     {
                                         this.completeTargetInformation(record, false);
@@ -4042,7 +4043,7 @@ namespace PRoConEvents
                     {
                         //Exact player match, call processing without confirmation
                         record.target_player = this.playerDictionary[record.target_name];
-                        record.source_name = record.target_player.player_name;
+                        record.target_name = record.target_player.player_name;
                         if (!requireConfirm)
                         {
                             //Process record right away
@@ -4072,7 +4073,7 @@ namespace PRoConEvents
                     {
                         //Only one substring match, call processing without confirmation if able
                         record.target_player = substringMatches[0];
-                        record.source_name = record.target_player.player_name;
+                        record.target_name = record.target_player.player_name;
                         if (!requireConfirm)
                         {
                             //Process record right away
@@ -4150,8 +4151,8 @@ namespace PRoConEvents
                         if (fuzzyMatch == null) { this.DebugWrite("name suggestion system failed fuzzy match", 5); return "ERROR"; };
 
                         //Use suggestion for target
-                        record.target_name = fuzzyMatch.player_name;
                         record.target_player = fuzzyMatch;
+                        record.target_name = fuzzyMatch.player_name;
                         //Send record to attempt list for confirmation
                         return this.confirmActionWithSource(record);
                     }
@@ -4545,7 +4546,8 @@ namespace PRoConEvents
 
         public string tempBanTarget(AdKat_Record record, string additionalMessage)
         {
-            Int32 seconds = record.command_numeric * 60;
+            //Subtract 1 second for visual effect
+            Int32 seconds = (record.command_numeric * 60) - 1;
 
             //Calculate the remaining ban time
             TimeSpan remainingTime = TimeSpan.FromSeconds(seconds);
@@ -4578,9 +4580,6 @@ namespace PRoConEvents
                     aBan.ban_enforceName = false;
                     aBan.ban_enforceGUID = !String.IsNullOrEmpty(record.target_player.player_guid);
                     aBan.ban_enforceIP = false;
-
-                    //Set the ban duration
-                    aBan.ban_durationMinutes = record.command_numeric;
 
                     this.queueBanForProcessing(aBan);
                 }
@@ -8085,7 +8084,7 @@ namespace PRoConEvents
 
         public Boolean soldierNameValid(string input)
         {
-            if(String.IsNullOrEmpty(input))
+            if (String.IsNullOrEmpty(input))
             {
                 this.ConsoleError("Soldier Name empty or null.");
                 return false;
@@ -8095,12 +8094,12 @@ namespace PRoConEvents
                 this.ConsoleError("Soldier Name '" + input + "' too long, maximum length is 16 characters.");
                 return false;
             }
-            else if(new Regex("[^a-zA-Z0-9_-]").Replace(input, "").Length != input.Length)
+            else if (new Regex("[^a-zA-Z0-9_-]").Replace(input, "").Length != input.Length)
             {
                 this.ConsoleError("Soldier Name '" + input + "' contained invalid characters.");
                 return false;
             }
-            else 
+            else
             {
                 return true;
             }
@@ -8368,7 +8367,6 @@ namespace PRoConEvents
             public string ban_status = "Enabled";
             public string ban_notes = null;
             public string ban_sync = null;
-            public int ban_durationMinutes = 0;
             //startTime and endTime are not set by AdKats, they are set in the database.
             //startTime and endTime will be valid only when bans are fetched from the database
             public DateTime ban_startTime;
