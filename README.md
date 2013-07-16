@@ -262,131 +262,157 @@ with '@', '!', '/!', '/@', or just '/'. Usage of all commands is logged in the d
 <table>
 	<tr>
 		<td><b>Command</b></td>
+		<td><b>Default Text</b></td>
 		<td><b>Params</b></td>
 		<td><b>Description</b></td>
 	</tr>
 	<tr>
 		<td><b>Kill Player</b></td>
+		<td>kill</td>
 		<td>[player][reason]<br/>OR<br/>[reportID]<br/>OR<br/>[reportID][reason]</td>
 		<td>The in-game command used for killing players.</td>
 	</tr>
 	<tr>
 		<td><b>Kick Player</b></td>
+		<td>kick</td>
 		<td>[player][reason]<br/>OR<br/>[reportID]<br/>OR<br/>[reportID][reason]</td>
 		<td>The in-game command used for kicking players.</td>
 	</tr>
 	<tr>
 		<td><b>Temp-Ban Player</b></td>
+		<td>tban</td>
 		<td>[minutes][player][reason]<br/>OR<br/>[minutes][reportID]<br/>OR<br/>[minutes][reportID][reason]</td>
 		<td>The in-game command used temp-banning players.</td>
 	</tr>
 	<tr>
 		<td><b>Perma-Ban Player</b></td>
+		<td>ban</td>
 		<td>[player][reason]<br/>OR<br/>[reportID]<br/>OR<br/>[reportID][reason]</td>
 		<td>The in-game command used for perma-banning players.</td>
 	</tr>
 	<tr>
 		<td><b>Punish Player</b></td>
+		<td>punish</td>
 		<td>[player][reason]<br/>OR<br/>[reportID]<br/>OR<br/>[reportID][reason]</td>
 		<td>The in-game command used for punishing players. Will add a Punish record to the database, increasing a player's total points by 1. When a reportID is used as input, details of the report are given and confirmation (@yes) needs to be given before the punish is sent.</td>
 	</tr>
 	<tr>
 		<td><b>Forgive Player</b></td>
+		<td>forgive</td>
 		<td>[player][reason]<br/>OR<br/>[reportID]<br/>OR<br/>[reportID][reason]</td>
 		<td>The in-game command used for forgiving players. Will add a Forgive record to the database, decreasing a player's total points by 1.</td>
 	</tr>
 	<tr>
 		<td><b>Mute Player</b></td>
+		<td>mute</td>
 		<td>[player][reason]<br/>OR<br/>[reportID]<br/>OR<br/>[reportID][reason]</td>
 		<td>The in-game command used for muting players. Players will be muted till the end of the round, 5 kills then kick if they keep talking. Admins cannot be muted.</td>
 	</tr>
 	<tr>
 		<td><b>Move Player</b></td>
+		<td>move</td>
 		<td>[player]<br/>OR<br/>[reportID]</td>
 		<td>The in-game command used for moving players between teams. Will add players to a death move list, when they die they will be sent to TeamSwap.</td>
 	</tr>
 	<tr>
 		<td><b>Force-Move Player</b></td>
+		<td>fmove</td>
 		<td>[player]<br/>OR<br/>[reportID]</td>
 		<td>The in-game command used for force-moving players between teams. Will immediately send the given player to TeamSwap.</td>
 	</tr>
 	<tr>
 		<td><b>TeamSwap Self</b></td>
+		<td>moveme</td>
 		<td>None</td>
 		<td>The in-game command used for moving yourself between teams. Will immediately send the speaker to TeamSwap.</td>
 	</tr>
 	<tr>
 		<td><b>Round Whitelist Player</b></td>
+		<td>roundwhitelist</td>
 		<td>[player][reason]<br/>OR<br/>[reportID]<br/>OR<br/>[reportID][reason]</td>
 		<td>The in-game command used for round-whitelisting players. 2 players may be whitelisted per round. Once whitelisted they can use teamswap.</td>
 	</tr>
 	<tr>
 		<td><b>Report Player</b></td>
+		<td>report</td>
 		<td>[player][reason]</td>
 		<td>The in-game command used for reporting players. Must have a reason, and will inform a player otherwise when using. Will log a Report in the database(External GCP pulls from there for external admin notifications), and notify all in-game admins. Informs the reporter and admins of the report ID, which the punish system can use.</td>
 	</tr>
 	<tr>
 		<td><b>Call Admin</b></td>
+		<td>admin</td>
 		<td>[player][reason]</td>
 		<td>The in-game command used for calling admin attention to a player. Same deal as report, but used for a different reason. Informs the reporter and admins of the report ID, which the punish system can use.</td>
 	</tr>
 	<tr>
 		<td><b>Admin Say</b></td>
+		<td>say</td>
 		<td>[message]<br/>OR<br/>[preMessageID]</td>
 		<td>The in-game command used to send a message through admin chat to the whole server.</td>
 	</tr>
 	<tr>
 		<td><b>Admin Yell</b></td>
+		<td>yell</td>
 		<td>[message]<br/>OR<br/>[preMessageID]</td>
 		<td>The in-game command used for to send a message through admin yell to the whole server.</td>
 	</tr>
 	<tr>
 		<td><b>Player Say</b></td>
+		<td>psay</td>
 		<td>[player][message]<br/>OR<br/>[player][preMessageID]</td>
 		<td>The in-game command used for sending a message through admin chat to only a specific player.</td>
 	</tr>
 	<tr>
 		<td><b>Player Yell</b></td>
+		<td>pyell</td>
 		<td>[player][message]<br/>OR<br/>[player][preMessageID]</td>
 		<td>The in-game command used for sending a message through admin yell to only a specific player.</td>
 	</tr>
 	<tr>
 		<td><b>What Is</b></td>
+		<td>whatis</td>
 		<td>[preMessageID]</td>
 		<td>The in-game command used for finding out what a particular preMessage ID links to.</td>
 	</tr>
 	<tr>
 		<td><b>Restart Level</b></td>
+		<td>restart</td>
 		<td>None</td>
 		<td>The in-game command used for restarting the round.</td>
 	</tr>
 	<tr>
 		<td><b>Run Next Level</b></td>
+		<td>nextlevel</td>
 		<td>None</td>
 		<td>The in-game command used for running the next map in current rotation, but keep all points and KDRs from this round.</td>
 	</tr>
 	<tr>
-		<td><b>End Level</b></td>
+		<td><b>End Round</b></td>
+		<td>endround</td>
 		<td>[US/RU]</td>
 		<td>The in-game command used for ending the current round with a winning team. Either US or RU.</td>
 	</tr>
 	<tr>
 		<td><b>Nuke Server</b></td>
+		<td>nuke</td>
 		<td>[US/RU/ALL]</td>
 		<td>The in-game command used for killing all players on a team. US, RU, or ALL will work.</td>
 	</tr>
 	<tr>
 		<td><b>Kick All Players</b></td>
+		<td>kickall</td>
 		<td>[none]</td>
 		<td>The in-game command used for kicking all players except admins.</td>
 	</tr>
 	<tr>
 		<td><b>Confirm Command</b></td>
+		<td>yes</td>
 		<td>None</td>
 		<td>The in-game command used for confirming other commands when needed.</td>
 	</tr>
 	<tr>
 		<td><b>Cancel Command</b></td>
+		<td>no</td>
 		<td>None</td>
 		<td>The in-game command used to cancel other commands when needed.</td>
 	</tr>
