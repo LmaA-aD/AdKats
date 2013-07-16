@@ -1,14 +1,13 @@
 <h2 style="color:#009933;">Version 0.3.0.0 released! Your version is listed above (Procon Only).</h2>
-View new in 0.3.0.0 in the changelog 
-<a href="https://github.com/ColColonCleaner/AdKats/blob/dev/CHANGELOG.md" target="_blank">HERE</a>. 
+
+<a href="https://github.com/ColColonCleaner/AdKats/blob/dev/CHANGELOG.md" target="_blank">New in Version 0.3.0.0!</a> 
 Download link below.
 <h1>AdKats</h1>
 <p>
 Admin Toolset with a plethora of features. It is designed for use by groups with high traffic servers and many 
 admins, but will function just as well for small servers.<br/>
 <ul>
-  <li><b>Punishment and Forgiveness.</b> Database reflected infraction tracking system.</li>
-  <li><b>Editable In-Game Commands.</b> All command text can be edited to suit your needs.</li>
+  <li><b>Infraction Tracking System.</b> Database reflected system to track player infractions and act accordingly.</li>
   <li><b>Proper Player Report and Admin Call Handling.</b> Notification system and quick handling features for all admin 
   calls and player reports.</li>
   <li><b>Fuzzy Player Name Completion.</b> Fully completes accurate or misspelled player names.</li>
@@ -17,9 +16,12 @@ admins, but will function just as well for small servers.<br/>
   reference predefined messages, avoid typing long reasons or messages.</li>
   <li><b>External Controller API.</b> AdKats can be controlled from outside the game, through systems like 
   AdKats WebAdmin</li>
-  <li><b>Internal Implementation of TeamSwap.</b> Server-smart player moving system described below.</li>
-  <li><b>AdKats Ban Enforcer.</b> Bans can be enforced across all of your servers through the internal Ban Enforcer. 
-  Optional for use, but is suggested for optimal performance.</li>
+  <li><b>Internal Implementation of TeamSwap.</b> Server-smart player moving system. Described below.</li>
+  <li><b>AdKats Ban Enforcer.</b> Bans can be enforced across all of your servers through the internal Ban Enforcer.</li>
+  <li><b>Editable In-Game Commands.</b> All command text can be edited to suit your needs.</li>
+  <li><b>Full Logging.</b> All admin activity is trackable via the database, so holding your admins accountable for 
+  their actions is quick and painless.</li>
+  <li><b>Quick Setup.</b> Give AdKats a database and all setup will be performed automatically.</li>
 </ul>
 <br/>
 
@@ -35,27 +37,38 @@ AdKats was inspired by the gaming community A Different Kind (ADK). Visit
 <a href="http://www.adkgamers.com/" target="_blank">http://www.adkgamers.com/</a> to say thanks for the awesome tool!
 </p>
 <h2>Dependencies</h2>
-<h3>XpKiller's "BF3 Chat, GUID, Stats and Mapstats Logger"</h3>
+<h4>XpKiller's "BF3 Chat, GUID, Stats and Mapstats Logger" Plugin</h4>
 <p>
-Version 1.1.0.0+ of this plugin is required. AdKats will only run if this plugin is (1) running on the same database 
-AdKats uses, and (2) running on every BF3 Server AdKats is installed on. Running it along-side AdKats on each layer will 
-ensure these conditions are met.<br/><br/>
+Version 1.1.0.0+ of this plugin is required. AdKats will only run if this plugin is (1) using the same database 
+AdKats uses, and (2) running on every BF3 Server you've installed AdKats on. Running it along-side AdKats on each layer
+will ensure these conditions are met.<br/><br/>
 
 <a href="https://forum.myrcon.com/showthread.php?2889-BF3-Chat-GUID-Stats-and-Mapstats-Logger-1-1-0-0-BF3/" target="_blank">BF3 Chat, GUID, Stats and Mapstats Logger</a>
 </p>
-<h2>Features</h2>
-<h3>Punishment/Forgiveness System</h3>
+<h4>A MySQL Database</h4>
 <p>
-<b>NOTE:</b> This is NOT the player-based punish/forgive system normally used for teamkilling, and is only usable by
-admins.<br/>
-<br/>
-Punish and forgive commands take the load off admins remembering which players have broken 
-server rules, and how many times. Each time a player is punished a log is made in the database; The more punishes 
-they get, the more severe the action gets. Available punishments include: kill, kick, temp-ban 60 minutes, temp-ban 1 
-day, temp-ban 1 week, temp-ban 2 weeks, temp-ban 1 month, and permaban. The order and quantity of punishments can be 
-configured to your needs.<br/><br/>
+An online MySQL database accessible from your procon layer is required. AdKats checks the database for needed tables on 
+connect. If it doesn't find the proper tables/views it will run the script linked below. You can run the script 
+beforehand if you don't want the plugin changing table structure in your database.<br/><br/>
 
-After a player is punished, their total points are calculated using this very basic formula: 
+<a href="https://github.com/ColColonCleaner/AdKats/blob/master/adkats.sql" target="_blank">AdKats Setup Script</a><br/><br/>
+
+Getting a Database: If you have your own website you can make one there, or you can use an online service. My 
+clan runs our own, but I found this online one to be ok, and it has a free usage option. 
+<a href="http://www.freesqldatabase.com/" target="_blank">http://www.freesqldatabase.com/</a> But any online accessible 
+MySQL database will work. Be careful with that free option though, the size is limited, and these things can log A LOT 
+of data if it's an active server.
+</p>
+<h2>Features</h2>
+<h3>Infraction Tracking System</h3>
+<p>
+Infraction Tracking commands take the load off admins remembering which players have broken server rules, and how many 
+times. These commands have been dubbed "punish" and "forgive". Each time a player is punished a log is made in the 
+database; The more punishes they get, the more severe the action gets. Available punishments include: kill, kick, 
+temp-ban 60 minutes, temp-ban 1 day, temp-ban 1 week, temp-ban 2 weeks, temp-ban 1 month, and permaban. The order and 
+severity of punishments can be configured to your needs.<br/><br/>
+
+Detailed Stuff: After a player is punished, their total points are calculated using this very basic formula: 
 <b>(Punishment Points - Forgiveness Points) = Total Points</b> 
 Then an action is decided using Total Points from the punishment hierarchy. Punishments should get harsher as the
 player gets more points. A player cannot be punished more than once every 20 seconds; this prevents multiple admins from 
@@ -149,17 +162,17 @@ and ban are of course still available for hacking/glitching situations, but that
 </p>
 <h3>Ban Enforcer</h3>
 <p>
-AdKats can now enforce bans accross all of your servers. The Ban Enforcer can import and consolidate all bans from every 
-procon instance it's enabled on. Once enabled, bans added on one of your servers will be enforced on all others within 
-seconds of issuing the ban. Bans can be made by name, GUID, IP, any combination, or all at once. The default ban is by 
-EA GUID only, this default can be edited but is not recommended. PB Bans will NOT be used by this system, and metabans 
-enforcement should be disabled for proper functionality. <br/><br/>
+AdKats can now enforce bans accross all of your servers within seconds of the ban being issued. The Ban Enforcer will 
+import and consolidate all bans from every procon instance you run. Bans can be made by name, GUID, IP, any combination, 
+or all at once. The default ban is by EA GUID only, this default can be edited but is not recommended. Banned players 
+are told how long their ban will last, and when a banned player attempts to re-join they are told the remaining time on 
+their ban.<br/><br/>
 
-The enforcer works with all existing auto-admins, and requires AdKats WebAdmin for ban management. Banned players are 
-told how long their ban will last, and when a banned player attempts to re-join they are told the remaining time on 
-their ban. You can use Ban Enforcer without WebAdmin, but you will be unable to manage any bans, lift them early, or 
-modify them in any way once submitted. Use of the ban enforcer is optional because of this dependency, and is disabled 
-by default.<br/><br/>
+The Enforcer works properly with all existing auto-admins, and any bans added manually through procon will be imported 
+by the system. However, this system requires AdKats WebAdmin for ban management, it's options are too complicated for 
+procon's interface to house properly. Use of the ban enforcer is optional because of this dependency, and is disabled 
+by default. You can use Ban Enforcer without WebAdmin, but you will be unable to manage any bans, lift them early, or 
+modify them in any way once submitted.<br/><br/>
 
 Ban Enforcer can be enabled with the "Use Ban Enforcer" setting.
 </p>
@@ -204,11 +217,16 @@ the whole message in. Example: @say 2 will call the second pre-defined message.<
 
 Use @whatis [preMessageID] to find out what a particular ID links to before using it in commands.<br/><br/>
 
-<b>Anywhere a reason or message is needed, a preMessage ID can be used instead.</b>
+<b>Anywhere a reason or message is needed, a preMessage ID can be used instead.</b><br/>
+Example: 4th preMessage is "Baserape. Do not shoot uncap."<br/>
+"@punish muffinman 4" will punish them for the above reason. Even more useful is using report IDs with this, for example 
+someone reports muffinman for "baseraping asshat" and gets report ID 283. You don't want "baseraping asshat" to be the 
+actual reason entered, so you can just do "@punish 283 4", and he will get the proper punish message.
 </p>
 <h3>TeamSwap</h3>
 <p>
-TeamSwap is NOT an autobalancer (look up other plugins for that functionality), it is for manual player moving only.<br/><br/>
+TeamSwap is NOT an autobalancer (look up other plugins for that functionality), it is for manual player moving 
+only.<br/><br/>
 
 TeamSwap is a server-smart player moving system which offers two major benefits over the default system. Normally when 
 trying to move a player to a full team the command just fails at the server level, now the player is dropped on a 
@@ -225,28 +243,16 @@ their case it bypasses the ticket window restriction.
 All commands which might lead to actions against players are required to have a reason entered, and will cancel if
 no reason is given. Players (even the most atrocious in some cases) should know what they were acted on for. It's also 
 a good way to hold admins accountable for their actions. The minimum number of characters for reasons is editable in 
-plugin settings.
+plugin settings. The default value is 5 characters.
 </p>
 <h3>Performance</h3>
 <p>
 This plugin has been multi-threaded for performance in the latest version and still needs a lot of testing in this area. 
 The speed of commands depends on how much database interaction needs to happen for each. Preliminary thread testing 
 shows small commands like kill which require 2 or fewer database round-trips run around 150ms to completion. Large 
-commands like punish which can sometimes require 7 database round-trips to complete can run 500ms+ under heavy load. 
-Use "Debug Soldier Name" to get the speed of commands on your server.
-</p>
-<h3>Database Usage</h3>
-<p>
-You must use an online MySQL database accessible from your procon layer. If you have your own website you can make one 
-there, or you can use an online service. My clan runs our own, but I found this online one to be ok, and has a free 
-usage option. http://www.freesqldatabase.com/ But any online accessible MySql database will work. Be careful with that 
-free option though, the size is limited, and these things can log A LOT of data if it's an active server.
-
-AdKats checks the database for needed tables on connect. If it doesn't find the proper tables/views it will run 
-the script linked below. You can run the script beforehand if you don't want the plugin changing table structure in 
-your database.<br/>
-<br/>
-<a href="https://github.com/ColColonCleaner/AdKats/blob/master/adkats.sql" target="_blank">SQL Code</a>
+commands like punish which can sometimes require 8 database round-trips to complete can run 500ms+ under heavy load. 
+Use "Debug Soldier Name" to get the speed of commands on your server, any command that soldier enters will tell them the 
+total time it took to complete.
 </p>
 <h3>Setting Sync</h3>
 <p>
@@ -257,8 +263,9 @@ database.
 </p>
 <h3>Available In-Game Commands</h3>
 <p>
-<u><b>You can edit the text for each command to suit your needs in plugin settings.</b></u> Commands can be accessed 
-with '@', '!', '/!', '/@', or just '/'. Usage of all commands is logged in the database.<br/><br/>
+<u><b>You can edit the text for each command to suit your needs in plugin settings.</b></u><br/>
+Commands can be accessed with '@', '!', '/!', '/@', or just '/'. Usage of all commands is logged in the 
+database.<br/><br/>
 <table>
 	<tr>
 		<td><b>Command</b></td>
