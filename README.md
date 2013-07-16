@@ -208,7 +208,8 @@ Use @whatis [preMessageID] to find out what a particular ID links to before usin
 </p>
 <h3>TeamSwap</h3>
 <p>
-TeamSwap is NOT an autobalancer (look up other plugins for that functionality), it is for manual player moving only.
+TeamSwap is NOT an autobalancer (look up other plugins for that functionality), it is for manual player moving only.<br/><br/>
+
 TeamSwap is a server-smart player moving system which offers two major benefits over the default system. Normally when 
 trying to move a player to a full team the command just fails at the server level, now the player is dropped on a 
 queue until a slot opens on that side. They can keep playing on their side until that slot opens, since when it does they 
@@ -256,8 +257,8 @@ database.
 </p>
 <h3>Available In-Game Commands</h3>
 <p>
-<u><b>You can edit the text for each command to suit your needs in plugin settings.</b></u> Usage of all
-commands is logged in the database.<br/><br/>
+<u><b>You can edit the text for each command to suit your needs in plugin settings.</b></u> Commands can be accessed 
+with '@', '!', '/!', '/@', or just '/'. Usage of all commands is logged in the database.<br/><br/>
 <table>
 	<tr>
 		<td><b>Command</b></td>
