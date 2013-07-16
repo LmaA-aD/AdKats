@@ -836,9 +836,12 @@ namespace PRoConEvents
                 }
                 else if (Regex.Match(strVariable, @"Debug Soldier Name").Success)
                 {
-                    this.debugSoldierName = this.trimSoldierName(strValue);
-                    //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"Debug Soldier Name", typeof(string), strValue));
+                    if (this.soldierNameValid(strValue))
+                    {
+                        this.debugSoldierName = strValue;
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Debug Soldier Name", typeof(string), strValue));
+                    }
                 }
                 #endregion
                 #region HTTP settings
@@ -1644,19 +1647,15 @@ namespace PRoConEvents
                 #region access settings
                 else if (Regex.Match(strVariable, @"Add Access").Success)
                 {
-                    //Check for empty case
-                    if (String.IsNullOrEmpty(strValue))
+                    if (this.soldierNameValid(strValue))
                     {
-                        this.ConsoleError("Player name for add access cannot be empty!");
-                        return;
+                        //Create the access object
+                        AdKat_Access access = new AdKat_Access();
+                        access.player_name = strValue;
+                        access.access_level = 6;
+                        //Queue it for processing
+                        this.queueAccessUpdate(access);
                     }
-                    strValue = this.trimSoldierName(strValue);
-                    //Create the access object
-                    AdKat_Access access = new AdKat_Access();
-                    access.player_name = strValue;
-                    access.access_level = 6;
-                    //Queue it for processing
-                    this.queueAccessUpdate(access);
                 }
                 else if (Regex.Match(strVariable, @"Remove Access").Success)
                 {
@@ -1944,12 +1943,15 @@ namespace PRoConEvents
                     try
                     {
                         ConsoleWrite("Enabling command functionality. Please Wait.");
+
+                        //Wait on all settings to be imported by procon for initial start.
+                        //2000ms is overkill, but no need to be hasty
+                        Thread.Sleep(2000);
+
                         DateTime startTime = DateTime.Now;
 
                         //Temporarily remove this code, official stat logger does not allow this functionality
                         /*
-                        //Sleep for 1 second, waiting on other plugins to enable since AdKats is alphabetically enabled first.
-                        Thread.Sleep(1000);
                         //Check for stat logger
                         if (this.isStatLoggerEnabled())
                         {
@@ -2276,11 +2278,10 @@ namespace PRoConEvents
 
         private void queueSettingForUpload(CPluginVariable setting)
         {
-            this.DebugWrite("Preparing to queue setting for upload", 6);
+            this.DebugWrite("Preparing to queue setting " + setting.Name + " for upload", 6);
             lock (this.settingUploadQueue)
             {
                 this.settingUploadQueue.Enqueue(setting);
-                this.DebugWrite("Player setting for upload", 6);
                 this.dbCommHandle.Set();
             }
         }
@@ -4530,10 +4531,10 @@ namespace PRoConEvents
                 string cutReason = record.record_message.Substring(0, record.record_message.Length - cutLength);
                 kickReason = record.source_name + " - " + cutReason + additionalMessage;
             }
-            this.DebugWrite("Kick Message: '" + kickReason + "'", 3);
             //Perform Actions
             if (!this.isTesting)
             {
+                this.DebugWrite("Kick Message: '" + kickReason + "'", 3);
                 ExecuteCommand("procon.protected.send", "admin.kickPlayer", record.target_player.player_name, kickReason);
 
                 this.removePlayerFromDictionary(record.target_player.player_name);
@@ -4652,6 +4653,7 @@ namespace PRoConEvents
                 }
                 else
                 {
+                    this.DebugWrite("BANNING: " + banMessage, 4);
                     if (!String.IsNullOrEmpty(record.target_player.player_guid))
                     {
                         this.ExecuteCommand("procon.protected.send", "banList.add", "guid", record.target_player.player_guid, "perm", banMessage);
@@ -5624,7 +5626,7 @@ namespace PRoConEvents
                     using (MySqlCommand command = connection.CreateCommand())
                     {
                         //Set the delete/insert command structure
-                        string commandTotal = "DELETE FROM `adkat_settings` WHERE `server_id` = " + this.server_id + "; ";
+                        string commandTotal = "DELETE FROM `adkats_settings` WHERE `server_id` = " + this.server_id + "; ";
                         foreach (CPluginVariable var in vars)
                         {
                             //Fill the command
@@ -5646,6 +5648,7 @@ namespace PRoConEvents
                                 `setting_value` = '" + var.Value + @"'; 
                             ";
                         }
+                        command.CommandText = commandTotal;
                         //Attempt to execute the query
                         if (command.ExecuteNonQuery() > 0)
                         {
@@ -7087,11 +7090,12 @@ namespace PRoConEvents
                                 access.access_level = reader.GetInt32("access_level");
                                 if (!String.IsNullOrEmpty(access.player_name))
                                 {
-                                    //Trim the soldier name
-                                    access.player_name = this.trimSoldierName(access.player_name);
-                                    //Add to the access cache
-                                    tempAccessCache.Add(access.player_name, access);
-                                    DebugWrite("Admin found: " + access.player_name, 6);
+                                    if (this.soldierNameValid(access.player_name))
+                                    {
+                                        //Add to the access cache
+                                        tempAccessCache.Add(access.player_name, access);
+                                        DebugWrite("Admin found: " + access.player_name, 6);
+                                    }
                                 }
                                 else
                                 {
@@ -8079,11 +8083,27 @@ namespace PRoConEvents
 
         #region Helper Methods and Classes
 
-        public string trimSoldierName(string input)
+        public Boolean soldierNameValid(string input)
         {
-            //Remove all characters not possible in a soldier name
-            Regex rgx = new Regex("[^a-zA-Z0-9_-]");
-            return rgx.Replace(input, "");
+            if(String.IsNullOrEmpty(input))
+            {
+                this.ConsoleError("Soldier Name empty or null.");
+                return false;
+            }
+            else if (input.Length > 16)
+            {
+                this.ConsoleError("Soldier Name '" + input + "' too long, maximum length is 16 characters.");
+                return false;
+            }
+            else if(new Regex("[^a-zA-Z0-9_-]").Replace(input, "").Length != input.Length)
+            {
+                this.ConsoleError("Soldier Name '" + input + "' contained invalid characters.");
+                return false;
+            }
+            else 
+            {
+                return true;
+            }
         }
 
         public string formatTimeString(TimeSpan timeSpan)
