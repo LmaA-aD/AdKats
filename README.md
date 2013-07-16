@@ -717,7 +717,8 @@ Valid 'command_type's that can be acted on include the following:<br/>
 </ul>
 <h3>A11. Banning Settings:</h3>
 <ul>
-  By default, banning is by GUID only, this is sufficient in most cases. Can only choose name or GUID if not using AdKats Ban Enforcer.<br/>
+  By default, banning is by GUID only, this is sufficient in most cases. If not using AdKats Ban Enforcer, bans are 
+  always done by EA GUID. <br/>
   <li><b>'Use AdKats Ban Enforcer'</b> - Whether to use the internal AdKats Ban Enforcer. Details Noted Above.</li>
   <li><b>'Ban By Name'</b> - Whether to use a player's name to ban them. (Insecure, players can change their names)</li>
   <li><b>'Ban By GUID'</b> - Whether to use a player's EA GUID to ban them. (Secure, players cannot change their GUIDs)</li>
