@@ -18,7 +18,7 @@ admins, but will function just as well for small servers.<br/>
   <li><b>External Controller API.</b> AdKats can be controlled from outside the game, through systems like 
   AdKats WebAdmin</li>
   <li><b>Internal Implementation of TeamSwap.</b> Server-smart player moving system described below.</li>
-  <li><b>AdKats Ban Enforcer.</b> Bans will be enforced across all of your servers through the internal Ban Enforcer. 
+  <li><b>AdKats Ban Enforcer.</b> Bans can be enforced across all of your servers through the internal Ban Enforcer. 
   Optional for use, but is suggested for optimal performance.</li>
 </ul>
 <br/>
