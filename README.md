@@ -7,14 +7,14 @@ Download link below.
 Admin Toolset with a plethora of features. It is designed for use by groups with high traffic servers and many 
 admins, but will function just as well for small servers.<br/>
 <ul>
-  <li><b>Punishment and Forgiveness.</b> Advanced player infraction tracking system.</li>
-  <li><b>Editable In-Game Commands.</b> All command text and logging options can be edited to your needs.</li>
+  <li><b>Punishment and Forgiveness.</b> Database reflected infraction tracking system.</li>
+  <li><b>Editable In-Game Commands.</b> All command text can be edited to suit your needs.</li>
   <li><b>Proper Player Report and Admin Call Handling.</b> Notification system and quick handling features for all admin 
   calls and player reports.</li>
-  <li><b>Fuzzy Player Name Completion.</b> System will fully complete accurate or misspelled player names.</li>
+  <li><b>Fuzzy Player Name Completion.</b> Fully completes accurate or misspelled player names.</li>
   <li><b>Player Muting.</b> Players can be muted if necessary.</li>
   <li><b>Yell/Say Pre-Recording.</b> Usable along side plugins such as "server rules on request". Use numbers to 
-  reference predefined messages, avoid typing long messages.</li>
+  reference predefined messages, avoid typing long reasons or messages.</li>
   <li><b>External Controller API.</b> AdKats can be controlled from outside the game, through systems like 
   AdKats WebAdmin</li>
   <li><b>Internal Implementation of TeamSwap.</b> Server-smart player moving system described below.</li>
