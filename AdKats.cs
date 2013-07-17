@@ -4255,7 +4255,7 @@ namespace PRoConEvents
                     this.round_reports.Remove(record.target_name);
                     //Update it in the database
                     reportedRecord.command_action = AdKat_CommandType.ConfirmReport;
-                    this.uploadRecord(reportedRecord);
+                    this.updateRecord(reportedRecord);
                     //Get target information
                     record.target_name = reportedRecord.target_name;
                     record.target_player = reportedRecord.target_player;
@@ -5799,7 +5799,7 @@ namespace PRoConEvents
                 {
                     this.DebugWrite("DBCOMM: UPDATING record for " + record.command_type, 5);
                     //Update Record
-                    this.uploadRecord(record);
+                    this.updateRecord(record);
                 }
                 else
                 {
@@ -5823,14 +5823,10 @@ namespace PRoConEvents
                             {
                                 //IRO - Immediate Repeat Offence
                                 record.isIRO = true;
-                                string IROAppend = " [IRO]";
-                                record.record_message += IROAppend;
                                 //Upload record twice
                                 this.DebugWrite("DBCOMM: UPLOADING IRO Punish", 5);
                                 this.uploadRecord(record);
                                 this.uploadRecord(record);
-                                //Trim off the IRO again
-                                record.record_message = record.record_message.TrimEnd(IROAppend.ToCharArray());
                             }
                             else
                             {
@@ -5870,7 +5866,7 @@ namespace PRoConEvents
 
         private void uploadRecord(AdKat_Record record)
         {
-            DebugWrite("postRecord starting!", 6);
+            DebugWrite("uploadRecord starting!", 6);
 
             Boolean success = false;
             try
@@ -5879,11 +5875,9 @@ namespace PRoConEvents
                 {
                     using (MySqlCommand command = connection.CreateCommand())
                     {
-                        Boolean hasRecordID = (record.record_id > 0);
                         //Set the insert command structure
                         command.CommandText = "INSERT INTO `" + this.mySqlDatabaseName + @"`.`adkats_records` 
                         (
-                            " + ((hasRecordID) ? ("`record_id`, ") : ("")) + @"
                             `server_id`, 
                             `command_type`, 
                             `command_action`, 
@@ -5896,7 +5890,6 @@ namespace PRoConEvents
                         ) 
                         VALUES 
                         ( 
-                            " + ((hasRecordID) ? ("@record_id, ") : ("")) + @"
                             @server_id, 
                             @command_type, 
                             @command_action,
@@ -5905,13 +5898,10 @@ namespace PRoConEvents
                             @target_id, 
                             @source_name, 
                             @record_message, 
-                            @adkats_read
-                            ) 
-                            ON DUPLICATE KEY 
-                            UPDATE 
-                                `command_action` = @command_action, 
-                                `adkats_read` = @adkats_read";
+                            'Y' 
+                        )";
                         //Fill the command
+                        command.Parameters.AddWithValue("@server_id", record.server_id);
                         //Convert enum to DB string
                         string type = this.AdKat_RecordTypes[record.command_type];
                         string action = null;
@@ -5923,12 +5913,6 @@ namespace PRoConEvents
                         {
                             action = type;
                         }
-                        //Set values
-                        if (hasRecordID)
-                        {
-                            command.Parameters.AddWithValue("@record_id", record.record_id);
-                        }
-                        command.Parameters.AddWithValue("@server_id", record.server_id);
                         command.Parameters.AddWithValue("@command_type", type);
                         command.Parameters.AddWithValue("@command_action", action);
                         command.Parameters.AddWithValue("@command_numeric", record.command_numeric);
@@ -5951,16 +5935,12 @@ namespace PRoConEvents
                         }
                         command.Parameters.AddWithValue("@target_name", tName);
                         command.Parameters.AddWithValue("@source_name", record.source_name);
-                        command.Parameters.AddWithValue("@record_message", record.record_message);
-                        command.Parameters.AddWithValue("@adkats_read", 'Y');
+                        command.Parameters.AddWithValue("@record_message", record.record_message + ((record.isIRO) ? (" [IRO]") : ("")));
                         //Attempt to execute the query
                         if (command.ExecuteNonQuery() > 0)
                         {
                             success = true;
-                            if (!hasRecordID)
-                            {
-                                record.record_id = command.LastInsertedId;
-                            }
+                            record.record_id = command.LastInsertedId;
                         }
                     }
                 }
@@ -5970,18 +5950,69 @@ namespace PRoConEvents
                 ConsoleException(e.ToString());
             }
 
-            string temp = this.AdKat_RecordTypes[record.command_type];
+            string temp = this.AdKat_RecordTypes[record.command_action];
 
             if (success)
             {
-                DebugWrite(temp + " log for player " + record.target_name + " by " + record.source_name + " SUCCESSFUL!", 3);
+                DebugWrite(temp + " upload for player " + record.target_name + " by " + record.source_name + " SUCCESSFUL!", 3);
             }
             else
             {
-                ConsoleError(temp + " log for player '" + record.target_name + " by " + record.source_name + " FAILED!");
+                ConsoleError(temp + " upload for player '" + record.target_name + " by " + record.source_name + " FAILED!");
             }
 
-            DebugWrite("postRecord finished!", 6);
+            DebugWrite("uploadRecord finished!", 6);
+        }
+
+        private void updateRecord(AdKat_Record record)
+        {
+            DebugWrite("updateRecord starting!", 6);
+
+            Boolean success = false;
+            try
+            {
+                using (MySqlConnection connection = this.getDatabaseConnection())
+                {
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        Boolean hasRecordID = (record.record_id > 0);
+                        //Set the insert command structure
+                        command.CommandText = "UPDATE `" + this.mySqlDatabaseName + @"`.`adkats_records` 
+                        SET 
+                            `command_action` = @command_action, 
+                            `adkats_read` = 'Y' 
+                        WHERE 
+                            `record_id` = @record_id";
+                        //Fill the command
+                        //Convert enum to DB string
+                        command.Parameters.AddWithValue("@record_id", record.record_id);
+                        command.Parameters.AddWithValue("@command_action", this.AdKat_RecordTypes[record.command_action]);
+                        
+                        //Attempt to execute the query
+                        if (command.ExecuteNonQuery() > 0)
+                        {
+                            success = true;
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                ConsoleException(e.ToString());
+            }
+
+            string temp = this.AdKat_RecordTypes[record.command_action];
+
+            if (success)
+            {
+                DebugWrite(temp + " update for player " + record.target_name + " by " + record.source_name + " SUCCESSFUL!", 3);
+            }
+            else
+            {
+                ConsoleError(temp + " update for player '" + record.target_name + " by " + record.source_name + " FAILED!");
+            }
+
+            DebugWrite("updateRecord finished!", 6);
         }
 
         //DONE
