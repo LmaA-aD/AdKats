@@ -791,8 +791,6 @@ namespace PRoConEvents
                     if (Boolean.TryParse(strValue, out tmp))
                     {
                         this.usingAWA = tmp;
-                        //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Using AdKats WebAdmin", typeof(Boolean), tmp));
 
                         //Update necessary settings for AWA use
                         if (this.usingAWA)
@@ -835,7 +833,7 @@ namespace PRoConEvents
                     {
                         this.debugLevel = tmp;
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Debug level", typeof(Int32), tmp));
+                        this.queueSettingForUpload(new CPluginVariable(@"Debug level", typeof(Int32), this.debugLevel));
                     }
                 }
                 else if (Regex.Match(strVariable, @"Debug Soldier Name").Success)
@@ -844,7 +842,7 @@ namespace PRoConEvents
                     {
                         this.debugSoldierName = strValue;
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Debug Soldier Name", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Debug Soldier Name", typeof(string), this.debugSoldierName));
                     }
                 }
                 #endregion
@@ -853,7 +851,7 @@ namespace PRoConEvents
                 {
                     this.externalCommandAccessKey = strValue;
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"External Access Key", typeof(string), strValue));
+                    this.queueSettingForUpload(new CPluginVariable(@"External Access Key", typeof(string), this.externalCommandAccessKey));
                 }
                 else if (Regex.Match(strVariable, @"Fetch Actions from Database").Success)
                 {
@@ -883,7 +881,7 @@ namespace PRoConEvents
                     {
                         this.banAppend = strValue;
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Additional Ban Message", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Additional Ban Message", typeof(string), this.banAppend));
                     }
                 }
                 else if (Regex.Match(strVariable, @"Use Ban Enforcer").Success)
@@ -901,19 +899,19 @@ namespace PRoConEvents
                 {
                     this.defaultEnforceName = Boolean.Parse(strValue);
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"Enforce New Bans by NAME", typeof(Boolean), this.useBanEnforcer));
+                    this.queueSettingForUpload(new CPluginVariable(@"Enforce New Bans by NAME", typeof(Boolean), this.defaultEnforceName));
                 }
                 else if (Regex.Match(strVariable, @"Enforce New Bans by GUID").Success)
                 {
                     this.defaultEnforceGUID = Boolean.Parse(strValue);
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"Enforce New Bans by GUID", typeof(Boolean), this.useBanEnforcer));
+                    this.queueSettingForUpload(new CPluginVariable(@"Enforce New Bans by GUID", typeof(Boolean), this.defaultEnforceGUID));
                 }
                 else if (Regex.Match(strVariable, @"Enforce New Bans by IP").Success)
                 {
                     this.defaultEnforceIP = Boolean.Parse(strValue);
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"Enforce New Bans by IP", typeof(Boolean), this.useBanEnforcer));
+                    this.queueSettingForUpload(new CPluginVariable(@"Enforce New Bans by IP", typeof(Boolean), this.defaultEnforceIP));
                 }
                 #endregion
                 #region In-Game Command Settings
@@ -935,7 +933,7 @@ namespace PRoConEvents
                         this.m_strConfirmCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Confirm Command", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Confirm Command", typeof(string), this.m_strConfirmCommand));
                     }
                     else
                     {
@@ -954,7 +952,7 @@ namespace PRoConEvents
                         this.m_strCancelCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Cancel Command", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Cancel Command", typeof(string), this.m_strCancelCommand));
                     }
                     else
                     {
@@ -973,7 +971,7 @@ namespace PRoConEvents
                         this.m_strKillCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Kill Player", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Kill Player", typeof(string), this.m_strKillCommand));
                     }
                     else
                     {
@@ -992,7 +990,7 @@ namespace PRoConEvents
                         this.m_strKickCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Kick Player", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Kick Player", typeof(string), this.m_strKickCommand));
                     }
                     else
                     {
@@ -1011,7 +1009,7 @@ namespace PRoConEvents
                         this.m_strTemporaryBanCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Temp-Ban Player", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Temp-Ban Player", typeof(string), this.m_strTemporaryBanCommand));
                     }
                     else
                     {
@@ -1030,7 +1028,7 @@ namespace PRoConEvents
                         this.m_strPermanentBanCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Permaban Player", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Permaban Player", typeof(string), this.m_strPermanentBanCommand));
                     }
                     else
                     {
@@ -1049,7 +1047,7 @@ namespace PRoConEvents
                         this.m_strPunishCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Punish Player", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Punish Player", typeof(string), this.m_strPunishCommand));
                     }
                     else
                     {
@@ -1068,7 +1066,7 @@ namespace PRoConEvents
                         this.m_strForgiveCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Forgive Player", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Forgive Player", typeof(string), this.m_strForgiveCommand));
                     }
                     else
                     {
@@ -1087,7 +1085,7 @@ namespace PRoConEvents
                         this.m_strMuteCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Mute Player", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Mute Player", typeof(string), this.m_strMuteCommand));
                     }
                     else
                     {
@@ -1106,7 +1104,7 @@ namespace PRoConEvents
                         this.m_strRoundWhitelistCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Round Whitelist Player", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Round Whitelist Player", typeof(string), this.m_strRoundWhitelistCommand));
                     }
                     else
                     {
@@ -1125,7 +1123,7 @@ namespace PRoConEvents
                         this.m_strMoveCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"OnDeath Move Player", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"OnDeath Move Player", typeof(string), this.m_strMoveCommand));
                     }
                     else
                     {
@@ -1144,7 +1142,7 @@ namespace PRoConEvents
                         this.m_strForceMoveCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Force Move Player", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Force Move Player", typeof(string), this.m_strForceMoveCommand));
                     }
                     else
                     {
@@ -1163,7 +1161,7 @@ namespace PRoConEvents
                         this.m_strTeamswapCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Teamswap Self", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Teamswap Self", typeof(string), this.m_strTeamswapCommand));
                     }
                     else
                     {
@@ -1182,7 +1180,7 @@ namespace PRoConEvents
                         this.m_strReportCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Report Player", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Report Player", typeof(string), this.m_strReportCommand));
                     }
                     else
                     {
@@ -1201,7 +1199,7 @@ namespace PRoConEvents
                         this.m_strCallAdminCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Call Admin on Player", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Call Admin on Player", typeof(string), this.m_strCallAdminCommand));
                     }
                     else
                     {
@@ -1220,7 +1218,7 @@ namespace PRoConEvents
                         this.m_strSayCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Admin Say", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Admin Say", typeof(string), this.m_strSayCommand));
                     }
                     else
                     {
@@ -1239,7 +1237,7 @@ namespace PRoConEvents
                         this.m_strPlayerSayCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Player Say", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Player Say", typeof(string), this.m_strPlayerSayCommand));
                     }
                     else
                     {
@@ -1258,7 +1256,7 @@ namespace PRoConEvents
                         this.m_strYellCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Admin Yell", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Admin Yell", typeof(string), this.m_strYellCommand));
                     }
                     else
                     {
@@ -1277,7 +1275,7 @@ namespace PRoConEvents
                         this.m_strPlayerYellCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Player Yell", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Player Yell", typeof(string), this.m_strPlayerYellCommand));
                     }
                     else
                     {
@@ -1296,7 +1294,7 @@ namespace PRoConEvents
                         this.m_strWhatIsCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"What Is", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"What Is", typeof(string), this.m_strWhatIsCommand));
                     }
                     else
                     {
@@ -1315,7 +1313,7 @@ namespace PRoConEvents
                         this.m_strRestartLevelCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Restart Level", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Restart Level", typeof(string), this.m_strRestartLevelCommand));
                     }
                     else
                     {
@@ -1334,7 +1332,7 @@ namespace PRoConEvents
                         this.m_strNextLevelCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Next Level", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Next Level", typeof(string), this.m_strNextLevelCommand));
                     }
                     else
                     {
@@ -1353,7 +1351,7 @@ namespace PRoConEvents
                         this.m_strEndLevelCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"End Level", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"End Level", typeof(string), this.m_strEndLevelCommand));
                     }
                     else
                     {
@@ -1372,7 +1370,7 @@ namespace PRoConEvents
                         this.m_strNukeCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Nuke Server", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Nuke Server", typeof(string), this.m_strNukeCommand));
                     }
                     else
                     {
@@ -1391,7 +1389,7 @@ namespace PRoConEvents
                         this.m_strKickAllCommand = strValue;
                         rebindAllCommands();
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable(@"Kick All NonAdmins", typeof(string), strValue));
+                        this.queueSettingForUpload(new CPluginVariable(@"Kick All NonAdmins", typeof(string), this.m_strKickAllCommand));
                     }
                     else
                     {
@@ -1404,7 +1402,7 @@ namespace PRoConEvents
                 {
                     this.punishmentHierarchy = CPluginVariable.DecodeStringArray(strValue);
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"Punishment Hierarchy", typeof(string), strValue));
+                    this.queueSettingForUpload(new CPluginVariable(@"Punishment Hierarchy", typeof(string), CPluginVariable.EncodeStringArray(this.punishmentHierarchy)));
                 }
                 else if (Regex.Match(strVariable, @"Combine Server Punishments").Success)
                 {
@@ -1484,19 +1482,19 @@ namespace PRoConEvents
                 {
                     //this.blNotifyEmail = Boolean.Parse(strValue);
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable("Admin Request Email?", typeof(string), strValue));
+                    //this.queueSettingForUpload(new CPluginVariable("Admin Request Email?", typeof(string), strValue));
                 }
                 else if (strVariable.CompareTo("Use SSL?") == 0)
                 {
                     this.emailHandler.blUseSSL = Boolean.Parse(strValue);
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable("Use SSL?", typeof(Boolean), this.emailHandler.blUseSSL));
+                    //this.queueSettingForUpload(new CPluginVariable("Use SSL?", typeof(Boolean), this.emailHandler.blUseSSL));
                 }
                 else if (strVariable.CompareTo("SMTP-Server address") == 0)
                 {
                     this.emailHandler.strSMTPServer = strValue;
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable("SMTP-Server address", typeof(string), strValue));
+                    //this.queueSettingForUpload(new CPluginVariable("SMTP-Server address", typeof(string), strValue));
                 }
                 else if (strVariable.CompareTo("SMTP-Server port") == 0)
                 {
@@ -1505,7 +1503,7 @@ namespace PRoConEvents
                     {
                         this.emailHandler.iSMTPPort = iPort;
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable("SMTP-Server port", typeof(Int32), iPort));
+                        //this.queueSettingForUpload(new CPluginVariable("SMTP-Server port", typeof(Int32), iPort));
                     }
                 }
                 else if (strVariable.CompareTo("Sender address") == 0)
@@ -1519,7 +1517,7 @@ namespace PRoConEvents
                     {
                         this.emailHandler.strSenderMail = strValue;
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable("Sender address", typeof(string), strValue));
+                        //this.queueSettingForUpload(new CPluginVariable("Sender address", typeof(string), strValue));
                     }
                 }
                 else if (strVariable.CompareTo("SMTP-Server username") == 0)
@@ -1533,7 +1531,7 @@ namespace PRoConEvents
                     {
                         this.emailHandler.strSMTPUser = strValue;
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable("SMTP-Server username", typeof(string), strValue));
+                        //this.queueSettingForUpload(new CPluginVariable("SMTP-Server username", typeof(string), strValue));
                     }
                 }
                 else if (strVariable.CompareTo("SMTP-Server password") == 0)
@@ -1547,7 +1545,7 @@ namespace PRoConEvents
                     {
                         this.emailHandler.strSMTPPassword = strValue;
                         //Once setting has been changed, upload the change to database
-                        this.queueSettingForUpload(new CPluginVariable("SMTP-Server password", typeof(string), strValue));
+                        //this.queueSettingForUpload(new CPluginVariable("SMTP-Server password", typeof(string), strValue));
                     }
                 }
                 #endregion
@@ -1556,19 +1554,19 @@ namespace PRoConEvents
                 {
                     this.mutedPlayerMuteMessage = strValue;
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"On-Player-Muted Message", typeof(string), strValue));
+                    this.queueSettingForUpload(new CPluginVariable(@"On-Player-Muted Message", typeof(string), this.mutedPlayerMuteMessage));
                 }
                 else if (Regex.Match(strVariable, @"On-Player-Killed Message").Success)
                 {
                     this.mutedPlayerKillMessage = strValue;
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"On-Player-Killed Message", typeof(string), strValue));
+                    this.queueSettingForUpload(new CPluginVariable(@"On-Player-Killed Message", typeof(string), this.mutedPlayerKillMessage));
                 }
                 else if (Regex.Match(strVariable, @"On-Player-Kicked Message").Success)
                 {
                     this.mutedPlayerKickMessage = strValue;
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"On-Player-Kicked Message", typeof(string), strValue));
+                    this.queueSettingForUpload(new CPluginVariable(@"On-Player-Kicked Message", typeof(string), this.mutedPlayerKickMessage));
                 }
                 if (Regex.Match(strVariable, @"# Chances to give player before kicking").Success)
                 {
@@ -1576,7 +1574,7 @@ namespace PRoConEvents
                     int.TryParse(strValue, out tmp);
                     this.mutedPlayerChances = tmp;
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"# Chances to give player before kicking", typeof(Int32), tmp));
+                    this.queueSettingForUpload(new CPluginVariable(@"# Chances to give player before kicking", typeof(Int32), this.mutedPlayerChances));
                 }
                 #endregion
                 #region teamswap settings
@@ -1594,7 +1592,7 @@ namespace PRoConEvents
                         tmp = 1;
                     this.playersToAutoWhitelist = tmp;
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"Auto-Whitelist Count", typeof(Int32), tmp));
+                    this.queueSettingForUpload(new CPluginVariable(@"Auto-Whitelist Count", typeof(Int32), this.playersToAutoWhitelist));
                 }
                 else if (Regex.Match(strVariable, @"Ticket Window High").Success)
                 {
@@ -1602,7 +1600,7 @@ namespace PRoConEvents
                     int.TryParse(strValue, out tmp);
                     this.teamSwapTicketWindowHigh = tmp;
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"Ticket Window High", typeof(Int32), tmp));
+                    this.queueSettingForUpload(new CPluginVariable(@"Ticket Window High", typeof(Int32), this.teamSwapTicketWindowHigh));
                 }
                 else if (Regex.Match(strVariable, @"Ticket Window Low").Success)
                 {
@@ -1610,7 +1608,7 @@ namespace PRoConEvents
                     int.TryParse(strValue, out tmp);
                     this.teamSwapTicketWindowLow = tmp;
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"Ticket Window Low", typeof(Int32), tmp));
+                    this.queueSettingForUpload(new CPluginVariable(@"Ticket Window Low", typeof(Int32), this.teamSwapTicketWindowLow));
                 }
                 #endregion
                 #region Admin Assistants
@@ -1639,7 +1637,7 @@ namespace PRoConEvents
                 {
                     this.preMessageList = new List<string>(CPluginVariable.DecodeStringArray(strValue));
                     //Once setting has been changed, upload the change to database
-                    this.queueSettingForUpload(new CPluginVariable(@"Pre-Message List", typeof(string), strValue));
+                    this.queueSettingForUpload(new CPluginVariable(@"Pre-Message List", typeof(string), CPluginVariable.EncodeStringArray(this.preMessageList.ToArray())));
                 }
                 else if (Regex.Match(strVariable, @"Require Use of Pre-Messages").Success)
                 {
@@ -1949,8 +1947,8 @@ namespace PRoConEvents
                         ConsoleWrite("Enabling command functionality. Please Wait.");
 
                         //Wait on all settings to be imported by procon for initial start.
-                        //2000ms is overkill, but no need to be hasty
-                        Thread.Sleep(2000);
+                        //5000ms is overkill, but no need to be hasty
+                        Thread.Sleep(5000);
 
                         DateTime startTime = DateTime.Now;
 
@@ -4746,6 +4744,7 @@ namespace PRoConEvents
             string message = "ERROR";
             //Get number of points the player from server
             int points = this.fetchPoints(record.target_player);
+            this.DebugWrite(record.target_player.player_name + " has " + points + " points.", 5);
             //Get the proper action to take for player punishment
             string action = "noaction";
             if (points > (this.punishmentHierarchy.Length - 1))
@@ -4815,6 +4814,7 @@ namespace PRoConEvents
                 message = "Punish options are set incorrectly. Inform plugin setting manager.";
                 this.ConsoleError(message);
             }
+            this.ConsoleSuccess("Punish action: " + record.command_action);
             return message;
         }
 
@@ -5620,53 +5620,61 @@ namespace PRoConEvents
         private void uploadAllSettings()
         {
             DebugWrite("uploadAllSettings starting!", 6);
-
-            List<CPluginVariable> vars = this.GetPluginVariables();
-            vars.Add(new CPluginVariable("1. Server Settings|Using AdKats WebAdmin (Set Automatically)", typeof(Boolean), this.usingAWA));
-
-            try
-            {
-                using (MySqlConnection connection = this.getDatabaseConnection())
-                {
-                    using (MySqlCommand command = connection.CreateCommand())
-                    {
-                        //Set the delete/insert command structure
-                        string commandTotal = "DELETE FROM `adkats_settings` WHERE `server_id` = " + this.server_id + "; ";
-                        foreach (CPluginVariable var in vars)
-                        {
-                            //Fill the command
-                            commandTotal += @"
-                            INSERT INTO `" + this.mySqlDatabaseName + @"`.`adkats_settings` 
-                            (
-                                `server_id`, 
-                                `setting_name`, 
-                                `setting_value`
-                            ) 
-                            VALUES 
-                            ( 
-                                " + this.server_id + @", 
-                                '" + var.Name + @"', 
-                                '" + var.Value + @"'
-                            ) 
-                            ON DUPLICATE KEY 
-                            UPDATE 
-                                `setting_value` = '" + var.Value + @"'; 
-                            ";
-                        }
-                        command.CommandText = commandTotal;
-                        //Attempt to execute the query
-                        if (command.ExecuteNonQuery() > 0)
-                        {
-                            this.DebugWrite("All Settings pushed to database", 3);
-                        }
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                ConsoleException(e.ToString());
-            }
-
+            this.queueSettingForUpload(new CPluginVariable(@"Debug level", typeof(Int32), this.debugLevel));
+            this.queueSettingForUpload(new CPluginVariable(@"Debug Soldier Name", typeof(string), this.debugSoldierName));
+            this.queueSettingForUpload(new CPluginVariable(@"External Access Key", typeof(string), this.externalCommandAccessKey));
+            this.queueSettingForUpload(new CPluginVariable(@"Fetch Actions from Database", typeof(Boolean), this.fetchActionsFromDB));
+            this.queueSettingForUpload(new CPluginVariable(@"Use Additional Ban Message", typeof(Boolean), this.useBanAppend));
+            this.queueSettingForUpload(new CPluginVariable(@"Additional Ban Message", typeof(string), this.banAppend));
+            this.queueSettingForUpload(new CPluginVariable(@"Use Ban Enforcer", typeof(Boolean), this.useBanEnforcer));
+            this.queueSettingForUpload(new CPluginVariable(@"Enforce New Bans by NAME", typeof(Boolean), this.defaultEnforceName));
+            this.queueSettingForUpload(new CPluginVariable(@"Enforce New Bans by GUID", typeof(Boolean), this.defaultEnforceGUID));
+            this.queueSettingForUpload(new CPluginVariable(@"Enforce New Bans by IP", typeof(Boolean), this.defaultEnforceIP));
+            this.queueSettingForUpload(new CPluginVariable(@"Minimum Required Reason Length", typeof(Int32), this.requiredReasonLength));
+            this.queueSettingForUpload(new CPluginVariable(@"Confirm Command", typeof(string), this.m_strConfirmCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Cancel Command", typeof(string), this.m_strCancelCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Kill Player", typeof(string), this.m_strKillCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Kick Player", typeof(string), this.m_strKickCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Temp-Ban Player", typeof(string), this.m_strTemporaryBanCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Permaban Player", typeof(string), this.m_strPermanentBanCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Punish Player", typeof(string), this.m_strPunishCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Forgive Player", typeof(string), this.m_strForgiveCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Mute Player", typeof(string), this.m_strMuteCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Round Whitelist Player", typeof(string), this.m_strRoundWhitelistCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"OnDeath Move Player", typeof(string), this.m_strMoveCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Force Move Player", typeof(string), this.m_strForceMoveCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Teamswap Self", typeof(string), this.m_strTeamswapCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Report Player", typeof(string), this.m_strReportCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Call Admin on Player", typeof(string), this.m_strCallAdminCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Admin Say", typeof(string), this.m_strSayCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Player Say", typeof(string), this.m_strPlayerSayCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Admin Yell", typeof(string), this.m_strYellCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Player Yell", typeof(string), this.m_strPlayerYellCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"What Is", typeof(string), this.m_strWhatIsCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Restart Level", typeof(string), this.m_strRestartLevelCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Next Level", typeof(string), this.m_strNextLevelCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"End Level", typeof(string), this.m_strEndLevelCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Nuke Server", typeof(string), this.m_strNukeCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Kick All NonAdmins", typeof(string), this.m_strKickAllCommand));
+            this.queueSettingForUpload(new CPluginVariable(@"Punishment Hierarchy", typeof(string), CPluginVariable.EncodeStringArray(this.punishmentHierarchy)));
+            this.queueSettingForUpload(new CPluginVariable(@"Combine Server Punishments", typeof(Boolean), this.combineServerPunishments));
+            this.queueSettingForUpload(new CPluginVariable(@"Only Kill Players when Server in low population", typeof(Boolean), this.onlyKillOnLowPop));
+            this.queueSettingForUpload(new CPluginVariable(@"Low Population Value", typeof(Int32), this.lowPopPlayerCount));
+            this.queueSettingForUpload(new CPluginVariable(@"IRO Punishment Overrides Low Pop", typeof(Boolean), this.IROOverridesLowPop));
+            this.queueSettingForUpload(new CPluginVariable(@"Send Emails", typeof(Boolean), this.useEmail));
+            this.queueSettingForUpload(new CPluginVariable(@"On-Player-Muted Message", typeof(string), this.mutedPlayerMuteMessage));
+            this.queueSettingForUpload(new CPluginVariable(@"On-Player-Killed Message", typeof(string), this.mutedPlayerKillMessage));
+            this.queueSettingForUpload(new CPluginVariable(@"On-Player-Kicked Message", typeof(string), this.mutedPlayerKickMessage));
+            this.queueSettingForUpload(new CPluginVariable(@"# Chances to give player before kicking", typeof(Int32), this.mutedPlayerChances));
+            this.queueSettingForUpload(new CPluginVariable(@"Require Whitelist for Access", typeof(Boolean), this.requireTeamswapWhitelist));
+            this.queueSettingForUpload(new CPluginVariable(@"Auto-Whitelist Count", typeof(Int32), this.playersToAutoWhitelist));
+            this.queueSettingForUpload(new CPluginVariable(@"Ticket Window High", typeof(Int32), this.teamSwapTicketWindowHigh));
+            this.queueSettingForUpload(new CPluginVariable(@"Ticket Window Low", typeof(Int32), this.teamSwapTicketWindowLow));
+            this.queueSettingForUpload(new CPluginVariable(@"Enable Admin Assistant Perk", typeof(Boolean), this.enableAdminAssistants));
+            this.queueSettingForUpload(new CPluginVariable(@"Minimum Confirmed Reports Per Week", typeof(Int32), this.minimumRequiredWeeklyReports));
+            this.queueSettingForUpload(new CPluginVariable(@"Yell display time seconds", typeof(Int32), this.m_iShowMessageLength));
+            this.queueSettingForUpload(new CPluginVariable(@"Pre-Message List", typeof(string), CPluginVariable.EncodeStringArray(this.preMessageList.ToArray())));
+            this.queueSettingForUpload(new CPluginVariable(@"Require Use of Pre-Messages", typeof(Boolean), this.requirePreMessageUse));
             DebugWrite("uploadAllSettings finished!", 6);
         }
 
@@ -5780,7 +5788,7 @@ namespace PRoConEvents
          */
         private Boolean handleRecordUpload(AdKat_Record record)
         {
-            this.DebugWrite("DBCOMM: Entering handle record upload", 6);
+            this.DebugWrite("DBCOMM: Entering handle record upload", 5);
             Boolean recordNeedsAction = true;
             //Check whether to call update, or full upload
             if (record.record_id != -1)
@@ -5789,18 +5797,18 @@ namespace PRoConEvents
                 //Record already has a record ID, it can only be updated
                 if (this.AdKat_LoggingSettings[record.command_type])
                 {
-                    this.DebugWrite("DBCOMM: UPDATING record for " + record.command_type, 6);
+                    this.DebugWrite("DBCOMM: UPDATING record for " + record.command_type, 5);
                     //Update Record
                     this.uploadRecord(record);
                 }
                 else
                 {
-                    this.DebugWrite("DBCOMM: Skipping record UPDATE for " + record.command_type, 6);
+                    this.DebugWrite("DBCOMM: Skipping record UPDATE for " + record.command_type, 5);
                 }
             }
             else
             {
-                this.DebugWrite("DBCOMM: Record needs full upload, checking.", 6);
+                this.DebugWrite("DBCOMM: Record needs full upload, checking.", 5);
                 //No record ID. Perform full upload
                 switch (record.command_type)
                 {
@@ -5809,7 +5817,7 @@ namespace PRoConEvents
                         //Check if the punish will be double counted
                         if (this.isDoubleCounted(record))
                         {
-                            this.DebugWrite("DBCOMM: Punish is double counted.", 6);
+                            this.DebugWrite("DBCOMM: Punish is double counted.", 5);
                             //Check if player is on timeout
                             if (this.canPunish(record))
                             {
@@ -5818,7 +5826,7 @@ namespace PRoConEvents
                                 string IROAppend = " [IRO]";
                                 record.record_message += IROAppend;
                                 //Upload record twice
-                                this.DebugWrite("DBCOMM: UPLOADING IRO Punish", 6);
+                                this.DebugWrite("DBCOMM: UPLOADING IRO Punish", 5);
                                 this.uploadRecord(record);
                                 this.uploadRecord(record);
                                 //Trim off the IRO again
@@ -5833,20 +5841,20 @@ namespace PRoConEvents
                         else
                         {
                             //Upload record once
-                            this.DebugWrite("DBCOMM: UPLOADING Punish", 6);
+                            this.DebugWrite("DBCOMM: UPLOADING Punish", 5);
                             this.uploadRecord(record);
                         }
                         break;
                     case AdKat_CommandType.ForgivePlayer:
                         //Upload for forgive is required
                         //No restriction on forgives/minute
-                        this.DebugWrite("DBCOMM: UPLOADING Forgive", 6);
+                        this.DebugWrite("DBCOMM: UPLOADING Forgive", 5);
                         this.uploadRecord(record);
                         break;
                     default:
                         if (this.AdKat_LoggingSettings[record.command_type])
                         {
-                            this.DebugWrite("UPLOADING record for " + record.command_type, 6);
+                            this.DebugWrite("UPLOADING record for " + record.command_type, 5);
                             //Upload Record
                             this.uploadRecord(record);
                         }
@@ -5909,7 +5917,7 @@ namespace PRoConEvents
                         string action = null;
                         if (record.command_action != AdKat_CommandType.Default)
                         {
-                            action = this.AdKat_RecordTypes[record.command_type];
+                            action = this.AdKat_RecordTypes[record.command_action];
                         }
                         else
                         {
@@ -6927,7 +6935,7 @@ namespace PRoConEvents
                         WHERE 
                             `adkats_records`.`command_type` = 'Punish' 
                         AND 
-                            `adkats_records`.`player_id` = " + record.target_player.player_id + @" 
+                            `adkats_records`.`target_id` = " + record.target_player.player_id + @" 
                         AND 
                             DATE_ADD(`record_time`, INTERVAL 20 SECOND) > NOW() 
                         ORDER BY 
@@ -6976,7 +6984,7 @@ namespace PRoConEvents
                         WHERE 
                             `adkats_records`.`command_type` = 'Punish' 
                         AND 
-                            `adkats_records`.`player_id` = " + record.target_player.player_id + @" 
+                            `adkats_records`.`target_id` = " + record.target_player.player_id + @" 
                         AND 
                             DATE_ADD(`record_time`, INTERVAL 5 MINUTE) > NOW() 
                         ORDER BY 
@@ -8460,4 +8468,3 @@ namespace PRoConEvents
         #endregion
     } // end AdKats
 } // end namespace PRoConEvents
-r
