@@ -4,7 +4,7 @@
 Download link below.
 <h1>AdKats</h1>
 <p>
-Admin Toolset with a plethora of features. It is designed for use by groups with high traffic servers and many 
+Admin Toolset with a plethora of features. It is designed for groups with high-traffic servers and many 
 admins, but will function just as well for small servers.<br/>
 <ul>
   <li><b>Infraction Tracking System.</b> Database reflected system to track player infractions and act accordingly.</li>
