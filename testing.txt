@@ -10,7 +10,7 @@ ban list, so until testing is completed I will not be responsible for loss of in
 https://github.com/ColColonCleaner/AdKats/issues?state=open Please keep this thread clean and don't put any testing 
 outcomes here, instead submit a "New Issue" there and I will work on it. It's much easier to manage things there than 
 in a thread like this. If you find a bug, please included the console logs from around when it happened, you might need 
-to modify the debug level. 
+to modify the debug level to see more detail. 
 3. Remember, with everything beyond this point you are trying to break the program. Think outside the box and attempt 
 to make the program malfunction. The more things you think of trying the better.
 
@@ -19,7 +19,8 @@ AdKats 0.3.0.0 Test Plugin File: https://raw.github.com/ColColonCleaner/AdKats/d
 Current AdKats Documentation: https://github.com/ColColonCleaner/AdKats/blob/dev/README.md
 
 Upgrade Test Instructions:
-(This is a complete list, please let me know what you are able to complete)
+(This is a complete list, please let me know what you are able to complete. Note: AdKats will auto-disable when any 
+exception or error occurs so tracking of errors while we're testing is easier.)
 1. Remove the 2.5.1+ plugin file, and replace it with 0.3.0.0. Make no other changes.
 2. Test startup/shutdown sequences in all cases. No DB info, incorrect DB info, correct DB info, turning on/off really 
 fast, not installing stat logger (clean install only), etc...
