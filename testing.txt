@@ -18,17 +18,9 @@ AdKats 0.3.0.0 Test Plugin File: https://raw.github.com/ColColonCleaner/AdKats/d
 
 Current AdKats Documentation: https://github.com/ColColonCleaner/AdKats/blob/dev/README.md
 
-Upgrade Instructions:
+Upgrade Test Instructions:
+(This is a complete list, please let me know what you are able to complete)
 1. Remove the 2.5.1+ plugin file, and replace it with 0.3.0.0. Make no other changes.
-Clean Install Instructions:
-I am performing a lot of clean install testing, but if you want to test this as well, feel free. Perform this after 
-running all needed testing below for upgrade testing. You won't need re-do testing of commands.
-1. Add the 0.3.0.0 AdKats file to procon's plugin directory
-1.1 Open your procon directory and do a search for your gameserver's IP address, a settings file will show up. Open 
-that in an editor and remove all lines containing AdKats.
-1.2 Create a new schema in your database with no tables in it. Use that database to run both the stat logger and AdKats 
-on.
-Remaining Instructions:
 2. Test startup/shutdown sequences in all cases. No DB info, incorrect DB info, correct DB info, turning on/off really 
 fast, not installing stat logger (clean install only), etc...
 3. Test database structure setup. Note any errors in the setup script when it runs. All tables are new in this version 
@@ -51,5 +43,15 @@ across servers. This includes ban list for the ban enforcer, settings for import
 for testing that would be great, right now i only have my own personal testing server. They don't need to be popular 
 servers, or even need to have players in them, need it mainly for ban sync testing and setting management. The more test 
 servers i can connect at once the better.
+
+Clean Install Test Instructions:
+(I am performing a lot of clean install testing, but if you want to test this as well, feel free. Perform this after 
+running all needed instructions for upgrade testing. You won't need re-do testing of commands.)
+1. Add the 0.3.0.0 AdKats file to procon's plugin directory
+1.1 Open your procon directory and do a search for your gameserver's IP address, a settings file will show up. Open 
+that in an editor and remove all lines containing AdKats.
+1.2 Create a new schema in your database with no tables in it. Use that database to run both the stat logger and AdKats 
+on.
+2. Perform same tests as above.
 
 Once again, thanks for the help. The faster we get this tested, the faster we can get webadmin released.
