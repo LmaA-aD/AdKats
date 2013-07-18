@@ -2,9 +2,9 @@ Thanks for the testing help guys, I'd rather get all bugs out of the way now bef
 
 Instructions:
 
-1. Backup your procon ban list! In procon's install Dir there is a text file containing all bans, copy that and place 
-the copy in a safe place. The ban enforcer directly modifies that ban list, so until testing is complete I will not be 
-responsible for loss of information.
+1. Backup your procon ban list! In procon's working directory there is a text file containing all bans, copy that and 
+place the copy in a safe place. The ban enforcer directly modifies that ban list, so until testing is complete I will 
+not be responsible for loss of information.
 2. All bugs you find, or suggestions you want to make to functionality must be submitted here: 
 https://github.com/ColColonCleaner/AdKats/issues?state=open Please keep this thread clean and don't put any testing 
 outcomes here, instead submit a "New Issue" there and I will work on it. It's much easier to manage things there than 
