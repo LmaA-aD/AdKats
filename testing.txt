@@ -2,15 +2,34 @@ Thanks for the testing help guys, I'd rather get all bugs out of the way now bef
 
 Instructions:
 
-1. Backup your procon ban list! In procon's install Dir there is a text file containing all bans, copy that and place the copy in a safe place. The ban enforcer directly modifies that ban list, so until testing is complete I will not be responsible for loss of information.
-2. All bugs you find, or suggestions you want to make to functionality must be submitted here: https://github.com/ColColonCleaner/AdKats/issues?state=open Please keep this thread clean and don't put any testing outcomes here, instead submit a "New Issue" there and I will work on it. It's much easier to manage things there than in a thread like this. If you find a bug, please included the console logs from around when it happened, you might need to modify the debug level. 
-3. Remember, with everything beyond this point you are trying to break the program. Think outside the box and attempt to make the program malfunction. The more things you think of trying the better.
-4. Test startup/shutdown sequences in all cases. No DB info, incorrect DB info, correct DB info, turning on/off really fast, etc...
-5. Test database structure setup. Note any errors in the setup script when it runs. All tables are new in this version of AdKats, so all records from 2.5.1+ should be imported into the new tables. Your old tables from 2.5.1+ will not be modified in any way. Tables only have 1 character difference in naming between the versions (2.5.1+ = "adkat_whatever" vs 3.0.0 = "adkats_whatever").
-6. Test server IDs. Any server IDs you manually assigned before will be overwritten by the "correct" server ID pulled from the stat logger, confirm this both in the settings window and in all records imported from the previous version, imported records should have their server IDs properly updated to the new version. If you want to test the record import multiple times you will need to clear "adkats_records" of all entries so it imports from "adkat_records" again.
-7. Test each of the in-game commands to confirm full functionality per their description. Many commands have multiple methods of calling, for example using report IDs and/or preMessage IDs. This will probably be the most tedious part of the testing process, but it's equally as important.
-8. Test the ban enforcer. Importing existing bans, creating new ones once enabled, repopulating on disable, everything per its description.
+1. Backup your procon ban list! In procon's install Dir there is a text file containing all bans, copy that and place 
+the copy in a safe place. The ban enforcer directly modifies that ban list, so until testing is complete I will not be 
+responsible for loss of information.
+2. All bugs you find, or suggestions you want to make to functionality must be submitted here: 
+https://github.com/ColColonCleaner/AdKats/issues?state=open Please keep this thread clean and don't put any testing 
+outcomes here, instead submit a "New Issue" there and I will work on it. It's much easier to manage things there than 
+in a thread like this. If you find a bug, please included the console logs from around when it happened, you might need 
+to modify the debug level. 
+3. Remember, with everything beyond this point you are trying to break the program. Think outside the box and attempt 
+to make the program malfunction. The more things you think of trying the better.
+4. Test startup/shutdown sequences in all cases. No DB info, incorrect DB info, correct DB info, turning on/off really 
+fast, etc...
+5. Test database structure setup. Note any errors in the setup script when it runs. All tables are new in this version 
+of AdKats, so all records from 2.5.1+ should be imported into the new tables. Your old tables from 2.5.1+ will not be 
+modified in any way. Tables only have 1 character difference in naming between the versions (2.5.1+ = "adkat_whatever" 
+vs 3.0.0 = "adkats_whatever").
+6. Test server IDs. Any server IDs you manually assigned before will be overwritten by the "correct" server ID pulled 
+from the stat logger, confirm this both in the settings window and in all records imported from the previous version, 
+imported records should have their server IDs properly updated to the new version. If you want to test the record 
+import multiple times you will need to clear "adkats_records" of all entries so it imports from "adkat_records" 
+again.
+7. Test each of the in-game commands to confirm full functionality per their description. Many commands have multiple 
+methods of calling, for example using report IDs and/or preMessage IDs. This will probably be the most tedious part of 
+the testing process, but it's equally as important.
+8. Test the ban enforcer. Importing existing bans, creating new ones once enabled, repopulating on disable, everything 
+per its description.
 9. Test general settings. Do everything you can think of to make settings malfunction.
-10. Test cross-server support. If you have multiple servers, test all aspects of AdKats that are meant to operate across servers. This includes ban list for the ban enforcer, settings for import, etc..
+10. Test cross-server support. If you have multiple servers, test all aspects of AdKats that are meant to operate 
+across servers. This includes ban list for the ban enforcer, settings for import, etc..
 
 Once again, thanks for the help. The faster we get this tested, the faster we can get webadmin released.
