@@ -29,7 +29,11 @@ the testing process, but it's equally as important.
 8. Test the ban enforcer. Importing existing bans, creating new ones once enabled, repopulating on disable, everything 
 per its description.
 9. Test general settings. Do everything you can think of to make settings malfunction.
+
 10. Test cross-server support. If you have multiple servers, test all aspects of AdKats that are meant to operate 
-across servers. This includes ban list for the ban enforcer, settings for import, etc..
+across servers. This includes ban list for the ban enforcer, settings for import, etc.. If you have a server I can use 
+for testing that would be great, right now i only have my own personal testing server. They don't need to be popular 
+servers, or even need to have players in them, need it mainly for ban sync testing and setting management. The more test 
+servers i can connect at once the better.
 
 Once again, thanks for the help. The faster we get this tested, the faster we can get webadmin released.
