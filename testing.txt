@@ -2,16 +2,16 @@ Thanks for the testing help guys, I'd rather get all bugs out of the way now bef
 
 Preliminary Instructions:
 
-1. Backup your procon ban list for every server this will be installed on! In procon's working directory there is a 
+1. Read the documentation linked below, a lot has changed.
+2. Backup your procon ban list for every server this will be installed on! In procon's working directory there is a 
 text file containing all bans, copy that and place the copy in a safe place. The ban enforcer directly modifies that 
 ban list, so until testing is completed I will not be responsible for loss of information.
-2. Read the documentation linked below, a lot has changed.
-2. All bugs you find, or suggestions you want to make to functionality must be submitted here: 
+3. All bugs you find, or suggestions you want to make to functionality must be submitted here: 
 https://github.com/ColColonCleaner/AdKats/issues?state=open Please keep this thread clean and don't put any testing 
 outcomes here, instead submit a "New Issue" there and I will work on it. It's much easier to manage things there than 
 in a thread like this. If you find a bug, please included the console logs from around when it happened, you might need 
 to modify the debug level to see more detail. 
-3. Remember, with everything beyond this point you are trying to break the program. Think outside the box and attempt 
+4. Remember, with everything beyond this point you are trying to break the program. Think outside the box and attempt 
 to make the program malfunction. The more things you think of trying the better.
 
 AdKats 0.3.0.0 Test Plugin File: https://raw.github.com/ColColonCleaner/AdKats/dev/AdKats.cs
