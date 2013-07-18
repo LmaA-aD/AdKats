@@ -174,7 +174,10 @@ procon's interface to house properly. Use of the ban enforcer is optional becaus
 by default. You can use Ban Enforcer without WebAdmin, but you will be unable to manage any bans, lift them early, or 
 modify them in any way once submitted.<br/><br/>
 
-Ban Enforcer can be enabled with the "Use Ban Enforcer" setting.
+Ban Enforcer can be enabled with the "Use Ban Enforcer" setting. On enable it will import all bans from your ban list 
+then clear it, once you enable enforcer you will be unable to manage any bans without webadmin. Disabling ban enforcer 
+will repopulate procon's ban list with the imported bans, but you will lose any additional information ban enforcer was 
+able to gather about the banned players.
 </p>
 <h3>Report/CallAdmin System</h3>
 <p>
