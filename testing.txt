@@ -12,7 +12,9 @@ outcomes here, instead submit a "New Issue" there and I will work on it. It's mu
 in a thread like this. If you find a bug, please included the console logs from around when it happened, you might need 
 to modify the debug level to see more detail. 
 4. Remember, with everything beyond this point you are trying to break the program. Think outside the box and attempt 
-to make the program malfunction. The more things you think of trying the better.
+to make the program malfunction. The more things you think of trying the better. Also, be mindful of how long things are 
+taking to complete, not just with the debug soldier but in general. If things appear to be lagging in any way let me 
+know where it's happening and i will look into it.
 
 AdKats 0.3.0.0 Test Plugin File: https://raw.github.com/ColColonCleaner/AdKats/dev/AdKats.cs
 
