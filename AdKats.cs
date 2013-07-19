@@ -238,6 +238,8 @@ namespace PRoConEvents
 
         //When an action requires confirmation, this dictionary holds those actions until player confirms action
         private Dictionary<string, AdKat_Record> actionConfirmDic = new Dictionary<string, AdKat_Record>();
+        //Action will be taken when the player next spawns
+        private Dictionary<string, AdKat_Record> actOnSpawnDictionary = new Dictionary<string, AdKat_Record>();
         //Whether to combine server punishments
         private Boolean combineServerPunishments = false;
         //IRO punishment setting
@@ -2260,6 +2262,9 @@ namespace PRoConEvents
                 this.round_reports = new Dictionary<string, AdKat_Record>();
                 this.round_mutedPlayers = new Dictionary<string, int>();
                 this.teamswapRoundWhitelist = new Dictionary<string, Boolean>();
+                this.actionConfirmDic = new Dictionary<string, AdKat_Record>();
+                this.actOnSpawnDictionary = new Dictionary<string, AdKat_Record>();
+                this.teamswapOnDeathMoveDic = new Dictionary<string, CPlayerInfo>();
                 this.autoWhitelistPlayers();
                 this.USMoveQueue.Clear();
                 this.RUMoveQueue.Clear();
@@ -2284,12 +2289,22 @@ namespace PRoConEvents
                     this.teamswapHandle.Set();
                 }
             }
+
+            //Update player death information
+            if (this.playerDictionary.ContainsKey(kKillerVictimDetails.Victim.SoldierName))
+            {
+                lock (this.playersMutex)
+                {
+                    this.playerDictionary[kKillerVictimDetails.Victim.SoldierName].lastDeath = DateTime.Now;
+                }
+            }
         }
 
         public override void OnPlayerSpawned(String soldierName, Inventory spawnedInventory)
         {
             if (this.isEnabled)
             {
+                //Handle teamswap notifications
                 Boolean informed = true;
                 string command = this.m_strTeamswapCommand;
                 if (this.enableAdminAssistants && this.adminAssistantCache.TryGetValue(soldierName, out informed))
@@ -2308,10 +2323,21 @@ namespace PRoConEvents
                         this.teamswapRoundWhitelist[soldierName] = true;
                     }
                 }
+
+                //Handle Dev Notifications
                 if (soldierName == "ColColonCleaner" && !toldCol && isRelease)
                 {
                     this.ExecuteCommand("procon.protected.send", "admin.yell", "CONGRATS! This server has version " + this.plugin_version + " of AdKats installed!", "20", "player", "ColColonCleaner");
                     this.toldCol = true;
+                }
+
+                //Update player spawn information
+                if (this.playerDictionary.ContainsKey(soldierName))
+                {
+                    lock (this.playersMutex)
+                    {
+                        this.playerDictionary[soldierName].lastSpawn = DateTime.Now;
+                    }
                 }
             }
         }
@@ -8543,6 +8569,9 @@ namespace PRoConEvents
 
             public CPlayerInfo frostbitePlayerInfo = null;
             public CPunkbusterInfo PBPlayerInfo = null;
+
+            public DateTime lastSpawn = DateTime.Now;
+            public DateTime lastDeath = DateTime.Now;
 
             public AdKat_Player()
             {
