@@ -388,7 +388,7 @@ namespace PRoConEvents
 
             debugLevel = 0;
 
-            this.externalCommandAccessKey = AdKats.GetRandom64BitHashCode();
+            this.externalCommandAccessKey = AdKats.GetRandom32BitHashCode();
 
             preMessageList.Add("US TEAM: DO NOT BASERAPE, YOU WILL BE PUNISHED.");
             preMessageList.Add("RU TEAM: DO NOT BASERAPE, YOU WILL BE PUNISHED.");
@@ -1917,7 +1917,6 @@ namespace PRoConEvents
                 "OnVersion",
                 "OnServerInfo",
                 "OnListPlayers",
-                "OnPunkbusterPlayerInfo",
                 "OnPlayerKilled",
                 "OnPlayerSpawned",
                 "OnPlayerTeamChange",
@@ -2188,13 +2187,31 @@ namespace PRoConEvents
                         {
                             aPlayer = this.fetchPlayer(-1, player.SoldierName, player.GUID, null);
                             aPlayer.frostbitePlayerInfo = player;
-                            this.playerDictionary.Add(player.SoldierName, aPlayer);
-
                             //In case of quick name-change, update their IGN
                             aPlayer.player_name = player.SoldierName;
 
+                            this.playerDictionary.Add(player.SoldierName, aPlayer);
+
                             //Check with ban enforcer
                             this.queuePlayerForBanCheck(aPlayer);
+
+                            if (this.isAdminAssistant(aPlayer))
+                            {
+                                this.DebugWrite(player.SoldierName + " IS an Admin Assistant.", 3);
+                                if (!this.adminAssistantCache.ContainsKey(player.SoldierName))
+                                {
+                                    this.adminAssistantCache.Add(player.SoldierName, false);
+                                    this.DebugWrite(player.SoldierName + " added to the Admin Assistant Cache.", 4);
+                                }
+                                else
+                                {
+                                    this.DebugWrite("Player is already in the admin assitant cache, this is abnormal.", 3);
+                                }
+                            }
+                            else
+                            {
+                                this.DebugWrite(player.SoldierName + " is NOT an Admin Assistant.", 4);
+                            }
                         }
 
                         if (player.TeamID == USTeamID)
@@ -2926,6 +2943,15 @@ namespace PRoConEvents
                                 if (this.USPlayerCount < maxPlayerCount)
                                 {
                                     CPlayerInfo player = this.RUMoveQueue.Dequeue();
+                                    AdKat_Player dicPlayer = null;
+                                    if (this.playerDictionary.TryGetValue(player.SoldierName, out dicPlayer))
+                                    {
+                                        if (dicPlayer.frostbitePlayerInfo.TeamID == USTeamID)
+                                        {
+                                            //Skip the kill/swap if they are already on the goal team by some other means
+                                            continue;
+                                        }
+                                    }
                                     ExecuteCommand("procon.protected.send", "admin.movePlayer", player.SoldierName, USTeamID.ToString(), "1", "true");
                                     this.playerSayMessage(player.SoldierName, "Swapping you from team RU to team US");
                                     movedPlayer = true;
@@ -2937,6 +2963,15 @@ namespace PRoConEvents
                                 if (this.RUPlayerCount < maxPlayerCount)
                                 {
                                     CPlayerInfo player = this.USMoveQueue.Dequeue();
+                                    AdKat_Player dicPlayer = null;
+                                    if (this.playerDictionary.TryGetValue(player.SoldierName, out dicPlayer))
+                                    {
+                                        if (dicPlayer.frostbitePlayerInfo.TeamID == RUTeamID)
+                                        {
+                                            //Skip the kill/swap if they are already on the goal team by some other means
+                                            continue;
+                                        }
+                                    }
                                     ExecuteCommand("procon.protected.send", "admin.movePlayer", player.SoldierName, RUTeamID.ToString(), "1", "true");
                                     this.playerSayMessage(player.SoldierName, "Swapping you from team US to team RU");
                                     movedPlayer = true;
@@ -5370,11 +5405,15 @@ namespace PRoConEvents
                                 this.updateBanLists(aBan);
 
                                 //Only perform special action when ban is direct
-                                //Indirect bans are through the banlist, so the player has already been kicked
+                                //Indirect bans are through the procon banlist, so the player has already been kicked
                                 if (!aBan.ban_record.source_name.Equals("BanEnforcer"))
                                 {
                                     //Enforce the ban
                                     this.enforceBan(aBan);
+                                }
+                                else
+                                {
+                                    this.removePlayerFromDictionary(aBan.ban_record.target_player.player_name);
                                 }
                             }
                         }
@@ -6748,6 +6787,9 @@ namespace PRoConEvents
                         //Queue all current players for a ban check
                         this.banCheckAllPlayers();
 
+                        //Update the last db ban fetch time
+                        this.lastDBBanFetch = DateTime.Now;
+
                         return true;
                     }
                 }
@@ -6841,6 +6883,9 @@ namespace PRoConEvents
 
                         //Queue all current players for a ban check
                         this.banCheckAllPlayers();
+
+                        //Update the last db ban fetch time
+                        this.lastDBBanFetch = DateTime.Now;
 
                         return true;
                     }
@@ -7307,13 +7352,10 @@ namespace PRoConEvents
             DebugWrite("fetchAccessList finished!", 6);
         }
 
-        //OPTIMIZE
-        private void fetchAdminAssistants()
+        //TODO
+        private Boolean isAdminAssistant(AdKat_Player player)
         {
             DebugWrite("fetchAdminAssistants starting!", 6);
-
-            Boolean success = false;
-            Dictionary<string, Boolean> tempAssistantCache = new Dictionary<string, Boolean>();
             try
             {
                 using (MySqlConnection connection = this.getDatabaseConnection())
@@ -7321,49 +7363,30 @@ namespace PRoConEvents
                     using (MySqlCommand command = connection.CreateCommand())
                     {
                         command.CommandText = @"
-                        SELECT `player_name` 
-                        FROM `adkats_playerlist` 
+                        SELECT
+                            'isAdminAssistant' 
+                        FROM 
+                            `" + this.mySqlDatabaseName + @"`.`adkats_records`
                         WHERE (
 	                        SELECT count(`command_action`) 
-	                        FROM `" + this.mySqlDatabaseName + @"`.`adkats_records` 
+	                        FROM `adkats_records` 
 	                        WHERE `command_action` = 'ConfirmReport' 
-	                        AND `source_name` = `player_name` 
+	                        AND `source_name` = '" + player.player_name + @"' 
 	                        AND (`adkats_records`.`record_time` BETWEEN date_sub(now(),INTERVAL 7 DAY) AND now())
                         ) > " + this.minimumRequiredWeeklyReports;
-
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
-                            while (reader.Read())
-                            {
-                                success = true;
-                                string playerName = reader.GetString("player_name");
-                                tempAssistantCache.Add(playerName, false);
-                                DebugWrite("Assistant found: " + playerName, 6);
-                            }
+                            return reader.Read();
                         }
                     }
                 }
             }
             catch (Exception e)
             {
-                DebugWrite(e.ToString(), 3);
+                this.ConsoleException(e.ToString());
             }
-
-            if (success)
-            {
-                //Update the access cache
-                this.adminAssistantCache = tempAssistantCache;
-                if (this.enableAdminAssistants)
-                {
-                    ConsoleWrite("Admin Assistant List Fetched from Database. Assistant Count: " + this.adminAssistantCache.Count);
-                }
-            }
-            else
-            {
-                ConsoleWrite("There are currently no admin assistants.");
-            }
-
             DebugWrite("fetchAdminAssistants finished!", 6);
+            return false;
         }
 
         //DONE
@@ -8299,8 +8322,8 @@ namespace PRoConEvents
                 //Show day count
                 ret += days + "d";
             }
-            //Only show more information if less than 30 days
-            if (days < 30)
+            //Only show more information if less than 35 days
+            if (days < 35)
             {
                 //Only show hours if days exist, or hours > 0
                 if (hours > 0 || days > 0)
@@ -8335,12 +8358,20 @@ namespace PRoConEvents
         private void removePlayerFromDictionary(String player_name)
         {
             //If the player is currently in the player list, remove them
-            if (!String.IsNullOrEmpty(player_name) && this.playerDictionary.ContainsKey(player_name))
+            if (!String.IsNullOrEmpty(player_name))
             {
-                lock (this.playersMutex)
+                if(this.playerDictionary.ContainsKey(player_name))
                 {
-                    this.DebugWrite("Removing " + player_name + " from current player list.", 5);
-                    this.playerDictionary.Remove(player_name);
+                    lock (this.playersMutex)
+                    {
+                        this.DebugWrite("Removing " + player_name + " from current player list.", 4);
+                        this.playerDictionary.Remove(player_name);
+                    }
+                }
+                if (this.adminAssistantCache.ContainsKey(player_name))
+                {
+                    this.DebugWrite("Removeing " + player_name + " from Admin Assistant Cache.", 4);
+                    this.adminAssistantCache.Remove(player_name);
                 }
             }
         }
@@ -8373,7 +8404,7 @@ namespace PRoConEvents
             return false;
         }
 
-        public static string GetRandom64BitHashCode()
+        public static string GetRandom32BitHashCode()
         {
             string randomString = "";
             Random random = new Random();
