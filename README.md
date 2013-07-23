@@ -34,7 +34,7 @@ Download the latest version here:
 </p>
 <p>
 AdKats was inspired by the gaming community A Different Kind (ADK). Visit 
-<a href="http://www.adkgamers.com/" target="_blank">http://www.adkgamers.com/</a> to say thanks for the awesome tool!
+<a href="http://www.adkgamers.com/" target="_blank">http://www.adkgamers.com/</a> to say thanks!
 </p>
 <h2>Dependencies</h2>
 <h4>XpKiller's "BF3 Chat, GUID, Stats and Mapstats Logger" Plugin</h4>
