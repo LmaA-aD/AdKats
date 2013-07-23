@@ -246,7 +246,8 @@ their case it bypasses the ticket window restriction.
 All commands which might lead to actions against players are required to have a reason entered, and will cancel if
 no reason is given. Players (even the most atrocious in some cases) should know what they were acted on for. It's also 
 a good way to hold admins accountable for their actions. The minimum number of characters for reasons is editable in 
-plugin settings. The default value is 5 characters.
+plugin settings. The editable setting only applies to admin commands, and the default value is 5 characters. Reports and 
+Admin calls are hardcoded to 1 character minimum reason lengths.
 </p>
 <h3>Performance</h3>
 <p>
