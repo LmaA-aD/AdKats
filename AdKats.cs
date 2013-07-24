@@ -2339,6 +2339,23 @@ namespace PRoConEvents
                         this.playerDictionary[soldierName].lastSpawn = DateTime.Now;
                     }
                 }
+
+                if (this.actOnSpawnDictionary.Count > 0)
+                {
+                    lock (this.actOnSpawnDictionary)
+                    {
+                        AdKat_Record record = null;
+                        if (this.actOnSpawnDictionary.TryGetValue(soldierName, out record))
+                        {
+                            //Remove it from the dic
+                            this.actOnSpawnDictionary.Remove(soldierName);
+                            //Wait two seconds to kill them again
+                            Thread.Sleep(1500);
+                            //Queue the action
+                            this.queueRecordForActionHandling(record);
+                        }
+                    }
+                }
             }
         }
 
@@ -2504,6 +2521,7 @@ namespace PRoConEvents
                                 record.target_player = aBan.ban_record.target_player;
                                 record.command_source = AdKat_CommandSource.InGame;
                                 record.command_type = AdKat_CommandType.EnforceBan;
+                                record.command_numeric = (int)aBan.ban_id;
                                 record.record_message = aBan.ban_record.record_message;
                                 //Queue record for upload
                                 this.queueRecordForProcessing(record);
@@ -4692,6 +4710,15 @@ namespace PRoConEvents
             if (!this.isTesting)
                 ExecuteCommand("procon.protected.send", "admin.killPlayer", record.target_player.player_name);
             this.playerSayMessage(record.target_name, "Killed by admin for " + record.record_message + " " + additionalMessage);
+            int seconds = (int)DateTime.Now.Subtract(record.target_player.lastDeath).TotalSeconds;
+            this.DebugWrite("Killing player. Player last died " + seconds + " seconds ago.", 3);
+            if (seconds < 10)
+            {
+                lock (this.actOnSpawnDictionary)
+                {
+                    this.actOnSpawnDictionary.Add(record.target_player.player_name, record);
+                }
+            }
             return this.sendMessageToSource(record, "You KILLED " + record.target_name + " for " + record.record_message + additionalMessage);
         }
 
@@ -7399,7 +7426,7 @@ namespace PRoConEvents
 	                        WHERE `command_action` = 'ConfirmReport' 
 	                        AND `source_name` = '" + player.player_name + @"' 
 	                        AND (`adkats_records`.`record_time` BETWEEN date_sub(now(),INTERVAL 7 DAY) AND now())
-                        ) > " + this.minimumRequiredWeeklyReports;
+                        ) >= " + this.minimumRequiredWeeklyReports + " LIMIT 1";
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
                             return reader.Read();
@@ -8386,7 +8413,7 @@ namespace PRoConEvents
             //If the player is currently in the player list, remove them
             if (!String.IsNullOrEmpty(player_name))
             {
-                if(this.playerDictionary.ContainsKey(player_name))
+                if (this.playerDictionary.ContainsKey(player_name))
                 {
                     lock (this.playersMutex)
                     {
