@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS `adkats_settings` (
 delimiter |
 
 -- Updates player points when punishments or forgivness logs are added in the record table
+
 CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkats_records`
 	FOR EACH ROW 
 	BEGIN 
@@ -164,6 +165,7 @@ CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkats_records`
 |
 
 -- Updates player points when punishments or forgivness logs are removed from the record table
+
 CREATE TRIGGER adkats_update_point_delete AFTER DELETE ON `adkats_records`
 	FOR EACH ROW 
 	BEGIN 
