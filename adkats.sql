@@ -116,28 +116,10 @@ CREATE TABLE IF NOT EXISTS `adkats_settings` (
 -- 		ON DELETE CASCADE 
 -- 		ON UPDATE NO ACTION;
 
-DROP FUNCTION IF EXISTS confirm_logger;
 DROP PROCEDURE IF EXISTS import_records;
 DROP PROCEDURE IF EXISTS import_ban_manager_bans;
 
--- Confirms the existence of server tables/records by XpKiller's Stat Logger, a dependancy of AdKats.
 delimiter |
-CREATE FUNCTION confirm_logger()
-	RETURNS VARCHAR(100) 
-	READS SQL DATA 
-	BEGIN
-		DECLARE response VARCHAR(100);
-		SET response = 'OK.';
-		IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='tbl_server' AND column_name='ServerID') THEN 
-			IF NOT EXISTS (SELECT * FROM `tbl_server`) THEN 
-				SET response = 'ERROR. Tables Empty.';
-			END IF;
-		ELSE
-			SET response = 'ERROR. Tables not created.';
-		END IF;
-		RETURN response;
-	END;
-|
 
 -- Imports any records from AdKats 2.5.1+ into AdKats 3.0.0
 -- Assumes all needed tables are already in the database
@@ -396,7 +378,7 @@ END;
 |
 
 -- Updates player points when punishments or forgivness logs are added in the record table
-CREATE OR REPLACE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkats_records`
+CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkats_records`
 	FOR EACH ROW 
 	BEGIN 
 		DECLARE command_type VARCHAR(45);
@@ -441,7 +423,7 @@ CREATE OR REPLACE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkats_re
 |
 
 -- Updates player points when punishments or forgivness logs are removed from the record table
-CREATE OR REPLACE TRIGGER adkats_update_point_delete AFTER DELETE ON `adkats_records`
+CREATE TRIGGER adkats_update_point_delete AFTER DELETE ON `adkats_records`
 	FOR EACH ROW 
 	BEGIN 
 		DECLARE command_type VARCHAR(45);
