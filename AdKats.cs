@@ -609,8 +609,12 @@ namespace PRoConEvents
             else
             {
                 lstReturn = this.GetPluginVariables();
-
                 //Add display variables
+
+                //Server Settings
+                lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID (Display)", typeof(int), this.server_id));
+                lstReturn.Add(new CPluginVariable("1. Server Settings|Server IP (Display)", typeof(string), this.server_ip));
+                lstReturn.Add(new CPluginVariable("1. Server Settings|Setting Import", typeof(string), this.server_id));
                 if (!this.usingAWA)
                 {
                     //Admin Settings
@@ -643,10 +647,6 @@ namespace PRoConEvents
 
             try
             {
-                //Server Settings
-                lstReturn.Add(new CPluginVariable("1. Server Settings|Server ID (Display)", typeof(int), this.server_id));
-                lstReturn.Add(new CPluginVariable("1. Server Settings|Server IP (Display)", typeof(string), this.server_ip));
-                lstReturn.Add(new CPluginVariable("1. Server Settings|Setting Import", typeof(string), this.server_id));
 
                 //SQL Settings
                 lstReturn.Add(new CPluginVariable("2. MySQL Settings|MySQL Hostname", typeof(string), mySqlHostname));
@@ -2006,10 +2006,10 @@ namespace PRoConEvents
                         {
                             Thread.Sleep(10);
                             duration = DateTime.Now.Subtract(startTime);
-                            if (duration.TotalSeconds > 30)
+                            if (duration.TotalSeconds > 300)
                             {
                                 //Inform the user
-                                this.ConsoleError("Failed to enable in 30 seconds. Shutting down. Inform ColColonCleaner.");
+                                this.ConsoleError("Failed to enable in 5 minutes. Shutting down. Inform ColColonCleaner.");
                                 //Disable the plugin
                                 this.disable();
                                 return;
@@ -5308,6 +5308,9 @@ namespace PRoConEvents
                         if (this.fetchServerID() >= 0)
                         {
                             this.ConsoleSuccess("Database Server Info Fetched. Server ID is " + this.server_id + "!");
+                            
+                            //Now that we have the current server ID from stat logger, import all records from previous versions of AdKats
+                            this.updateDB_0251_0300();
                         }
                         else
                         {
@@ -6081,7 +6084,7 @@ namespace PRoConEvents
                             `target_id`, 
                             `source_name`, 
                             `record_message`, 
-                            `adkats_read`
+                            `adkats_read` "  + ((record.record_time != DateTime.MinValue) ? (", `record_time` ") : ("")) + @"
                         ) 
                         VALUES 
                         ( 
@@ -6093,22 +6096,35 @@ namespace PRoConEvents
                             @target_id, 
                             @source_name, 
                             @record_message, 
-                            'Y'
+                            'Y' " + ((record.record_time != DateTime.MinValue) ? (", @record_time ") : ("")) + @"
                         )";
+
                         //Fill the command
                         command.Parameters.AddWithValue("@server_id", record.server_id);
 
                         //Convert enum to DB string
-                        string type = this.AdKat_RecordTypes[record.command_type];
-                        string action = null;
-                        if (record.command_action != AdKat_CommandType.Default)
+                        string type = String.Empty;
+                        string action = String.Empty;
+                        if (this.AdKat_RecordTypes.TryGetValue(record.command_type, out type))
                         {
-                            action = this.AdKat_RecordTypes[record.command_action];
+                            if (record.command_action != AdKat_CommandType.Default)
+                            {
+                                if (!this.AdKat_RecordTypes.TryGetValue(record.command_action, out action))
+                                {
+                                    this.ConsoleError("Could not find '" + record.command_type + "' in the record type list. Canceling upload.");
+                                    return;
+                                }
+                            }
+                            else
+                            {
+                                action = type;
+                                record.command_action = record.command_type;
+                            }
                         }
                         else
                         {
-                            action = type;
-                            record.command_action = record.command_type;
+                            this.ConsoleError("Could not find '" + record.command_type + "' in the record type list. Canceling upload.");
+                            return;
                         }
                         command.Parameters.AddWithValue("@command_type", type);
                         command.Parameters.AddWithValue("@command_action", action);
@@ -6133,6 +6149,11 @@ namespace PRoConEvents
                         command.Parameters.AddWithValue("@target_name", tName);
                         command.Parameters.AddWithValue("@source_name", record.source_name);
                         command.Parameters.AddWithValue("@record_message", record.record_message + ((record.isIRO) ? (" [IRO]") : ("")));
+                        //Add the time if needed
+                        if (record.record_time != DateTime.MinValue)
+                        {
+                            command.Parameters.AddWithValue("@record_time", record.record_time);
+                        }
                         //Attempt to execute the query
                         if (command.ExecuteNonQuery() > 0)
                         {
@@ -6703,7 +6724,7 @@ namespace PRoConEvents
                                 }
                                 else
                                 {
-                                    this.ConsoleError("No player matching search information. Is stat logger running?");
+                                    this.DebugWrite("No player matching search information.", 5);
                                 }
                             }
                         }
@@ -7182,6 +7203,201 @@ namespace PRoConEvents
         }
 
         //DONE
+        private void updateDB_0251_0300()
+        {
+            if (!this.confirmTable("adkat_records"))
+            {
+                this.DebugWrite("No tables from previous versions. No need for database update.", 3);
+                return;
+            }
+
+            try
+            {
+                using (MySqlConnection connection = this.getDatabaseConnection())
+                {
+                    //Get record count from current version table
+                    int currentRecordCount = 0;
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = @"
+                        SELECT 
+                            COUNT(*) AS `record_count` 
+                        FROM 
+	                        `adkats_records`";
+
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                currentRecordCount = reader.GetInt32("record_count");
+                            }
+                            else
+                            {
+                                this.ConsoleException("Unable to fetch current record count.");
+                            }
+                        }
+                    }
+                    if (currentRecordCount == 0)
+                    {
+                        this.ConsoleWrite("^1^bWARNING!^0^n Updating records from previous versions to 0.3.0.0! Do not turn off AdKats until it's finished!");
+
+                        List<AdKat_Record> newRecords = new List<AdKat_Record>();
+
+                        using (MySqlCommand command = connection.CreateCommand())
+                        {
+                            command.CommandText = @"
+                            SELECT 
+                                `tbl_server`.`ServerID` AS `server_id`,
+                                `command_type`, 
+                                `command_action`, 
+                                `record_durationMinutes`, 
+                                `target_guid`, 
+                                `target_name`, 
+                                `source_name`, 
+                                `record_message`, 
+                                `record_time`
+                            FROM 
+                                `adkat_records` 
+                            INNER JOIN 
+                                `tbl_server` 
+                            ON
+                                `adkat_records`.`server_ip` = `tbl_server`.`IP_Address`";
+
+                            using (MySqlDataReader reader = command.ExecuteReader())
+                            {
+                                int importCount = 0;
+
+                                //Loop through all incoming bans
+                                while (reader.Read())
+                                {
+                                    AdKat_Record record = new AdKat_Record();
+                                    //Get server information
+                                    record.server_id = reader.GetInt64("server_id");
+                                    //Get command information
+                                    record.command_type = this.getDBCommand(reader.GetString("command_type"));
+                                    record.command_action = this.getDBCommand(reader.GetString("command_action"));
+                                    record.command_numeric = reader.GetInt32("record_durationMinutes");
+                                    //Get source information
+                                    record.source_name = reader.GetString("source_name");
+                                    //Get target information
+                                    record.target_player = this.fetchPlayer(-1, reader.GetString("target_name"), reader.GetString("target_guid"), null);
+                                    //Get general record information
+                                    record.record_message = reader.GetString("record_message");
+                                    record.record_time = reader.GetDateTime("record_time");
+
+                                    //Push to lists
+                                    newRecords.Add(record);
+
+                                    if ((++importCount % 500) == 0)
+                                    {
+                                        this.ConsoleWrite(importCount + " records downloaded...");
+                                    }
+                                }
+                                this.ConsoleWrite(importCount + " records downloaded...");
+                            }
+                        }
+
+                        int uploadCount = 0;
+                        foreach (AdKat_Record record in newRecords)
+                        {
+                            this.uploadRecord(record);
+
+                            if ((++uploadCount % 500) == 0)
+                            {
+                                this.ConsoleWrite(uploadCount + " records uploaded...");
+                            }
+                        }
+
+                        this.ConsoleSuccess(uploadCount + " records imported from previous versions of AdKats!");
+                    }
+                    
+                    //Get player access count from current version table
+                    int currentAccessCount = 0;
+                    using (MySqlCommand command = connection.CreateCommand())
+                    {
+                        command.CommandText = @"
+                        SELECT 
+                            COUNT(*) AS `access_count` 
+                        FROM 
+	                        `adkats_accesslist`";
+
+                        using (MySqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                currentAccessCount = reader.GetInt32("access_count");
+                            }
+                            else
+                            {
+                                this.ConsoleException("Unable to fetch current access count.");
+                            }
+                        }
+                    }
+                    if (currentAccessCount == 0)
+                    {
+                        this.ConsoleWrite("^1^bWARNING!^0^n Updating player access from previous versions to 0.3.0.0! Do not turn off AdKats until it's finished!");
+
+                        List<AdKat_Access> newAccess = new List<AdKat_Access>();
+
+                        using (MySqlCommand command = connection.CreateCommand())
+                        {
+                            command.CommandText = @"
+                            SELECT 
+                                `player_name`,
+                                `access_level`
+                            FROM 
+                                `adkat_accesslist`";
+
+                            using (MySqlDataReader reader = command.ExecuteReader())
+                            {
+                                int importCount = 0;
+
+                                //Loop through all incoming bans
+                                while (reader.Read())
+                                {
+                                    AdKat_Access access = new AdKat_Access();
+                                    access.player_name = reader.GetString("player_name");
+                                    access.access_level = reader.GetInt32("access_level");
+                                    access.member_id = 0;
+                                    access.player_email = "test@gmail.com";
+                                    
+                                    //Push to lists
+                                    newAccess.Add(access);
+
+                                    if ((++importCount % 500) == 0)
+                                    {
+                                        this.ConsoleWrite(importCount + " access entries downloaded...");
+                                    }
+                                }
+                                this.ConsoleWrite(importCount + " access entries downloaded...");
+                            }
+                        }
+
+                        int uploadCount = 0;
+                        foreach (AdKat_Access access in newAccess)
+                        {
+                            this.uploadPlayerAccess(access);
+
+                            if ((++uploadCount % 500) == 0)
+                            {
+                                this.ConsoleWrite(uploadCount + " access entries uploaded...");
+                            }
+                        }
+                        this.ConsoleSuccess(uploadCount + " access entries imported from previous versions of AdKats!");
+
+                        //Fetch the updated access list
+                        this.fetchAccessList();
+                    }
+                }
+                this.updateSettingPage();
+            }
+            catch (Exception e)
+            {
+                ConsoleException(e.ToString());
+            }
+        }
+
+        //DONE
         private Boolean canPunish(AdKat_Record record)
         {
             DebugWrite("canPunish starting!", 6);
@@ -7409,13 +7625,17 @@ namespace PRoConEvents
         private Boolean isAdminAssistant(AdKat_Player player)
         {
             DebugWrite("fetchAdminAssistants starting!", 6);
-            try
+            //Only fire when threads ready since we are bypassing the dbcomm thread
+            //TODO make this use the db comm thread instead
+            if (this.threadsReady)
             {
-                using (MySqlConnection connection = this.getDatabaseConnection())
+                try
                 {
-                    using (MySqlCommand command = connection.CreateCommand())
+                    using (MySqlConnection connection = this.getDatabaseConnection())
                     {
-                        command.CommandText = @"
+                        using (MySqlCommand command = connection.CreateCommand())
+                        {
+                            command.CommandText = @"
                         SELECT
                             'isAdminAssistant' 
                         FROM 
@@ -7427,16 +7647,17 @@ namespace PRoConEvents
 	                        AND `source_name` = '" + player.player_name + @"' 
 	                        AND (`adkats_records`.`record_time` BETWEEN date_sub(now(),INTERVAL 7 DAY) AND now())
                         ) >= " + this.minimumRequiredWeeklyReports + " LIMIT 1";
-                        using (MySqlDataReader reader = command.ExecuteReader())
-                        {
-                            return reader.Read();
+                            using (MySqlDataReader reader = command.ExecuteReader())
+                            {
+                                return reader.Read();
+                            }
                         }
                     }
                 }
-            }
-            catch (Exception e)
-            {
-                this.ConsoleException(e.ToString());
+                catch (Exception e)
+                {
+                    this.ConsoleException(e.ToString());
+                }
             }
             DebugWrite("fetchAdminAssistants finished!", 6);
             return false;
@@ -8617,7 +8838,7 @@ namespace PRoConEvents
             public AdKat_Player target_player = null;
             public string source_name = null;
             public string record_message = null;
-            public DateTime record_time;
+            public DateTime record_time = DateTime.MinValue;
 
             //Not stored separately in the database
             public AdKat_CommandSource command_source = AdKat_CommandSource.Default;
