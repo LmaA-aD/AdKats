@@ -116,9 +116,6 @@ CREATE TABLE IF NOT EXISTS `adkats_settings` (
 -- 		ON DELETE CASCADE 
 -- 		ON UPDATE NO ACTION;
 
-DROP PROCEDURE IF EXISTS import_records;
-DROP PROCEDURE IF EXISTS import_ban_manager_bans;
-
 delimiter |
 
 -- Updates player points when punishments or forgivness logs are added in the record table
@@ -210,6 +207,7 @@ CREATE TRIGGER adkats_update_point_delete AFTER DELETE ON `adkats_records`
 		END IF;
 	END;
 |
+
 delimiter ;
 
 CREATE OR REPLACE VIEW `adkats_totalcmdissued` AS
