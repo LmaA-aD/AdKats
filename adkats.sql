@@ -116,8 +116,11 @@ CREATE TABLE IF NOT EXISTS `adkats_settings` (
 -- 		ON DELETE CASCADE 
 -- 		ON UPDATE NO ACTION;
 
-delimiter | 
+DROP TRIGGER IF EXISTS adkats_update_point_insert;
+DROP TRIGGER IF EXISTS adkats_update_point_delete;
 
+-- Testing
+delimiter |
 CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkats_records`
 	FOR EACH ROW 
 	BEGIN 
@@ -206,7 +209,7 @@ CREATE TRIGGER adkats_update_point_delete AFTER DELETE ON `adkats_records`
 	END;
 |
 
-delimiter ; 
+delimiter ;
 
 CREATE OR REPLACE VIEW `adkats_totalcmdissued` AS
 SELECT
