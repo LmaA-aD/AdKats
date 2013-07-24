@@ -1843,12 +1843,8 @@ namespace PRoConEvents
 
         public void StartThreads()
         {
-            this.MessagingThread.Start();
-            this.CommandParsingThread.Start();
             this.DatabaseCommThread.Start();
-            this.ActionHandlingThread.Start();
-            this.TeamSwapThread.Start();
-            this.BanEnforcerThread.Start();
+            //Other threads are started within the db comm thread
         }
 
         public Boolean allThreadsReady()
@@ -2017,6 +2013,8 @@ namespace PRoConEvents
                             //If there was an error, return from the activator to finalize disable
                             if (!this.isEnabled)
                             {
+                                //Inform the user
+                                this.ConsoleWrite("AdKats disabled during the enable process.");
                                 return;
                             }
                         }
@@ -2066,7 +2064,7 @@ namespace PRoConEvents
 
                         //Make sure all threads are finished.
                         //TODO try removing these and see if it works better
-                        int index = 0;
+                        /*int index = 0;
                         while (this.MessagingThread == null)
                         {
                             Thread.Sleep(200);
@@ -2075,13 +2073,16 @@ namespace PRoConEvents
                                 break;
                             }
                         }
-                        JoinWith(this.MessagingThread);
-                        while (this.CommandParsingThread == null)
+                        if (this.MessagingThread.IsAlive)
                         {
-                            Thread.Sleep(200);
-                            if (index++ > 50)
+                            JoinWith(this.MessagingThread);
+                            while (this.CommandParsingThread == null)
                             {
-                                break;
+                                Thread.Sleep(200);
+                                if (index++ > 50)
+                                {
+                                    break;
+                                }
                             }
                         }
                         JoinWith(this.CommandParsingThread);
@@ -2120,7 +2121,7 @@ namespace PRoConEvents
                                 break;
                             }
                         }
-                        JoinWith(this.BanEnforcerThread);
+                        JoinWith(this.BanEnforcerThread);*/
 
                         this.playerAccessRemovalQueue.Clear();
                         this.playerAccessUpdateQueue.Clear();
@@ -5265,6 +5266,7 @@ namespace PRoConEvents
             {
                 this.DebugWrite("DBCOMM: Starting Database Comm Thread", 2);
                 Thread.CurrentThread.Name = "databasecomm";
+                Boolean firstRun = true;
                 Queue<AdKat_Record> inboundRecords;
                 Queue<AdKat_Ban> inboundBans;
                 Queue<AdKat_Access> inboundAccessUpdates;
@@ -5311,6 +5313,9 @@ namespace PRoConEvents
                             
                             //Now that we have the current server ID from stat logger, import all records from previous versions of AdKats
                             this.updateDB_0251_0300();
+
+                            //Push all settings for this instance to the database
+                            this.uploadAllSettings();
                         }
                         else
                         {
@@ -5531,6 +5536,18 @@ namespace PRoConEvents
                     {
                         this.DebugWrite("DBCOMM: No unprocessed records. Waiting for input", 7);
                         this.dbCommHandle.Reset();
+
+                        if (firstRun)
+                        {
+                            //Start other threads
+                            this.MessagingThread.Start();
+                            this.CommandParsingThread.Start();
+                            this.ActionHandlingThread.Start();
+                            this.TeamSwapThread.Start();
+                            this.BanEnforcerThread.Start();
+                            firstRun = false;
+                        }
+
                         if (this.fetchActionsFromDB || this.useBanEnforcer || this.usingAWA)
                         {
                             //If waiting on DB input, the maximum time we can wait is "db action frequency"
@@ -5625,6 +5642,8 @@ namespace PRoConEvents
                             this.fetchDBTimeConversion();
                             //Confirm the database is valid
                             databaseValid = true;
+                            //clear setting change monitor
+                            this.dbSettingsChanged = false;
                         }
                     }
                 }
@@ -5638,8 +5657,6 @@ namespace PRoConEvents
             {
                 this.ConsoleError("Not DB connection capable yet, complete SQL connection variables.");
             }
-            //clear setting change monitor
-            this.dbSettingsChanged = false;
             DebugWrite("testDatabaseConnection finished!", 6);
 
             return databaseValid;
@@ -5653,8 +5670,7 @@ namespace PRoConEvents
                 Boolean confirmed = true;
                 if (!this.confirmTable("tbl_playerdata") || !this.confirmTable("tbl_server"))
                 {
-                    this.ConsoleError("Tables from XPKiller's Stat Logger not found in the database. Enable that plugin then re-run AdKats!");
-                    this.disable();
+                    this.ConsoleException("Tables from XPKiller's Stat Logger not found in the database. Enable that plugin then re-run AdKats!");
                     confirmed = false;
                 }
                 else
@@ -5662,6 +5678,9 @@ namespace PRoConEvents
                     if (!this.confirmTable("adkats_records"))
                     {
                         this.ConsoleError("Main Record table not present in the database.");
+                        //Temporary code until delimiters are fixed
+                        this.ConsoleException("For this test release, the adkats database setup script must be run manually. Run the script then restart AdKats.");
+                        return false;
                         this.runDBSetupScript();
                         if (!this.confirmTable("adkats_records"))
                         {
@@ -5672,6 +5691,9 @@ namespace PRoConEvents
                     if (!this.confirmTable("adkats_accesslist"))
                     {
                         this.ConsoleError("Access Table not present in the database.");
+                        //Temporary code until delimiters are fixed
+                        this.ConsoleException("For this test release, the adkats database setup script must be run manually. Run the script then restart AdKats.");
+                        return false;
                         this.runDBSetupScript();
                         if (!this.confirmTable("adkats_accesslist"))
                         {
@@ -5682,6 +5704,9 @@ namespace PRoConEvents
                     if (!this.confirmTable("adkats_serverPlayerPoints"))
                     {
                         this.ConsoleError("Server Points Table not present in the database.");
+                        //Temporary code until delimiters are fixed
+                        this.ConsoleException("For this test release, the adkats database setup script must be run manually. Run the script then restart AdKats.");
+                        return false;
                         this.runDBSetupScript();
                         if (!this.confirmTable("adkats_serverPlayerPoints"))
                         {
@@ -5692,6 +5717,9 @@ namespace PRoConEvents
                     if (!this.confirmTable("adkats_globalPlayerPoints"))
                     {
                         this.ConsoleError("Global Points Table not present in the database.");
+                        //Temporary code until delimiters are fixed
+                        this.ConsoleException("For this test release, the adkats database setup script must be run manually. Run the script then restart AdKats.");
+                        return false;
                         this.runDBSetupScript();
                         if (!this.confirmTable("adkats_globalPlayerPoints"))
                         {
@@ -5702,6 +5730,9 @@ namespace PRoConEvents
                     if (!this.confirmTable("adkats_banlist"))
                     {
                         this.ConsoleError("Ban List not present in the database.");
+                        //Temporary code until delimiters are fixed
+                        this.ConsoleException("For this test release, the adkats database setup script must be run manually. Run the script then restart AdKats.");
+                        return false;
                         this.runDBSetupScript();
                         if (!this.confirmTable("adkats_accesslist"))
                         {
@@ -5712,6 +5743,9 @@ namespace PRoConEvents
                     if (!this.confirmTable("adkats_settings"))
                     {
                         this.ConsoleError("Settings Table not present in the database.");
+                        //Temporary code until delimiters are fixed
+                        this.ConsoleException("For this test release, the adkats database setup script must be run manually. Run the script then restart AdKats.");
+                        return false;
                         this.runDBSetupScript();
                         if (!this.confirmTable("adkats_settings"))
                         {
@@ -7625,39 +7659,34 @@ namespace PRoConEvents
         private Boolean isAdminAssistant(AdKat_Player player)
         {
             DebugWrite("fetchAdminAssistants starting!", 6);
-            //Only fire when threads ready since we are bypassing the dbcomm thread
-            //TODO make this use the db comm thread instead
-            if (this.threadsReady)
+            try
             {
-                try
+                using (MySqlConnection connection = this.getDatabaseConnection())
                 {
-                    using (MySqlConnection connection = this.getDatabaseConnection())
+                    using (MySqlCommand command = connection.CreateCommand())
                     {
-                        using (MySqlCommand command = connection.CreateCommand())
+                        command.CommandText = @"
+                    SELECT
+                        'isAdminAssistant' 
+                    FROM 
+                        `" + this.mySqlDatabaseName + @"`.`adkats_records`
+                    WHERE (
+	                    SELECT count(`command_action`) 
+	                    FROM `adkats_records` 
+	                    WHERE `command_action` = 'ConfirmReport' 
+	                    AND `source_name` = '" + player.player_name + @"' 
+	                    AND (`adkats_records`.`record_time` BETWEEN date_sub(now(),INTERVAL 7 DAY) AND now())
+                    ) >= " + this.minimumRequiredWeeklyReports + " LIMIT 1";
+                        using (MySqlDataReader reader = command.ExecuteReader())
                         {
-                            command.CommandText = @"
-                        SELECT
-                            'isAdminAssistant' 
-                        FROM 
-                            `" + this.mySqlDatabaseName + @"`.`adkats_records`
-                        WHERE (
-	                        SELECT count(`command_action`) 
-	                        FROM `adkats_records` 
-	                        WHERE `command_action` = 'ConfirmReport' 
-	                        AND `source_name` = '" + player.player_name + @"' 
-	                        AND (`adkats_records`.`record_time` BETWEEN date_sub(now(),INTERVAL 7 DAY) AND now())
-                        ) >= " + this.minimumRequiredWeeklyReports + " LIMIT 1";
-                            using (MySqlDataReader reader = command.ExecuteReader())
-                            {
-                                return reader.Read();
-                            }
+                            return reader.Read();
                         }
                     }
                 }
-                catch (Exception e)
-                {
-                    this.ConsoleException(e.ToString());
-                }
+            }
+            catch (Exception e)
+            {
+                this.ConsoleException(e.ToString());
             }
             DebugWrite("fetchAdminAssistants finished!", 6);
             return false;
