@@ -116,9 +116,7 @@ CREATE TABLE IF NOT EXISTS `adkats_settings` (
 -- 		ON DELETE CASCADE 
 -- 		ON UPDATE NO ACTION;
 
-delimiter |
-
--- Updates player points when punishments or forgivness logs are added in the record table
+delimiter | 
 
 CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkats_records`
 	FOR EACH ROW 
@@ -162,9 +160,7 @@ CREATE TRIGGER adkats_update_point_insert BEFORE INSERT ON `adkats_records`
 				`total_points` = `total_points` - 1;
 		END IF;
 	END;
-|
-
--- Updates player points when punishments or forgivness logs are removed from the record table
+| 
 
 CREATE TRIGGER adkats_update_point_delete AFTER DELETE ON `adkats_records`
 	FOR EACH ROW 
@@ -210,7 +206,7 @@ CREATE TRIGGER adkats_update_point_delete AFTER DELETE ON `adkats_records`
 	END;
 |
 
-delimiter ;
+delimiter ; 
 
 CREATE OR REPLACE VIEW `adkats_totalcmdissued` AS
 SELECT
