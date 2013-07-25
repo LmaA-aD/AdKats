@@ -5279,7 +5279,7 @@ namespace PRoConEvents
                         if (this.fetchServerID() >= 0)
                         {
                             this.ConsoleSuccess("Database Server Info Fetched. Server ID is " + this.server_id + "!");
-                            
+
                             //Now that we have the current server ID from stat logger, import all records from previous versions of AdKats
                             this.updateDB_0251_0300();
 
@@ -6079,7 +6079,7 @@ namespace PRoConEvents
                             `target_id`, 
                             `source_name`, 
                             `record_message`, 
-                            `adkats_read` "  + ((record.record_time != DateTime.MinValue) ? (", `record_time` ") : ("")) + @"
+                            `adkats_read` " + ((record.record_time != DateTime.MinValue) ? (", `record_time` ") : ("")) + @"
                         ) 
                         VALUES 
                         ( 
@@ -7305,7 +7305,7 @@ namespace PRoConEvents
 
                         this.ConsoleSuccess(uploadCount + " records imported from previous versions of AdKats!");
                     }
-                    
+
                     //Get player access count from current version table
                     int currentAccessCount = 0;
                     using (MySqlCommand command = connection.CreateCommand())
@@ -7355,7 +7355,7 @@ namespace PRoConEvents
                                     access.access_level = reader.GetInt32("access_level");
                                     access.member_id = 0;
                                     access.player_email = "test@gmail.com";
-                                    
+
                                     //Push to lists
                                     newAccess.Add(access);
 
