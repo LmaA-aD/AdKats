@@ -15,10 +15,13 @@ to modify the debug level to see more detail.
 to make the program malfunction. The more things you think of trying the better. Also, be mindful of how long things are 
 taking to complete, not just with the debug soldier but in general. If things appear to be lagging in any way let me 
 know where it's happening and i will look into it.
+5. "WARNING": monitor the program and pay attention, something is important. "ERROR": A non-fatal error has occured, 
+whatever happened the program was able to handle it without crashing. "EXCEPTION": A fatal error has happened, and the 
+program cannot recover. Restart AdKats and try again.
 
-AdKats 0.3.0.0 Test Plugin File: https://raw.github.com/ColColonCleaner/AdKats/dev/AdKats.cs
+AdKats 0.3.0.0 Test Plugin File: https://raw.github.com/ColColonCleaner/AdKats/test/AdKats.cs
 
-Current AdKats Documentation: https://github.com/ColColonCleaner/AdKats/blob/dev/README.md
+Current AdKats Documentation: https://github.com/ColColonCleaner/AdKats/blob/test/README.md
 
 Upgrade Test Instructions:
 (This is a complete list, please let me know what you are able to complete. Note: AdKats will auto-disable when any 
