@@ -433,9 +433,9 @@ database.<br/><br/>
 <p>
 Players need to be at or above certain access levels to perform commands. Players on the access list can have their 
 powers disabled (without removing them from the access list) by lowering their access level. Players can be added to
-or removed from the access from plugin settings using the "Add Access" and "Remove Access" text fields. The access 
-level of a player can be changed once they are on the access list, in addition to their email address. 
-All players are defaulted to level 6 in the system, and have no special access, level 0 is a full admin.
+or removed from the access list using the "Add Access" and "Remove Access" setting fields. The access level of a player 
+can be changed once they are on the access list, in addition to their email address. All players are defaulted to level 
+6 in the system, and have no special access, level 0 is a full admin.
 <br/>
 <table>
 	<tr>
