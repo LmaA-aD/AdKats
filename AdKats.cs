@@ -352,6 +352,8 @@ namespace PRoConEvents
         private Queue<AdKat_Player> banEnforcerCheckingQueue = new Queue<AdKat_Player>();
         private Queue<AdKat_Ban> banEnforcerProcessingQueue = new Queue<AdKat_Ban>();
 
+        private Queue<CBanInfo> cBanProcessingQueue = new Queue<CBanInfo>();
+
         //Force move action queue
         private Queue<CPlayerInfo> teamswapForceMoveQueue = new Queue<CPlayerInfo>();
         //Delayed move list
@@ -2550,60 +2552,16 @@ namespace PRoConEvents
             this.DebugWrite("OnBanList fired", 6);
             if (this.useBanEnforcer)
             {
-                AdKat_Ban aBan;
-                AdKat_Record record;
-                Boolean bansFound = false;
-                foreach (CBanInfo cBan in banList)
+                if (banList.Count > 0)
                 {
-                    bansFound = true;
-                    //Create the record
-                    record = new AdKat_Record();
-                    record.command_source = AdKat_CommandSource.InGame;
-                    if (cBan.BanLength.Seconds > 0)
+                    lock (this.cBanProcessingQueue)
                     {
-                        record.command_type = AdKat_CommandType.TempBanPlayer;
-                        record.command_action = AdKat_CommandType.TempBanPlayer;
-                        record.command_numeric = cBan.BanLength.Seconds / 60;
+                        foreach (CBanInfo cBan in banList)
+                        {
+                            this.cBanProcessingQueue.Enqueue(cBan);
+                        }
+                        this.dbCommHandle.Set();
                     }
-                    else
-                    {
-                        record.command_type = AdKat_CommandType.PermabanPlayer;
-                        record.command_action = AdKat_CommandType.PermabanPlayer;
-                        record.command_numeric = 0;
-                    }
-                    record.source_name = "BanEnforcer";
-                    record.server_id = this.server_id;
-                    record.target_player = this.fetchPlayer(-1, cBan.SoldierName, cBan.Guid, cBan.IpAddress);
-                    if (!String.IsNullOrEmpty(record.target_player.player_name))
-                    {
-                        record.target_name = record.target_player.player_name;
-                    }
-                    record.isIRO = false;
-                    record.record_message = cBan.Reason;
-
-                    //Create the ban
-                    aBan = new AdKat_Ban();
-                    aBan.ban_record = record;
-
-                    //Update the ban enforcement depending on available information
-                    Boolean nameAvailable = !String.IsNullOrEmpty(record.target_player.player_name);
-                    Boolean GUIDAvailable = !String.IsNullOrEmpty(record.target_player.player_guid);
-                    Boolean IPAvailable = !String.IsNullOrEmpty(record.target_player.player_ip);
-                    aBan.ban_enforceName = nameAvailable && (this.defaultEnforceName || (!GUIDAvailable && !IPAvailable) || !String.IsNullOrEmpty(cBan.SoldierName));
-                    aBan.ban_enforceGUID = GUIDAvailable && (this.defaultEnforceGUID || (!nameAvailable && !IPAvailable) || !String.IsNullOrEmpty(cBan.Guid));
-                    aBan.ban_enforceIP = IPAvailable && (this.defaultEnforceIP || (!nameAvailable && !GUIDAvailable) || !String.IsNullOrEmpty(cBan.IpAddress));
-                    if (!aBan.ban_enforceName && !aBan.ban_enforceGUID && !aBan.ban_enforceIP)
-                    {
-                        this.ConsoleError("Unable to create ban, no proper player information");
-                        continue;
-                    }
-                    //Queue the ban for processing
-                    this.queueBanForProcessing(aBan);
-                }
-                if (bansFound)
-                {
-                    //If all bans have been queued for processing, clear the ban list
-                    this.ExecuteCommand("procon.protected.send", "banList.clear");
                 }
             }
         }
@@ -5246,6 +5204,7 @@ namespace PRoConEvents
                 Queue<AdKat_Access> inboundAccessUpdates;
                 Queue<String> inboundAccessRemoval;
                 Queue<CPluginVariable> inboundSettingUpload;
+                Queue<CBanInfo> inboundCBans;
                 while (true)
                 {
                     this.DebugWrite("DBCOMM: Entering Database Comm Thread Loop", 7);
@@ -5328,6 +5287,79 @@ namespace PRoConEvents
                             CPluginVariable setting = inboundSettingUpload.Dequeue();
 
                             this.uploadSetting(setting);
+                        }
+                    }
+
+                    //Handle Inbound CBan Uploads
+                    if (this.cBanProcessingQueue.Count > 0)
+                    {
+                        this.DebugWrite("DBCOMM: Preparing to lock inbound cBan queue to retrive new cBans", 7);
+                        lock (this.cBanProcessingQueue)
+                        {
+                            this.DebugWrite("DBCOMM: Inbound cBans found. Grabbing.", 6);
+                            //Grab all cBans in the queue
+                            inboundCBans = new Queue<CBanInfo>(this.cBanProcessingQueue.ToArray());
+                            //Clear the queue for next run
+                            this.cBanProcessingQueue.Clear();
+                        }
+                        //Loop through all cBans in order that they came in
+                        AdKat_Ban aBan;
+                        AdKat_Record record;
+                        Boolean bansFound = false;
+                        while (inboundCBans != null && inboundCBans.Count > 0)
+                        {
+                            bansFound = true;
+
+                            CBanInfo cBan = inboundCBans.Dequeue();
+
+                            //Create the record
+                            record = new AdKat_Record();
+                            record.command_source = AdKat_CommandSource.InGame;
+                            if (cBan.BanLength.Seconds > 0)
+                            {
+                                record.command_type = AdKat_CommandType.TempBanPlayer;
+                                record.command_action = AdKat_CommandType.TempBanPlayer;
+                                record.command_numeric = cBan.BanLength.Seconds / 60;
+                            }
+                            else
+                            {
+                                record.command_type = AdKat_CommandType.PermabanPlayer;
+                                record.command_action = AdKat_CommandType.PermabanPlayer;
+                                record.command_numeric = 0;
+                            }
+                            record.source_name = "BanEnforcer";
+                            record.server_id = this.server_id;
+                            record.target_player = this.fetchPlayer(-1, cBan.SoldierName, cBan.Guid, cBan.IpAddress);
+                            if (!String.IsNullOrEmpty(record.target_player.player_name))
+                            {
+                                record.target_name = record.target_player.player_name;
+                            }
+                            record.isIRO = false;
+                            record.record_message = cBan.Reason;
+
+                            //Create the ban
+                            aBan = new AdKat_Ban();
+                            aBan.ban_record = record;
+
+                            //Update the ban enforcement depending on available information
+                            Boolean nameAvailable = !String.IsNullOrEmpty(record.target_player.player_name);
+                            Boolean GUIDAvailable = !String.IsNullOrEmpty(record.target_player.player_guid);
+                            Boolean IPAvailable = !String.IsNullOrEmpty(record.target_player.player_ip);
+                            aBan.ban_enforceName = nameAvailable && (this.defaultEnforceName || (!GUIDAvailable && !IPAvailable) || !String.IsNullOrEmpty(cBan.SoldierName));
+                            aBan.ban_enforceGUID = GUIDAvailable && (this.defaultEnforceGUID || (!nameAvailable && !IPAvailable) || !String.IsNullOrEmpty(cBan.Guid));
+                            aBan.ban_enforceIP = IPAvailable && (this.defaultEnforceIP || (!nameAvailable && !GUIDAvailable) || !String.IsNullOrEmpty(cBan.IpAddress));
+                            if (!aBan.ban_enforceName && !aBan.ban_enforceGUID && !aBan.ban_enforceIP)
+                            {
+                                this.ConsoleError("Unable to create ban, no proper player information");
+                                continue;
+                            }
+                            //Queue the ban for processing
+                            this.queueBanForProcessing(aBan);
+                        }
+                        if (bansFound)
+                        {
+                            //If all bans have been queued for processing, clear the ban list
+                            this.ExecuteCommand("procon.protected.send", "banList.clear");
                         }
                     }
 
