@@ -238,8 +238,8 @@ are immediately slain and moved over to fill it. Secondly it allows whitelisted 
 themselves between teams as often as they want (within a ticket count window). This is currently not an available option 
 in default battlefield aside from procon commands since the game limits players to one switch per gaming session. 
 Whitelisted players can type '@moveme' and teamswap will queue them. This is meant to be available to players outside 
-the admin list, usually by paid usage to your community or to clan members only. Admins can also use '@moveme', and in 
-their case it bypasses the ticket window restriction.<br/><br/>
+the admin list, usually by paid usage to your community or to clan members only. Admins (Access levels 0-4) can also use 
+'@moveme', and in their case it bypasses the ticket window restriction.<br/><br/>
 
 <b>Auto-Whitelisting:<b/> X players per round can be auto whitelisted for TeamSwap, this means at the start of each 
 round X random players are elevated to access level 5 for that round (this elevation is not persisted in the database, 
