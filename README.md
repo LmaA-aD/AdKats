@@ -228,7 +228,7 @@ actual reason entered, so you can just do "@punish 283 4", and he will get the p
 </p>
 <h3>TeamSwap</h3>
 <p>
-TeamSwap is NOT an autobalancer (look up other plugins for that functionality), it is for manual player moving 
+<b>TeamSwap is NOT an autobalancer</b> (look up other plugins for that functionality), it is for manual player moving 
 only.<br/><br/>
 
 TeamSwap is a server-smart player moving system which offers two major benefits over the default system. Normally when 
@@ -241,7 +241,7 @@ Whitelisted players can type '@moveme' and teamswap will queue them. This is mea
 the admin list, usually by paid usage to your community or to clan members only. Admins (Access levels 0-4) can also use 
 '@moveme', and in their case it bypasses the ticket window restriction.<br/><br/>
 
-<b>Auto-Whitelisting:</b> X players per round can be auto whitelisted for TeamSwap, this means at the start of each 
+<b>Auto-Whitelisting:<b/> X players per round can be auto whitelisted for TeamSwap, this means at the start of each 
 round X random players are elevated to access level 5 for that round (this elevation is not persisted in the database, 
 and will only apply to the current server). It is used to make players want full access, so they might buy access, or 
 join your community to get it. The setting is "Auto-Whitelist Count", under TeamSwap settings. This can be disabled by 
