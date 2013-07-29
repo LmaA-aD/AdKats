@@ -200,8 +200,9 @@ When a player sends a report, then an admin uses that report by ID, it is consid
 has X good reports in the past week a small bonus is given, access to teamswap. When a player gets access it simply 
 tells them "For your consistent player reporting you now have access to TeamSwap. Type @moveme to swap 
 between teams as often as you want." They do not know they are considered an admin assistant, only that they have access 
-to that. The assistant list is recalculated at the beginning of each round. They need to keep that report count up to 
-keep access, if they have less than the required amount they are automatically removed.<br/><br/>
+to that. Whether a player is an admin assistant is calculated when then join the server, and that status will remain 
+for the duration they are in the server (e.g. If they lose status mid-round, it won't cut them off until the next time 
+they join the server). They need to keep that report count up to keep access.<br/><br/>
 
 When an admin assistant sends a report, to the admins that report is prefixed with [AA] to note it as a (most likely) 
 reliable report. Whether admin assistants get the teamswap perk can be disabled, but the prefixes admins see will remain.
