@@ -7,8 +7,9 @@ Download link below.
 Admin Toolset with a plethora of features. It is designed for groups with high-traffic servers and many 
 admins, but will function just as well for small servers.<br/>
 <ul>
+  <li><b>Basic Action Commands.</b> Standard commands for player killing, kicking, banning, moving, etc..</li>
   <li><b>Infraction Tracking System.</b> Database reflected system to track player infractions and act accordingly.</li>
-  <li><b>Proper Player Report and Admin Call Handling.</b> Notification system and quick handling features for all admin 
+  <li><b>Quick Player Report and Admin Call Handling.</b> Notification system and quick handling features for all admin 
   calls and player reports.</li>
   <li><b>Fuzzy Player Name Completion.</b> Fully completes accurate or misspelled player names.</li>
   <li><b>Player Muting.</b> Players can be muted if necessary.</li>
