@@ -8,6 +8,8 @@ Admin Toolset with a plethora of features. It is designed for groups with high-t
 admins, but will function just as well for small servers.<br/>
 <ul>
   <li><b>Basic Action Commands.</b> Standard commands for player killing, kicking, banning, moving, etc..</li>
+  <li><b>Admin and setting sync between servers.</b> All changes to admin access or plugin settings can be 
+  automatically synced between procon layers.</li>
   <li><b>Infraction Tracking System.</b> Database reflected system to track player infractions and act accordingly.</li>
   <li><b>Quick Player Report and Admin Call Handling.</b> Notification system and quick handling features for all admin 
   calls and player reports.</li>
