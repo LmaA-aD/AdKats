@@ -173,13 +173,39 @@ their ban.<br/><br/>
 The Enforcer works properly with all existing auto-admins, and any bans added manually through procon will be imported 
 by the system. However, this system requires AdKats WebAdmin for ban management, it's options are too complicated for 
 procon's interface to house properly. Use of the ban enforcer is optional because of this dependency, and is disabled 
-by default. You can use Ban Enforcer without WebAdmin, but you will be unable to manage any bans, lift them early, or 
-modify them in any way once submitted.<br/><br/>
+by default. You can use Ban Enforcer without WebAdmin but you will need to modify the database ban list directly, which 
+will have a learning curve.<br/><br/>
 
 Ban Enforcer can be enabled with the "Use Ban Enforcer" setting. On enable it will import all bans from your ban list 
 then clear it, once you enable enforcer you will be unable to manage any bans without webadmin. Disabling ban enforcer 
 will repopulate procon's ban list with the imported bans, but you will lose any additional information ban enforcer was 
-able to gather about the banned players.
+able to gather about the banned players.<br/><br/>
+
+To all who will be using the ban enforcer before WebAdmin is released, you can use the below query to get more meaningful 
+information out of the ban list. Once you find the ban ID you want using this query you can modify it in adkats_banlist 
+using that ID. To remove a ban change ban_status to "Disabled" (caps important), and to modify duration change 
+ban_endTime to when you want it to end (remember database timezone might be different from yours).<br/><br/>
+
+SELECT<br/> 
+`adkats_banlist`.`ban_id`, <br/>
+`tbl_playerdata`.`SoldierName` AS `player_name`, <br/>
+`adkats_records`.`record_message` AS `ban_reason`, <br/>
+`adkats_banlist`.`ban_status`, <br/>
+`adkats_banlist`.`ban_startTime`, <br/>
+`adkats_banlist`.`ban_endTime`, <br/>
+`adkats_banlist`.`ban_enforceName`, <br/>
+`adkats_banlist`.`ban_enforceGUID`, <br/>
+`adkats_banlist`.`ban_enforceIP`<br/>
+FROM <br/>
+`adkats_banlist` <br/>
+INNER JOIN <br/>
+`tbl_playerdata` <br/>
+ON <br/>
+`tbl_playerdata`.`PlayerID` = `adkats_banlist`.`player_id` <br/>
+INNER JOIN <br/>
+`adkats_records` <br/>
+ON <br/>
+`adkats_records`.`record_id` = `adkats_banlist`.`latest_record_id`;
 </p>
 <h3>Report/CallAdmin System</h3>
 <p>
