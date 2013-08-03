@@ -204,4 +204,13 @@ fine for performance). Right now only Punish and Forgive are required to be logg
   sent to you in-game. Time is in milliseconds, from the time you entered it until all actions resulting from that 
   command have finished.</li>
 </ul>
+<h4>0.3.0.1 (3-AUG-2013)</h4>
+<b>Changes</b> <br/>
+<ul>
+  <li><b>Bug-fixes.</b> Documented bugs in the issues section (milestone 0.3.0.1) are fixed.</li>
+  <li><b>Added delayed kill.</b> When a player dies and is then admin killed, kill will be performed when they spawn.</li>
+  <li><b>Ban-Sync process revamped.</b> All ban enforcer sync methods have been reworked to be more reliable and 
+  efficient.</li>
+  <li><b>Admin list sorted by level then name.</b> Simple visual fix.</li>
+</ul>
 </blockquote>
