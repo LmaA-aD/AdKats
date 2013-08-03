@@ -23,7 +23,6 @@ admins, but will function just as well for small servers.<br/>
   <li><b>Editable In-Game Commands.</b> All command text can be edited to suit your needs.</li>
   <li><b>Full Logging.</b> All admin activity is trackable via the database, so holding your admins accountable for 
   their actions is quick and painless.</li>
-  <li><b>Quick Setup.</b> Give AdKats a database and all setup will be performed automatically.</li>
 </ul>
 <br/>
 
