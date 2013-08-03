@@ -1,5 +1,4 @@
 <h2 style="color:#009933;">Version 0.3.0.0 released! Your version is listed above (Procon Only).</h2>
-
 <a href="https://github.com/ColColonCleaner/AdKats/blob/dev/CHANGELOG.md" target="_blank">New in Version 0.3.0.0!</a> 
 Download link below.
 <h1>AdKats</h1>
