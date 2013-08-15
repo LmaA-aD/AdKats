@@ -1,88 +1,222 @@
+<div class="with-padding columns">
+    <div id="error_msg" class="twelve-columns"></div>
+    <div class="three-columns">
+        <input id="player_search_input" class="input full-width"/>
+    </div>
+    <div class="three-columns">
+        <button id="player_search_button" class="button compact blue-gradient glossy">Search</button>
+    </div>
+    <div id="player_search_results" class="twelve-columns"></div>
+</div>
+<script>
+function fetchSearchResults(player_name) {
+    $.searchResults = new $.AdKat_Player_Collection();
+    $.searchResults.fetch(player_name);
+}
 
+function displaySearchResults(searchResults) {
+    $("#player_search_results").empty();
+    var searchResultsView = new $.AdKat_Player_Table({collection: searchResults});
+    $("#player_search_results").append(playerTableView.render().el);
 
-                //render the remaining time
-                //Use custom code on refresh, but not on initial load, would take too much time
-                var ban_remainingTime = "Parsing Error";
-                if(updating)
-                {
-                    ban_remainingTime = getTimeDifferenceString(new Date(), this.model.get("ban_endTime"));
-                }
-                else
-                {
-                    ban_remainingTime = this.model.get("ban_remainingTime");
-                    if(ban_remainingTime == null)
-                    {
-                        ban_remainingTime = "Invalid Remaining Time";
+    var table = $("#player_search_results_table"), tableStyled = false;
+    table.dataTable(
+            {
+                "bSort": false,
+                'fnDrawCallback': function (oSettings) {
+                    // Only run once
+                    if (!tableStyled) {
+                        table.closest('.dataTables_wrapper').find('.dataTables_length select').addClass('select blue-gradient glossy').styleSelect();
+                        tableStyled = true;
                     }
                 }
-                this.options.remaining_time_element = $('<td>' + ban_remainingTime + '</td>');
-                $(this.el).append(this.options.remaining_time_element);
-                
-                
-    //Get time difference string between js Date objects
-    function getTimeDifferenceString(startDate, endDate){
-        seconds = Math.floor((date_future - (date_now))/1000);
-        //Check for expired case
-        if(seconds < 0)
-        {
-            return "Expired";
+            });
+}
+$(document).ready(function () {
+    //Define all constructs
+    $.AdKat_Player = Backbone.Model.extend({
+        defaults: {
+            player_id: null, //Player's ID assigned by stat logging plugin
+            player_name: null, //Soldier name for this player
+            player_guid: null, //EA GUID for this player. Might be null.
+            player_pbguid: null //PB GUID for this player. Might be null.
+            //player_ip: null//IP Address for this player. Might be null.
         }
-        minutes = Math.floor(seconds/60);
-        hours = Math.floor(minutes/60);
-        days = Math.floor(hours/24);
-        //Check for permanent case
-        if(days > 365)
-        {
-            return "Permanent";
-        }
-        //Get components
-        hours = hours-(days*24);
-        minutes = minutes-(days*24*60)-(hours*60);
-        seconds = seconds-(days*24*60*60)-(hours*60*60)-(minutes*60);
-        return days + "d" + hours + "h" + minutes + "m" + seconds + "s";
-    }
-    
-
-
-    /**
-     * Gets up to 1000 search results for a player name
-     * @param String player_nme - substring of the player name to search for
-     */
-    public function playerSearch($player_name = null)
-    {
-        // Do a check and make sure a valid name was provided
-        if(is_null($player_name) || empty($player_name)) return outputStatus('error', 'Invalid player name');
-
-        // Search for players
-        $query = $this->db->select('*')->from('tbl_playerdata')->where('SoldierName', $player_name)->limit(1001)->get();
-
-        if($query->num_rows() > 0)
-        {
-            if($query->num_rows() <= 1000)
-            {
-                foreach($query->result_array() as $row)
-                {
-                    $data['data'][] = array(
-                        'player_id'   => $row['player_id'],
-                        'player_name'   => $row['SoldierName'];
-                        'player_guid'   => $row['EAGUID'];
-                        'player_pbguid'   => $row['PBGUID'];
-                        'player_ip'   => $row['IP_Address'];
-                    );
+    });
+    $.AdKat_Player_Collection = Backbone.Collection.extend({
+        url: "api/bf3/playersearch?player_name=",
+        model: $.AdKat_Player,
+        fetch: function (player_name) {
+            var collectionRef = this;
+            console.log(this.url + player_name);
+            $.ajax(this.url + player_name, {
+                type: 'GET',
+                dataType: 'json',
+                beforeSend: function () {
+                    $.blockUI({
+                        message: '<h3 class="align-center white"><span class="loader big waiting on-dark with-small-padding"></span>Loading Search Results</h3>',
+                        css: { backgroundColor: 'black' }
+                    });
+                },
+                success: function (data) {
+                    //Check for error
+                    if (data.status != undefined) {
+                        $("#error_msg").message(data.status + " - " + message, {
+                            classes: ['red-gradient glossy'],
+                            closable: true,
+                            showCloseOnHover: true,
+                            groupSimilar: true
+                        });
+                    }
+                    //Check for data
+                    else if (data.data != undefined) {
+                        $.each(data.data, function (index, element) {
+                            collectionRef.models.push(new $.AdKat_Player(element));
+                        });
+                        displaySearchResults(collectionRef);
+                    }
+                    //Exception Case
+                    else {
+                        $("#error_msg").message('Unknown error. Please refresh the page to try again.', {
+                            classes: ['red-gradient glossy'],
+                            closable: true,
+                            showCloseOnHover: true,
+                            groupSimilar: true
+                        });
+                    }
+                    $.unblockUI();
+                },
+                error: function () {
+                    $("#error_msg").message('Data could not be loaded at this time. Please refresh the page to try again.', {
+                        classes: ['red-gradient glossy'],
+                        closable: true,
+                        showCloseOnHover: true,
+                        groupSimilar: true
+                    });
+                    $.unblockUI();
                 }
+            });
+        }
+    });
+    $.AdKat_Player_LineItem = Backbone.View.extend({
+        initialize: function () {
+            var context = this;
+            this.el = $("<tr></tr>");
+        },
+        render: function (updating) {
+            //Get context
+            var currentModel = this.model;
+            //empty the element
+            this.el.empty();
 
-                //$data['elapsed_time'] = $this->benchmark->elapsed_time('chat_pull', 'chat_pull_end');
-                //$this->benchmark->mark('chat_pull_end');
-                //return formatted content
-                return $data;
+            //render the player id
+            var player_id = this.model.get("player_id");
+            if (player_id == null) {
+                player_id = "No ID";
             }
-            else
-            {
-                return outputStatus('error', 'Too many results found. Refine search!');
+            var player_id_element = $('<td>' + player_id + '</td>');
+            $(this.el).append(player_id_element);
+
+            //render the player name
+            var player_name = this.model.get("player_name");
+            if (player_name == null) {
+                player_name = "No Name";
             }
+            var player_name_element = $('<td>' + player_name + '</td>');
+            $(this.el).append(player_name_element);
+
+            //render the player guid
+            var player_guid = this.model.get("player_guid");
+            if (player_guid == null) {
+                player_guid = "No GUID";
+            }
+            var player_guid_element = $('<td>' + player_guid + '</td>');
+            $(this.el).append(player_guid_element);
+
+            //render the player status
+            var player_status = this.model.get("player_status");
+            if (player_status == null) {
+                player_status = "No Status";
+            }
+            var player_status_element = $('<td>' + player_status + '</td>');
+            $(this.el).append(player_status_element);
+
+            //render the button for opening player
+            var full_info_element = $('<td><button class="button compact blue-gradient glossy">Full Info</button></td>');
+            $("button", full_info_element).click(function () {
+                goToLocalURL('bf3/admin/playerinfo?player_id=' + player_id);
+            });
+            $(this.el).append(full_info_element);
+
+            //Return the element for initial render, subsequent renders will not use the return
+            return this;
         }
-        else
-        {
-            return outputStatus('error', 'Could not find specified player!');
+    });
+    $.AdKat_Player_Table = Backbone.View.extend({
+        template: _.template($("#player_search_results_template").html()),
+        options: {
+            players: []
+        },
+        initialize: function () {
+            var thisView = this;
+            thisView.options.players = [];
+            this.collection.each(function (playerModel) {
+                thisView.options.players.push(new $.AdKat_Player_LineItem({model: playerModel}));
+            });
+        },
+        render: function () {
+            this.el = $(this.template({}));
+            var element = $("tbody", this.el);
+
+            $.each(this.options.players, function (index, playerLineItem) {
+                element.append(playerLineItem.render().el);
+            });
+
+            var table = $("#player_search_results_table", this.el), tableStyled = false;
+            table.dataTable(
+                    {
+                        "bSort": false,
+                        'fnDrawCallback': function (oSettings) {
+                            // Only run once
+                            if (!tableStyled) {
+                                table.closest('.dataTables_wrapper').find('.dataTables_length select').addClass('select blue-gradient glossy').styleSelect();
+                                tableStyled = true;
+                            }
+                        }
+                    });
+            return this;
         }
-    }
+    });
+
+    $("#player_search_button").click(function () {
+        var query = $("#player_search_input").val();
+        if (query.length < 3) {
+            $("#error_msg").message("Search too short!", {
+                classes: ['red-gradient glossy'],
+                closable: true,
+                showCloseOnHover: true,
+                groupSimilar: true
+            });
+        }
+        else {
+            fetchSearchResults(query);
+        }
+    });
+});
+</script>
+<script type="text/template" id="player_search_results_template">
+    <h3 class="underline thin">Search Results</h3>
+    <table class="table responsive-table-on" id="player_search_results_table">
+        <thead>
+            <tr>
+                <th scope="col">Player ID</th>
+                <th scope="col">Player Name</th>
+                <th scope="col">Player GUID</th>
+                <th scope="col">Status</th>
+                <th scope="col">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+</script>
