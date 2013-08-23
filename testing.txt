@@ -1,3 +1,5 @@
+https://googledrive.com/host/0B6gV797ZTBf-Q2RXc3lsczZYOVk/LocalStorageBenchmark.html
+
 <div class="with-padding columns">
     <div id="error_msg" class="twelve-columns"></div>
     <div class="three-columns">
