@@ -63,7 +63,8 @@ namespace PRoConEvents
     {
         #region Variables
 
-        string plugin_version = "0.3.0.2";
+        string plugin_version = "0.3.1.0";
+        public Boolean useExperimentalStuffs = true;
 
         private MatchCommand AdKatsAvailableIndicator;
 
@@ -134,6 +135,7 @@ namespace PRoConEvents
         private Int64 server_id = -1;
         private Int64 settingImportID = -1;
         private DateTime lastDBSettingFetch = DateTime.Now;
+        private DateTime lastBanListCall = DateTime.Now;
         private int dbSettingFetchFrequency = 300;
         private Boolean usingAWA = false;
         //Whether the plugin is enabled
@@ -142,6 +144,7 @@ namespace PRoConEvents
         //Current debug level
         private volatile int debugLevel;
         private String debugSoldierName = "ColColonCleaner";
+        private Boolean useNoExplosivesLimit = false;
         //IDs of the two teams as the server understands it
         private static int USTeamID = 1;
         private static int RUTeamID = 2;
@@ -2093,6 +2096,7 @@ namespace PRoConEvents
                 "OnVersion",
                 "OnServerInfo",
                 "OnListPlayers",
+                "OnPunkbusterPlayerInfo",
                 "OnPlayerKilled",
                 "OnPlayerSpawned",
                 "OnPlayerTeamChange",
@@ -2271,36 +2275,22 @@ namespace PRoConEvents
                         AdKat_Player aPlayer = null;
                         if (this.playerDictionary.TryGetValue(player.SoldierName, out aPlayer))
                         {
-                            //If the player does not have an IP address, check the database until they have one.
-                            if (String.IsNullOrEmpty(aPlayer.player_ip))
-                            {
-                                aPlayer = this.fetchPlayer(-1, player.SoldierName, player.GUID, null);
-                                aPlayer.frostbitePlayerInfo = player;
-                                //In case of quick name-change, update their IGN
-                                aPlayer.player_name = player.SoldierName;
-
-                                //if player now has an IP, call a ban check
-                                if (!String.IsNullOrEmpty(aPlayer.player_ip))
-                                {
-                                    //Check with ban enforcer
-                                    this.queuePlayerForBanCheck(aPlayer);
-                                }
-                            }
-                            else
-                            {
-                                //Otherwise, just update the frostbite player info
-                                this.playerDictionary[player.SoldierName].frostbitePlayerInfo = player;
-                            }
+                            //Otherwise, just update the frostbite player info
+                            this.playerDictionary[player.SoldierName].frostbitePlayerInfo = player;
                         }
                         else
                         {
                             aPlayer = this.fetchPlayer(-1, player.SoldierName, player.GUID, null);
                             aPlayer.frostbitePlayerInfo = player;
+                            aPlayer.lastDeath = DateTime.Now;
+                            aPlayer.lastSpawn = DateTime.Now;
                             //In case of quick name-change, update their IGN
                             aPlayer.player_name = player.SoldierName;
 
                             this.playerDictionary.Add(player.SoldierName, aPlayer);
 
+                            //Check with ban enforcer
+                            this.queuePlayerForBanCheck(aPlayer);
 
                             if (this.isAdminAssistant(aPlayer))
                             {
@@ -2337,8 +2327,41 @@ namespace PRoConEvents
             }
         }
 
+        public override void OnPunkbusterPlayerInfo(CPunkbusterInfo cpbiPlayer)
+        {
+            this.DebugWrite("OPPI: OnPunkbusterPlayerInfo fired!", 7);
+            AdKat_Player targetPlayer = null;
+            Boolean callBanCheck = false;
+            if (this.playerDictionary.TryGetValue(cpbiPlayer.SoldierName, out targetPlayer))
+            {
+                this.DebugWrite("OPPI: PB player already in the player list.", 6);
+                callBanCheck = (targetPlayer.player_ip == null);
+                //Update the player with pb info
+                targetPlayer.PBPlayerInfo = cpbiPlayer;
+                targetPlayer.player_pbguid = cpbiPlayer.GUID;
+                targetPlayer.player_slot = cpbiPlayer.SlotID;
+                targetPlayer.player_ip = cpbiPlayer.Ip;
+                if (callBanCheck)
+                {
+                    this.DebugWrite("OPPI: Queueing existing player for another ban check.", 6);
+                    this.queuePlayerForBanCheck(targetPlayer);
+                }
+            }
+            this.DebugWrite("OPPI: Player slot: " + cpbiPlayer.SlotID, 7);
+            this.DebugWrite("OPPI: OnPunkbusterPlayerInfo finished!", 7);
+        }
+
         public override void OnServerInfo(CServerInfo serverInfo)
         {
+            //Only activate the following on ADK servers.
+            if (serverInfo.ServerName.Contains("=ADK=") && 
+                serverInfo.ServerName.ToLower().Contains("no explosives") && 
+                !this.useNoExplosivesLimit && 
+                this.useExperimentalStuffs)
+            {
+                this.ConsoleWarn("Internal NO EXPLOSIVES punish limit activated.");
+                this.useNoExplosivesLimit = true;
+            }
             if (this.isEnabled)
             {
                 //Get the team scores
@@ -2404,6 +2427,52 @@ namespace PRoConEvents
                     if (!String.IsNullOrEmpty(kKillerVictimDetails.Killer.SoldierName))
                     {
                         this.playerDictionary[kKillerVictimDetails.Victim.SoldierName].lastDeath = DateTime.Now;
+                    }
+                }
+            }
+
+            //ADK Metro No EXPLOSIVES special enforcement
+            if (this.useNoExplosivesLimit)
+            {
+                //Check if restricted weapon
+                if (Regex.Match(kKillerVictimDetails.DamageType, @"(?:M320|RPG|SMAW|C4|M67|Claymore|MAV|FGM-148|FIM92|ROADKILL)", RegexOptions.IgnoreCase).Success)
+                {
+                    //Make sure not suicide
+                    //TODO invert
+                    if (kKillerVictimDetails.Killer.SoldierName != kKillerVictimDetails.Victim.SoldierName)
+                    {
+                        //Get player from the dictionary
+                        AdKat_Player killer = null;
+                        if (this.playerDictionary.TryGetValue(kKillerVictimDetails.Killer.SoldierName, out killer))
+                        {
+                            //Create the punish record
+                            AdKat_Record record = new AdKat_Record();
+                            record.server_id = this.server_id;
+                            record.command_type = AdKat_CommandType.PunishPlayer;
+                            record.command_numeric = 0;
+                            record.target_name = killer.player_name;
+                            record.target_player = killer;
+                            record.source_name = "AutoAdmin";
+                            String removeWeapon = "Weapons/";
+                            String removeGadgets = "Gadgets/";
+                            String weapon = kKillerVictimDetails.DamageType;
+                            int index = weapon.IndexOf(removeWeapon);
+                            weapon = (index < 0)
+                                ? weapon
+                                : weapon.Remove(index, removeWeapon.Length);
+                            index = weapon.IndexOf(removeGadgets);
+                            weapon = (index < 0)
+                                ? weapon
+                                : weapon.Remove(index, removeGadgets.Length);
+                            record.record_message = "Using Explosives [" + weapon + "]";
+                            this.adminSay("Punishing " + killer.player_name + " for " + record.record_message);
+                            //Process the record
+                            this.queueRecordForProcessing(record);
+                        }
+                        else
+                        {
+                            this.ConsoleWarn("Player " + kKillerVictimDetails.Killer.SoldierName + " committed infraction mere seconds after entering the server. O_O");
+                        }
                     }
                 }
             }
@@ -2748,7 +2817,7 @@ namespace PRoConEvents
                     response = message;
                     break;
                 default:
-                    this.ConsoleWarn("Command source not set, or not recognized.");
+                    //this.ConsoleWarn("Command source not set, or not recognized.");
                     break;
             }
             return response;
@@ -3424,7 +3493,7 @@ namespace PRoConEvents
                                     }
                                     record.record_message = "Self-Inflicted";
                                     record.target_name = record.source_name;
-                                    this.completeTargetInformation(record, true);
+                                    this.completeTargetInformation(record, false);
                                     break;
                                 case 1:
                                     record.target_name = parameters[0];
@@ -4793,8 +4862,6 @@ namespace PRoConEvents
         public string killTarget(AdKat_Record record, string additionalMessage)
         {
             additionalMessage = (additionalMessage != null && additionalMessage.Length > 0) ? (" " + additionalMessage) : ("");
-            //Perform actions
-            ExecuteCommand("procon.protected.send", "admin.killPlayer", record.target_player.player_name);
             this.playerSayMessage(record.target_name, "Killed by admin for " + record.record_message + " " + additionalMessage);
             int seconds = (int)DateTime.Now.Subtract(record.target_player.lastDeath).TotalSeconds;
             this.DebugWrite("Killing player. Player last died " + seconds + " seconds ago.", 3);
@@ -4808,6 +4875,8 @@ namespace PRoConEvents
                     }
                 }
             }
+            //Perform actions
+            ExecuteCommand("procon.protected.send", "admin.killPlayer", record.target_player.player_name);
             return this.sendMessageToSource(record, "You KILLED " + record.target_name + " for " + record.record_message + additionalMessage);
         }
 
@@ -5187,7 +5256,7 @@ namespace PRoConEvents
             string message = "No Message";
             this.ExecuteCommand("procon.protected.send", "mapList.restartRound");
             message = "Round Restarted.";
-            return message;
+            return this.sendMessageToSource(record, message);
         }
 
         public string nextLevel(AdKat_Record record)
@@ -5195,7 +5264,7 @@ namespace PRoConEvents
             string message = "No Message";
             this.ExecuteCommand("procon.protected.send", "mapList.runNextRound");
             message = "Next round has been run.";
-            return message;
+            return this.sendMessageToSource(record, message);
         }
 
         public string endLevel(AdKat_Record record)
@@ -5203,7 +5272,7 @@ namespace PRoConEvents
             string message = "No Message";
             this.ExecuteCommand("procon.protected.send", "mapList.endRound", record.command_numeric + "");
             message = "Ended round with " + record.target_name + " as winner.";
-            return message;
+            return this.sendMessageToSource(record, message);
         }
 
         public string nukeTarget(AdKat_Record record)
@@ -5216,13 +5285,13 @@ namespace PRoConEvents
                     (record.target_name == "RU Team" && player.frostbitePlayerInfo.TeamID == AdKats.RUTeamID) ||
                     (record.target_name == "Server"))
                 {
+                    Thread.Sleep(30);
                     ExecuteCommand("procon.protected.send", "admin.killPlayer", player.player_name);
                     this.playerSayMessage(record.target_name, "Killed by admin for: " + record.record_message);
                 }
             }
             message = "You NUKED " + record.target_name + " for " + record.record_message + ".";
-            this.playerSayMessage(record.source_name, message);
-            return message;
+            return this.sendMessageToSource(record, message);
         }
 
         public string kickAllPlayers(AdKat_Record record)
@@ -5233,6 +5302,7 @@ namespace PRoConEvents
             {
                 if (!(this.playerAccessCache.ContainsKey(player.player_name) && this.playerAccessCache[player.player_name].access_level < 5))
                 {
+                    Thread.Sleep(30);
                     ExecuteCommand("procon.protected.send", "admin.kickPlayer", player.player_name, "(" + record.source_name + ") " + record.record_message);
                     this.playerSayMessage(record.target_name, "Killed by admin for: " + record.record_message);
                 }
@@ -5240,8 +5310,7 @@ namespace PRoConEvents
             this.ExecuteCommand("procon.protected.send", "admin.say", "All players with access class 5 or lower have been kicked.", "all");
 
             message = "You KICKED EVERYONE for " + record.record_message + ". ";
-            this.playerSayMessage(record.source_name, message);
-            return message;
+            return this.sendMessageToSource(record, message);
         }
 
         public string adminSay(AdKat_Record record)
@@ -5264,16 +5333,16 @@ namespace PRoConEvents
         {
             string message = "No Message";
             this.playerSayMessage(record.target_name, record.record_message);
-            message = record.target_name + " has been told '" + record.record_message + "'";
-            return message;
+            message = record.target_name + " has been told '" + record.record_message + "' by yell.";
+            return this.sendMessageToSource(record, message);
         }
 
         public string playerYell(AdKat_Record record)
         {
             string message = "No Message";
             this.ExecuteCommand("procon.protected.send", "admin.yell", record.record_message, this.m_strShowMessageLength, "player", record.target_name);
-            message = record.target_name + " has been told '" + record.record_message + "'";
-            return message;
+            message = record.target_name + " has been told '" + record.record_message + "' by say.";
+            return this.sendMessageToSource(record, message);
         }
 
         #endregion
@@ -5442,6 +5511,15 @@ namespace PRoConEvents
                     else
                     {
                         this.DebugWrite("DBCOMM: Skipping DB action fetch", 7);
+                    }
+
+                    //Call banlist at set interval (20 seconds)
+                    if (this.useBanEnforcerPreviousState && (DateTime.Now > this.lastBanListCall.AddSeconds(20)))
+                    {
+                        this.lastBanListCall = DateTime.Now;
+                        this.DebugWrite("banlist.list called at interval.", 6);
+                        this.ExecuteCommand("procon.protected.send", "banList.list");
+
                     }
 
                     //Handle access updates
@@ -6598,7 +6676,9 @@ namespace PRoConEvents
                         FROM 
                             `" + this.mySqlDatabaseName + @"`.`adkats_records` 
                         WHERE 
-                            `adkats_read` = 'N'";
+                            `adkats_read` = 'N' 
+                        AND 
+                            `server_id` = " + this.server_id;
                         command.CommandText = sql;
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
@@ -6896,7 +6976,7 @@ namespace PRoConEvents
                             command.Parameters.AddWithValue("@ban_enforceIP", aBan.ban_enforceIP ? ('Y') : ('N'));
                             command.Parameters.AddWithValue("@ban_sync", "*" + this.server_id + "*");
                             //Handle permaban case
-                            if (aBan.ban_record.command_type == AdKat_CommandType.PermabanPlayer)
+                            if (aBan.ban_record.command_action == AdKat_CommandType.PermabanPlayer)
                             {
                                 aBan.ban_record.command_numeric = (int)this.permaBanEndTime.Subtract(DateTime.Now).TotalMinutes;
                             }
@@ -7807,7 +7887,7 @@ namespace PRoConEvents
                     record = new AdKat_Record();
                     //Fetch the player
                     record.target_player = this.fetchPlayer(-1, BBMBan.soldiername, BBMBan.eaguid, null);
-                
+
                     record.command_source = AdKat_CommandSource.InGame;
                     if (BBMBan.ban_length == "permanent")
                     {
@@ -9291,6 +9371,7 @@ namespace PRoConEvents
             public string player_guid = null;
             public string player_pbguid = null;
             public string player_ip = null;
+            public string player_slot = null;
 
             public CPlayerInfo frostbitePlayerInfo = null;
             public CPunkbusterInfo PBPlayerInfo = null;
