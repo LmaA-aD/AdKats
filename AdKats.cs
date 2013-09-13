@@ -64,7 +64,6 @@ namespace PRoConEvents
         #region Variables
 
         string plugin_version = "0.3.1.0";
-        public Boolean useExperimentalStuffs = true;
 
         private MatchCommand AdKatsAvailableIndicator;
 
@@ -144,6 +143,8 @@ namespace PRoConEvents
         //Current debug level
         private volatile int debugLevel;
         private String debugSoldierName = "ColColonCleaner";
+        private Boolean isADK = false;
+        private Boolean useExperimentalTools = false;
         private Boolean useNoExplosivesLimit = false;
         //IDs of the two teams as the server understands it
         private static int USTeamID = 1;
@@ -766,6 +767,11 @@ namespace PRoConEvents
                 lstReturn.Add(new CPluginVariable("A13. Debugging|Debug level", typeof(int), this.debugLevel));
                 lstReturn.Add(new CPluginVariable("A13. Debugging|Debug Soldier Name", typeof(string), this.debugSoldierName));
                 lstReturn.Add(new CPluginVariable("A13. Debugging|Command Entry", typeof(string), ""));
+                //Experimental tools
+                if (this.isADK)
+                {
+                    lstReturn.Add(new CPluginVariable("X99. Experimental|Use Experimental Tools", typeof(Boolean), useExperimentalTools));
+                }
             }
             catch (Exception e)
             {
@@ -860,6 +866,21 @@ namespace PRoConEvents
                             this.debugSoldierName = strValue;
                             //Once setting has been changed, upload the change to database
                             this.queueSettingForUpload(new CPluginVariable(@"Debug Soldier Name", typeof(string), this.debugSoldierName));
+                        }
+                    }
+                }
+                else if (Regex.Match(strVariable, @"Use Experimental Tools").Success)
+                {
+                    Boolean useEXP;
+                    if (useEXP = Boolean.Parse(strValue))
+                    {
+                        if (useEXP != this.useExperimentalTools)
+                        {
+                            this.useExperimentalTools = useEXP;
+                            if (this.useExperimentalTools)
+                            {
+                                this.ConsoleWarn("Using experimental tools. Take caution.");
+                            }
                         }
                     }
                 }
@@ -2261,107 +2282,112 @@ namespace PRoConEvents
 
         public override void OnListPlayers(List<CPlayerInfo> players, CPlayerSubset subset)
         {
-            if (this.threadsReady)
+            try
             {
-                this.DebugWrite("Listing Players", 5);
-                //Player list and ban list need to be locked for this operation
-                lock (playersMutex)
+                if (this.threadsReady)
                 {
-                    //Reset the player counts of both sides and recount everything
-                    this.USPlayerCount = 0;
-                    this.RUPlayerCount = 0;
-                    foreach (CPlayerInfo player in players)
+                    this.DebugWrite("Listing Players", 5);
+                    //Player list and ban list need to be locked for this operation
+                    lock (playersMutex)
                     {
-                        AdKat_Player aPlayer = null;
-                        if (this.playerDictionary.TryGetValue(player.SoldierName, out aPlayer))
+                        //Reset the player counts of both sides and recount everything
+                        this.USPlayerCount = 0;
+                        this.RUPlayerCount = 0;
+                        foreach (CPlayerInfo player in players)
                         {
-                            //Otherwise, just update the frostbite player info
-                            this.playerDictionary[player.SoldierName].frostbitePlayerInfo = player;
-                        }
-                        else
-                        {
-                            aPlayer = this.fetchPlayer(-1, player.SoldierName, player.GUID, null);
-                            aPlayer.frostbitePlayerInfo = player;
-                            aPlayer.lastDeath = DateTime.Now;
-                            aPlayer.lastSpawn = DateTime.Now;
-                            //In case of quick name-change, update their IGN
-                            aPlayer.player_name = player.SoldierName;
-
-                            this.playerDictionary.Add(player.SoldierName, aPlayer);
-
-                            //Check with ban enforcer
-                            this.queuePlayerForBanCheck(aPlayer);
-
-                            if (this.isAdminAssistant(aPlayer))
+                            AdKat_Player aPlayer = null;
+                            if (this.playerDictionary.TryGetValue(player.SoldierName, out aPlayer))
                             {
-                                this.DebugWrite(player.SoldierName + " IS an Admin Assistant.", 3);
-                                if (!this.adminAssistantCache.ContainsKey(player.SoldierName))
-                                {
-                                    this.adminAssistantCache.Add(player.SoldierName, false);
-                                    this.DebugWrite(player.SoldierName + " added to the Admin Assistant Cache.", 4);
-                                }
-                                else
-                                {
-                                    this.DebugWrite("Player is already in the admin assitant cache, this is abnormal.", 3);
-                                }
+                                //Otherwise, just update the frostbite player info
+                                this.playerDictionary[player.SoldierName].frostbitePlayerInfo = player;
                             }
                             else
                             {
-                                this.DebugWrite(player.SoldierName + " is NOT an Admin Assistant.", 4);
+                                aPlayer = this.fetchPlayer(-1, player.SoldierName, player.GUID, null);
+                                aPlayer.frostbitePlayerInfo = player;
+                                aPlayer.lastDeath = DateTime.Now;
+                                aPlayer.lastSpawn = DateTime.Now;
+                                //In case of quick name-change, update their IGN
+                                aPlayer.player_name = player.SoldierName;
+
+                                this.playerDictionary.Add(player.SoldierName, aPlayer);
+
+                                //Check with ban enforcer
+                                this.queuePlayerForBanCheck(aPlayer);
+
+                                if (this.isAdminAssistant(aPlayer))
+                                {
+                                    this.DebugWrite(player.SoldierName + " IS an Admin Assistant.", 3);
+                                    if (!this.adminAssistantCache.ContainsKey(player.SoldierName))
+                                    {
+                                        this.adminAssistantCache.Add(player.SoldierName, false);
+                                        this.DebugWrite(player.SoldierName + " added to the Admin Assistant Cache.", 4);
+                                    }
+                                    else
+                                    {
+                                        this.DebugWrite("Player is already in the admin assitant cache, this is abnormal.", 3);
+                                    }
+                                }
+                                else
+                                {
+                                    this.DebugWrite(player.SoldierName + " is NOT an Admin Assistant.", 4);
+                                }
+                            }
+
+                            if (player.TeamID == USTeamID)
+                            {
+                                this.USPlayerCount++;
+                            }
+                            else
+                            {
+                                this.RUPlayerCount++;
                             }
                         }
-
-                        if (player.TeamID == USTeamID)
-                        {
-                            this.USPlayerCount++;
-                        }
-                        else
-                        {
-                            this.RUPlayerCount++;
-                        }
                     }
-                }
 
-                //Set the handle for teamswap
-                this.listPlayersHandle.Set();
+                    //Set the handle for teamswap
+                    this.listPlayersHandle.Set();
+                }
+            }
+            catch (Exception e)
+            {
+                this.ConsoleException(e.ToString());
             }
         }
 
         public override void OnPunkbusterPlayerInfo(CPunkbusterInfo cpbiPlayer)
         {
-            this.DebugWrite("OPPI: OnPunkbusterPlayerInfo fired!", 7);
-            AdKat_Player targetPlayer = null;
-            Boolean callBanCheck = false;
-            if (this.playerDictionary.TryGetValue(cpbiPlayer.SoldierName, out targetPlayer))
+            try
             {
-                this.DebugWrite("OPPI: PB player already in the player list.", 6);
-                callBanCheck = (targetPlayer.player_ip == null);
-                //Update the player with pb info
-                targetPlayer.PBPlayerInfo = cpbiPlayer;
-                targetPlayer.player_pbguid = cpbiPlayer.GUID;
-                targetPlayer.player_slot = cpbiPlayer.SlotID;
-                targetPlayer.player_ip = cpbiPlayer.Ip;
-                if (callBanCheck)
+                this.DebugWrite("OPPI: OnPunkbusterPlayerInfo fired!", 7);
+                AdKat_Player targetPlayer = null;
+                Boolean callBanCheck = false;
+                if (this.playerDictionary.TryGetValue(cpbiPlayer.SoldierName, out targetPlayer))
                 {
-                    this.DebugWrite("OPPI: Queueing existing player for another ban check.", 6);
-                    this.queuePlayerForBanCheck(targetPlayer);
+                    this.DebugWrite("OPPI: PB player already in the player list.", 6);
+                    callBanCheck = (targetPlayer.player_ip == null);
+                    //Update the player with pb info
+                    targetPlayer.PBPlayerInfo = cpbiPlayer;
+                    targetPlayer.player_pbguid = cpbiPlayer.GUID;
+                    targetPlayer.player_slot = cpbiPlayer.SlotID;
+                    targetPlayer.player_ip = cpbiPlayer.Ip;
+                    if (callBanCheck)
+                    {
+                        this.DebugWrite("OPPI: Queueing existing player for another ban check.", 6);
+                        this.queuePlayerForBanCheck(targetPlayer);
+                    }
                 }
+                this.DebugWrite("OPPI: Player slot: " + cpbiPlayer.SlotID, 7);
+                this.DebugWrite("OPPI: OnPunkbusterPlayerInfo finished!", 7);
             }
-            this.DebugWrite("OPPI: Player slot: " + cpbiPlayer.SlotID, 7);
-            this.DebugWrite("OPPI: OnPunkbusterPlayerInfo finished!", 7);
+            catch (Exception e)
+            {
+                this.ConsoleException(e.ToString());
+            }
         }
 
         public override void OnServerInfo(CServerInfo serverInfo)
         {
-            //Only activate the following on ADK servers.
-            if (serverInfo.ServerName.Contains("=ADK=") && 
-                serverInfo.ServerName.ToLower().Contains("no explosives") && 
-                !this.useNoExplosivesLimit && 
-                this.useExperimentalStuffs)
-            {
-                this.ConsoleWarn("Internal NO EXPLOSIVES punish limit activated.");
-                this.useNoExplosivesLimit = true;
-            }
             if (this.isEnabled)
             {
                 //Get the team scores
@@ -2373,13 +2399,21 @@ namespace PRoConEvents
                 this.highestTicketCount = (iTeam0Score > iTeam1Score) ? (iTeam0Score) : (iTeam1Score);
 
                 this.serverInfoHandle.Set();
+            }
 
-                /*if (!this.tweetedPluginEnable)
-                {
-                    string tweet = "Server '" + serverInfo.ServerName + "' [" + serverInfo.ServerRegion + "] has ENABLED Adkats " + this.GetPluginVersion() + "!";
-                    this.twitterHandler.sendTweet(tweet);
-                    this.tweetedPluginEnable = true;
-                }*/
+            //Only activate the following on ADK servers.
+            Boolean wasADK = this.isADK;
+            this.isADK = serverInfo.ServerName.Contains("=ADK=");
+            //Check for experimental special cases
+            Boolean wasNEL = this.useNoExplosivesLimit;
+            this.useNoExplosivesLimit = this.isADK && this.useExperimentalTools && serverInfo.ServerName.ToLower().Contains("no explosives");
+            if (!wasNEL && this.useNoExplosivesLimit)
+            {
+                this.ConsoleWarn("Internal NO EXPLOSIVES punish limit activated.");
+            }
+            if (!wasADK && this.isADK)
+            {
+                this.updateSettingPage();
             }
         }
 
@@ -2437,8 +2471,7 @@ namespace PRoConEvents
                 //Check if restricted weapon
                 if (Regex.Match(kKillerVictimDetails.DamageType, @"(?:M320|RPG|SMAW|C4|M67|Claymore|MAV|FGM-148|FIM92|ROADKILL)", RegexOptions.IgnoreCase).Success)
                 {
-                    //Make sure not suicide
-                    //TODO invert
+                    //Check if suicide
                     if (kKillerVictimDetails.Killer.SoldierName != kKillerVictimDetails.Victim.SoldierName)
                     {
                         //Get player from the dictionary
@@ -2457,21 +2490,13 @@ namespace PRoConEvents
                             String removeGadgets = "Gadgets/";
                             String weapon = kKillerVictimDetails.DamageType;
                             int index = weapon.IndexOf(removeWeapon);
-                            weapon = (index < 0)
-                                ? weapon
-                                : weapon.Remove(index, removeWeapon.Length);
+                            weapon = (index < 0) ? (weapon):(weapon.Remove(index, removeWeapon.Length));
                             index = weapon.IndexOf(removeGadgets);
-                            weapon = (index < 0)
-                                ? weapon
-                                : weapon.Remove(index, removeGadgets.Length);
+                            weapon = (index < 0) ? (weapon):(weapon.Remove(index, removeGadgets.Length));
                             record.record_message = "Using Explosives [" + weapon + "]";
                             this.adminSay("Punishing " + killer.player_name + " for " + record.record_message);
                             //Process the record
                             this.queueRecordForProcessing(record);
-                        }
-                        else
-                        {
-                            this.ConsoleWarn("Player " + kKillerVictimDetails.Killer.SoldierName + " committed infraction mere seconds after entering the server. O_O");
                         }
                     }
                 }
@@ -3124,7 +3149,7 @@ namespace PRoConEvents
                             }
                         }
                     }
-
+                    this.DebugWrite("Team Info: US:" + this.USPlayerCount + "/" + maxPlayerCount + " RU:" + this.RUPlayerCount + "/" + maxPlayerCount, 5);
                     if (this.RUMoveQueue.Count > 0 || this.USMoveQueue.Count > 0)
                     {
                         //Perform player moving
@@ -3134,7 +3159,8 @@ namespace PRoConEvents
                             movedPlayer = false;
                             if (this.RUMoveQueue.Count > 0)
                             {
-                                if (this.USPlayerCount < maxPlayerCount)
+                                //Disable queue for now
+                                if (this.USPlayerCount < maxPlayerCount || true)
                                 {
                                     CPlayerInfo player = this.RUMoveQueue.Dequeue();
                                     //AdKat_Player dicPlayer = null;
@@ -3154,7 +3180,8 @@ namespace PRoConEvents
                             }
                             if (this.USMoveQueue.Count > 0)
                             {
-                                if (this.RUPlayerCount < maxPlayerCount)
+                                //Disable queue for now
+                                if (this.RUPlayerCount < maxPlayerCount || true)
                                 {
                                     CPlayerInfo player = this.USMoveQueue.Dequeue();
                                     //AdKat_Player dicPlayer = null;
@@ -4588,35 +4615,42 @@ namespace PRoConEvents
         public Boolean handleRoundReport(AdKat_Record record)
         {
             Boolean acted = false;
-            lock (reportsMutex)
+            try
             {
-                //report ID will be housed in target_name
-                if (this.round_reports.ContainsKey(record.target_name))
+                lock (reportsMutex)
                 {
-                    //Get the reported record
-                    AdKat_Record reportedRecord = this.round_reports[record.target_name];
-                    //Remove it from the reports for this round
-                    this.round_reports.Remove(record.target_name);
-                    //Update it in the database
-                    reportedRecord.command_action = AdKat_CommandType.ConfirmReport;
-                    this.updateRecord(reportedRecord);
-                    //Get target information
-                    record.target_name = reportedRecord.target_name;
-                    record.target_player = reportedRecord.target_player;
-                    //Update record message if needed
-                    //attempt to handle via pre-message ID
-                    //record.record_message = this.getPreMessage(record.record_message, this.requirePreMessageUse);
-                    this.DebugWrite("MESS: " + record.record_message, 5);
-                    if (record.record_message == null || record.record_message.Length < this.requiredReasonLength)
+                    //report ID will be housed in target_name
+                    if (this.round_reports.ContainsKey(record.target_name))
                     {
-                        record.record_message = reportedRecord.record_message;
+                        //Get the reported record
+                        AdKat_Record reportedRecord = this.round_reports[record.target_name];
+                        //Remove it from the reports for this round
+                        this.round_reports.Remove(record.target_name);
+                        //Update it in the database
+                        reportedRecord.command_action = AdKat_CommandType.ConfirmReport;
+                        this.updateRecord(reportedRecord);
+                        //Get target information
+                        record.target_name = reportedRecord.target_name;
+                        record.target_player = reportedRecord.target_player;
+                        //Update record message if needed
+                        //attempt to handle via pre-message ID
+                        //record.record_message = this.getPreMessage(record.record_message, this.requirePreMessageUse);
+                        this.DebugWrite("MESS: " + record.record_message, 5);
+                        if (record.record_message == null || record.record_message.Length < this.requiredReasonLength)
+                        {
+                            record.record_message = reportedRecord.record_message;
+                        }
+                        //Inform the reporter that they helped the admins
+                        this.sendMessageToSource(reportedRecord, "Your report has been acted on. Thank you.");
+                        //Queue for processing right away
+                        this.queueRecordForProcessing(record);
+                        acted = true;
                     }
-                    //Inform the reporter that they helped the admins
-                    this.sendMessageToSource(reportedRecord, "Your report has been acted on. Thank you.");
-                    //Let the admin confirm the action before it is sent
-                    this.confirmActionWithSource(record);
-                    acted = true;
                 }
+            }
+            catch (Exception e)
+            {
+                this.ConsoleException(e.ToString());
             }
             return acted;
         }
@@ -7241,7 +7275,7 @@ namespace PRoConEvents
                         }
                         if (!started)
                         {
-                            this.ConsoleException("No data to fetch ban with, this should never happen.");
+                            this.ConsoleException("No data to fetch ban with. This should never happen.");
                             return null;
                         }
                         query += ")";
