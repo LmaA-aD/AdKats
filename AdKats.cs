@@ -60,7 +60,7 @@ namespace PRoConEvents
     {
         #region Variables
         //Current version of the plugin
-        string plugin_version = "3.4.9.3";
+        string plugin_version = "3.4.9.2";
         //When slowmo is enabled, there will be a 1 second pause between each print to console
         //This will slow the program as a whole whenever the console is printed to
         Boolean slowmo = false;
