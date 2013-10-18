@@ -60,7 +60,7 @@ namespace PRoConEvents
     {
         #region Variables
         //Current version of the plugin
-        string plugin_version = "3.4.9.2";
+        string plugin_version = "3.4.9.3";
         //When slowmo is enabled, there will be a 1 second pause between each print to console
         //This will slow the program as a whole whenever the console is printed to
         Boolean slowmo = false;
@@ -3794,8 +3794,8 @@ namespace PRoConEvents
                                     //Get the percentage over normal
                                     double percDiff = (weaponStat.dps - weapon.damage_max) / weaponStat.dps;
 
-                                    //40% higher than normal will ban
-                                    if (percDiff > .40)
+                                    //50% higher than normal will ban
+                                    if (percDiff > .50)
                                     {
                                         if (percDiff > actedPerc)
                                         {
@@ -3879,8 +3879,8 @@ namespace PRoConEvents
                             if (weaponStat.kills > 100)
                             {
                                 //Check for aimbot hack
-                                //No automatic weapon should have > 50% headshot/kill ratio
-                                if (weaponStat.hskr > 0.50)
+                                //No automatic weapon should have > 70% headshot/kill ratio
+                                if (weaponStat.hskr > 0.70)
                                 {
                                     if (weaponStat.hskr > actedHskr)
                                     {
