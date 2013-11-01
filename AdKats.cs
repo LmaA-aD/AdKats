@@ -58,7 +58,7 @@ namespace PRoConEvents
     {
         #region Variables
         //Current version of the plugin
-        private string plugin_version = "3.5.1.6";
+        private string plugin_version = "3.5.1.7";
         private DateTime startTime = DateTime.Now;
         //When slowmo is enabled, there will be a 1 second pause between each print to console
         //This will slow the program as a whole whenever the console is printed to
@@ -13634,6 +13634,12 @@ namespace PRoConEvents
             {
                 try
                 {
+                    //If the finalizer is still alive, inform the user and disable
+                    if (this.serverCrashHandlingThread != null && this.serverCrashHandlingThread.IsAlive)
+                    {
+                        ConsoleError("Tried to enable a crash handler while one was still active.");
+                        return;
+                    }
                     //Create a new thread to handle the disconnect orchestration
                     this.serverCrashHandlingThread = new Thread(new ThreadStart(delegate()
                     {
@@ -13642,13 +13648,16 @@ namespace PRoConEvents
                             this.ConsoleError("starting crash handler");
                             //Wait for 30 seconds to say this
                             Thread.Sleep(30000);
-                            this.adminSay("Round will end automatically after ~10 minutes to counter DICE server crash");
-                            this.ConsoleError("Round will end automatically after ~10 minutes to counter DICE server crash");
-                            //Wait ~8 minutes to say this
-                            Thread.Sleep(500000);
+                            this.adminSay("Round will end automatically after ~7 minutes to counter DICE server crash");
+                            this.adminYell("Round will end automatically after ~7 minutes to counter DICE server crash");
+                            this.ConsoleError("Round will end automatically after ~7 minutes to counter DICE server crash");
+                            //Wait ~6 minutes to say this
+                            Thread.Sleep(360000);
                             this.adminSay("Round ends in 30 seconds to prevent server crash. (Current winning team will win)");
+                            this.adminYell("Round ends in 30 seconds to prevent server crash. (Current winning team will win)");
                             this.ConsoleError("Round ends in 30 seconds to prevent server crash. (Current winning team will win)");
-                            for (int i = 30; i > 0; i--)
+                            Thread.Sleep(20000);
+                            for (int i = 10; i > 0; i--)
                             {
                                 this.adminSay("Round ends in..." + i);
                                 this.ConsoleError("Round ends in..." + i);
