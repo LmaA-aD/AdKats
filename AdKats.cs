@@ -3107,6 +3107,7 @@ namespace PRoConEvents
                             //Inform the admins of disconnect
                             if (straglerCount > (dicCount / 2))
                             {
+                                this.serverCrashed = true;
                                 this.startTime = DateTime.Now;
 
                                 //Create the report record
@@ -13627,10 +13628,11 @@ namespace PRoConEvents
             }
         }
 
+        public Boolean serverCrashed = false;
         public void counterServerCrash()
         {
             //Only handle these errors if all threads are already functioning normally
-            if (this.threadsReady && this.isADK)
+            if (this.isEnabled && this.threadsReady && this.isADK)
             {
                 try
                 {
@@ -13640,27 +13642,56 @@ namespace PRoConEvents
                         ConsoleError("Tried to enable a crash handler while one was still active.");
                         return;
                     }
+                    if (!this.isEnabled || !this.threadsReady)
+                    {
+                        return;
+                    }
                     //Create a new thread to handle the disconnect orchestration
                     this.serverCrashHandlingThread = new Thread(new ThreadStart(delegate()
                     {
                         try
                         {
                             this.ConsoleError("starting crash handler");
-                            //Wait for 30 seconds to say this
-                            Thread.Sleep(30000);
-                            this.adminSay("Round will end automatically after ~7 minutes to counter DICE server crash");
-                            this.adminYell("Round will end automatically after ~7 minutes to counter DICE server crash");
-                            this.ConsoleError("Round will end automatically after ~7 minutes to counter DICE server crash");
-                            //Wait ~6 minutes to say this
-                            Thread.Sleep(360000);
-                            this.adminSay("Round ends in 30 seconds to prevent server crash. (Current winning team will win)");
-                            this.adminYell("Round ends in 30 seconds to prevent server crash. (Current winning team will win)");
-                            this.ConsoleError("Round ends in 30 seconds to prevent server crash. (Current winning team will win)");
-                            Thread.Sleep(20000);
-                            for (int i = 10; i > 0; i--)
+                            int roundTimeSeconds = 7 * 60;
+                            for (int timeRemaining = roundTimeSeconds; timeRemaining > 0; timeRemaining--)
                             {
-                                this.adminSay("Round ends in..." + i);
-                                this.ConsoleError("Round ends in..." + i);
+                                if (this.serverCrashed)
+                                {
+                                    this.ConsoleError("Server crashed, exiting round timer.");
+                                    Thread.Sleep(2000);
+                                    this.serverCrashed = false;
+                                    return;
+                                }
+                                if (timeRemaining == 6 * 60)
+                                {
+                                    this.adminSay("Round will end automatically in ~6 minutes so players keep their points/unlocks");
+                                    this.adminYell("Round will end automatically in ~6 minutes so players keep their points/unlocks");
+                                    this.ConsoleError("Round will end automatically in ~6 minutes so players keep their points/unlocks");
+                                }
+                                else if (timeRemaining == 3 * 60)
+                                {
+                                    this.adminSay("Round will end automatically in ~3 minutes so players keep their points/unlocks");
+                                    this.adminYell("Round will end automatically in ~3 minutes so players keep their points/unlocks");
+                                    this.ConsoleError("Round will end automatically in ~3 minutes so players keep their points/unlocks");
+                                }
+                                else if (timeRemaining == 30)
+                                {
+                                    this.adminSay("Round ends in 30 seconds so players keep their points/unlocks (Current winning team will win)");
+                                    this.adminYell("Round ends in 30 seconds so players keep their points/unlocks. (Current winning team will win)");
+                                    this.ConsoleError("Round ends in 30 seconds so players keep their points/unlocks. (Current winning team will win)");
+                                }
+                                else if (timeRemaining == 20)
+                                {
+                                    this.adminSay("Round ends in 20 seconds so players keep their points/unlocks (Current winning team will win)");
+                                    this.adminYell("Round ends in 20 seconds so players keep their points/unlocks. (Current winning team will win)");
+                                    this.ConsoleError("Round ends in 20 seconds so players keep their points/unlocks. (Current winning team will win)");
+                                }
+                                else if (timeRemaining <= 10)
+                                {
+                                    this.adminSay("..." + timeRemaining);
+                                    this.ConsoleError("Round ends in..." + timeRemaining);
+                                }
+                                //Sleep for 1 second
                                 Thread.Sleep(1000);
                             }
                             if (this.USTicketCount < this.RUTicketCount)
