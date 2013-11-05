@@ -58,7 +58,7 @@ namespace PRoConEvents
     {
         #region Variables
         //Current version of the plugin
-        private string plugin_version = "3.5.1.7";
+        private string plugin_version = "3.5.1.8";
         private DateTime startTime = DateTime.Now;
         //When slowmo is enabled, there will be a 1 second pause between each print to console
         //This will slow the program as a whole whenever the console is printed to
@@ -204,6 +204,11 @@ namespace PRoConEvents
         private DateTime lastDBSettingFetch = DateTime.Now;
         private int dbSettingFetchFrequency = 300;
 
+        //Round Settings
+        private Boolean useRoundTimer = false;
+        private Boolean roundEnded = false;
+        private double roundTimeMinutes = 30;
+
         //ADK Settings
         //This will automatically change to true on ADK servers
         private Boolean isADK = false;
@@ -217,6 +222,10 @@ namespace PRoConEvents
         private Boolean useGrenadeCookCatcher = false;
         //Hacker Checker
         private Boolean useHackerChecker = false;
+        private string[] hackerCheckerWhitelist = 
+        {
+            "ColColonCleaner"
+        };
         private Boolean useDPSChecker = false;
         private double DPSTriggerLevel = 100.0;
         private Boolean useHSKChecker = false;
@@ -407,7 +416,7 @@ namespace PRoConEvents
         private Thread activator;
         private Thread finalizer;
         private Thread disconnectHandlingThread;
-        private Thread serverCrashHandlingThread;
+        private Thread roundTimerThread;
         //Mutexes
         public Object playersMutex = new Object();
         public Object banListMutex = new Object();
@@ -999,6 +1008,11 @@ namespace PRoConEvents
                     lstReturn.Add(new CPluginVariable("X99. Experimental|Use Experimental Tools", typeof(Boolean), this.useExperimentalTools));
                     if (this.useExperimentalTools)
                     {
+                        lstReturn.Add(new CPluginVariable("X99. Experimental|Round Timer: Enable", typeof(Boolean), this.useRoundTimer));
+                        if (this.useRoundTimer)
+                        {
+                            lstReturn.Add(new CPluginVariable("X99. Experimental|Round Timer: Round Duration Minutes", typeof(double), this.roundTimeMinutes));
+                        }
                         lstReturn.Add(new CPluginVariable("X99. Experimental|Use NO EXPLOSIVES Limiter", typeof(Boolean), this.useNoExplosivesLimit));
                         if (this.useNoExplosivesLimit)
                         {
@@ -1008,6 +1022,7 @@ namespace PRoConEvents
                         lstReturn.Add(new CPluginVariable("X99. Experimental|HackerChecker: Enable", typeof(Boolean), this.useHackerChecker));
                         if (this.useHackerChecker)
                         {
+                            lstReturn.Add(new CPluginVariable("X99. Experimental|HackerChecker: Whitelist", typeof(string[]), this.hackerCheckerWhitelist));
                             lstReturn.Add(new CPluginVariable("X99. Experimental|HackerChecker: DPS Checker: Enable", typeof(Boolean), this.useDPSChecker));
                             if (this.useDPSChecker)
                             {
@@ -1224,6 +1239,41 @@ namespace PRoConEvents
                         this.queueSettingForUpload(new CPluginVariable(@"Use HSK Checker", typeof(Boolean), this.useHSKChecker));
                     }
                 }
+                else if (Regex.Match(strVariable, @"Round Timer: Enable").Success)
+                {
+                    Boolean useTimer = Boolean.Parse(strValue);
+                    if (useTimer != this.useRoundTimer)
+                    {
+                        this.useRoundTimer = useTimer;
+                        if (this.useRoundTimer)
+                        {
+                            if (this.threadsReady)
+                            {
+                                this.ConsoleWarn("Internal Round Timer activated, will enable on next round.");
+                            }
+                        }
+                        else
+                        {
+                            this.ConsoleWarn("Internal Round Timer disabled.");
+                        }
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Round Timer: Enable", typeof(Boolean), this.useRoundTimer));
+                    }
+                }
+                else if (Regex.Match(strVariable, @"Round Timer: Round Duration Minutes").Success)
+                {
+                    double duration = Double.Parse(strValue);
+                    if (this.roundTimeMinutes != duration)
+                    {
+                        if (duration <= 0)
+                        {
+                            duration = 30.0;
+                        }
+                        this.roundTimeMinutes = duration;
+                        //Once setting has been changed, upload the change to database
+                        this.queueSettingForUpload(new CPluginVariable(@"Round Timer: Round Duration Minutes", typeof(double), this.roundTimeMinutes));
+                    }
+                }
                 else if (Regex.Match(strVariable, @"Use NO EXPLOSIVES Limiter").Success)
                 {
                     Boolean useLimiter = Boolean.Parse(strValue);
@@ -1302,6 +1352,12 @@ namespace PRoConEvents
                         //Once setting has been changed, upload the change to database
                         this.queueSettingForUpload(new CPluginVariable(@"Use Hacker Checker", typeof(Boolean), this.useHackerChecker));
                     }
+                }
+                else if (Regex.Match(strVariable, @"HackerChecker: Whitelist").Success)
+                {
+                    this.hackerCheckerWhitelist = CPluginVariable.DecodeStringArray(strValue);
+                    //Once setting has been changed, upload the change to database
+                    this.queueSettingForUpload(new CPluginVariable(@"Use Hacker Checker", typeof(Boolean), this.useHackerChecker));
                 }
                 else if (Regex.Match(strVariable, @"DPS Checker: Enable").Success)
                 {
@@ -2727,7 +2783,26 @@ namespace PRoConEvents
                     "OnBanListClear",
                     "OnBanListSave",
                     "OnBanListLoad",
-                    "OnBanList");
+                    "OnBanList",
+                    "OnEndRound",
+                    "OnSpectatorListLoad",
+                    "OnSpectatorListSave",
+                    "OnSpectatorListPlayerAdded",
+                    "OnSpectatorListPlayerRemoved",
+                    "OnSpectatorListCleared",
+                    "OnSpectatorListList",
+                    "OnGameAdminLoad",
+                    "OnGameAdminSave",
+                    "OnGameAdminPlayerAdded",
+                    "OnGameAdminPlayerRemoved",
+                    "OnGameAdminCleared",
+                    "OnGameAdminList",
+                    "OnFairFight",
+                    "OnIsHitIndicator",
+                    "OnCommander",
+                    "OnForceReloadWholeMags",
+                    "OnServerType",
+                    "OnMaxSpectators");
             }
             catch (Exception e)
             {
@@ -2735,6 +2810,27 @@ namespace PRoConEvents
             }
             this.DebugWrite("Exiting OnPluginLoaded", 7);
         }
+
+        public override void OnFairFight(bool isEnabled) { }
+        public override void OnIsHitIndicator(bool isEnabled) { }
+        public override void OnCommander(bool isEnabled) { }
+        public override void OnForceReloadWholeMags(bool isEnabled) { }
+        public override void OnServerType(string value) { }
+        public override void OnMaxSpectators(int limit) { }
+
+        public override void OnSpectatorListLoad() { }
+        public override void OnSpectatorListSave() { }
+        public override void OnSpectatorListPlayerAdded(string soldierName) { }
+        public override void OnSpectatorListPlayerRemoved(string soldierName) { }
+        public override void OnSpectatorListCleared() { }
+        public override void OnSpectatorListList(List<string> soldierNames) { }
+
+        public override void OnGameAdminLoad() { }
+        public override void OnGameAdminSave() { }
+        public override void OnGameAdminPlayerAdded(string soldierName) { }
+        public override void OnGameAdminPlayerRemoved(string soldierName) { }
+        public override void OnGameAdminCleared() { }
+        public override void OnGameAdminList(List<string> soldierNames) { }
 
         //DONE
         public void OnPluginEnable()
@@ -3107,7 +3203,6 @@ namespace PRoConEvents
                             //Inform the admins of disconnect
                             if (straglerCount > (dicCount / 2))
                             {
-                                this.serverCrashed = true;
                                 this.startTime = DateTime.Now;
 
                                 //Create the report record
@@ -3122,6 +3217,14 @@ namespace PRoConEvents
                                 //Process the record
                                 this.queueRecordForProcessing(record);
                                 this.ConsoleError(record.record_message);
+
+                                //Set round ended
+                                if (!this.roundEnded)
+                                {
+                                    this.roundEnded = true;
+                                    Thread.Sleep(3000);
+                                    this.roundEnded = false;
+                                }
                             }
                         }
 
@@ -3294,7 +3397,11 @@ namespace PRoConEvents
                             this.adminAssistantCache[assistantName] = false;
                         }
                     }
-                    this.counterServerCrash();
+                    //Enable round timer
+                    if (this.useRoundTimer)
+                    {
+                        this.startRoundTimer();
+                    }
                 }
             }
             catch (Exception e)
@@ -3302,6 +3409,26 @@ namespace PRoConEvents
                 this.HandleException(new AdKat_Exception("Error while handling level load.", e));
             }
             this.DebugWrite("Exiting OnLevelLoaded", 7);
+        }
+
+        //Round ended stuff
+        public override void OnEndRound(int iWinningTeamID)
+        {
+            if (!this.roundEnded)
+            {
+                this.roundEnded = true;
+                Thread.Sleep(3000);
+                this.roundEnded = false;
+            } 
+        }
+        public override void OnRunNextLevel()
+        {
+            if (!this.roundEnded)
+            {
+                this.roundEnded = true;
+                Thread.Sleep(3000);
+                this.roundEnded = false;
+            }
         }
 
         //Move delayed players when they are killed
@@ -4117,22 +4244,47 @@ namespace PRoConEvents
 
                                 if (this.useHackerChecker)
                                 {
-                                    Boolean acted = false;
-                                    if (this.useDPSChecker)
+                                    Boolean protect = false;
+                                    foreach (String whitelistedValue in this.hackerCheckerWhitelist)
                                     {
-                                        acted = this.damageHackCheck(aPlayer, false);
+                                        if (aPlayer.player_name.Equals(whitelistedValue))
+                                        {
+                                            this.DebugWrite(aPlayer.player_name + " protected from hacker checker by name.", 2);
+                                            protect = true;
+                                            break;
+                                        }
+                                        if (aPlayer.player_guid.Equals(whitelistedValue))
+                                        {
+                                            this.DebugWrite(aPlayer.player_name + " protected from hacker checker by guid.", 2);
+                                            protect = true;
+                                            break;
+                                        }
+                                        if (aPlayer.player_ip.Equals(whitelistedValue))
+                                        {
+                                            this.DebugWrite(aPlayer.player_name + " protected from hacker checker by IP.", 2);
+                                            protect = true;
+                                            break;
+                                        }
                                     }
-                                    if (this.useHSKChecker && !acted)
+                                    if (!protect)
                                     {
-                                        acted = this.aimbotHackCheck(aPlayer, false);
-                                    }
-                                    if (acted)
-                                    {
-                                        this.DebugWrite(aPlayer.player_name + " banned for hacking.", 1);
-                                    }
-                                    else
-                                    {
-                                        this.DebugWrite(aPlayer.player_name + " is clean.", 5);
+                                        Boolean acted = false;
+                                        if (this.useDPSChecker)
+                                        {
+                                            acted = this.damageHackCheck(aPlayer, false);
+                                        }
+                                        if (this.useHSKChecker && !acted)
+                                        {
+                                            acted = this.aimbotHackCheck(aPlayer, false);
+                                        }
+                                        if (acted)
+                                        {
+                                            this.DebugWrite(aPlayer.player_name + " banned for hacking.", 1);
+                                        }
+                                        else
+                                        {
+                                            this.DebugWrite(aPlayer.player_name + " is clean.", 5);
+                                        }
                                     }
                                 }
                                 else
@@ -4166,24 +4318,50 @@ namespace PRoConEvents
                             if (this.useHackerChecker)
                             {
                                 this.DebugWrite("HackerChecker running on " + aPlayer.player_name, 5);
-                                Boolean acted = false;
-                                if (this.useDPSChecker)
+
+                                Boolean protect = false;
+                                foreach (String whitelistedValue in this.hackerCheckerWhitelist)
                                 {
-                                    this.DebugWrite("Preparing to DPS check " + aPlayer.player_name, 5);
-                                    acted = this.damageHackCheck(aPlayer, false);
+                                    if (aPlayer.player_name.Equals(whitelistedValue))
+                                    {
+                                        this.DebugWrite(aPlayer.player_name + " protected from hacker checker by name.", 2);
+                                        protect = true;
+                                        break;
+                                    }
+                                    if (aPlayer.player_guid.Equals(whitelistedValue))
+                                    {
+                                        this.DebugWrite(aPlayer.player_name + " protected from hacker checker by guid.", 2);
+                                        protect = true;
+                                        break;
+                                    }
+                                    if (aPlayer.player_ip.Equals(whitelistedValue))
+                                    {
+                                        this.DebugWrite(aPlayer.player_name + " protected from hacker checker by IP.", 2);
+                                        protect = true;
+                                        break;
+                                    }
                                 }
-                                if (this.useHSKChecker && !acted)
+                                if (!protect)
                                 {
-                                    this.DebugWrite("Preparing to HSK check " + aPlayer.player_name, 5);
-                                    acted = this.aimbotHackCheck(aPlayer, false);
-                                }
-                                if (acted)
-                                {
-                                    this.DebugWrite(aPlayer.player_name + " banned for hacking.", 1);
-                                }
-                                else
-                                {
-                                    this.DebugWrite(aPlayer.player_name + " is clean.", 5);
+                                    Boolean acted = false;
+                                    if (this.useDPSChecker)
+                                    {
+                                        this.DebugWrite("Preparing to DPS check " + aPlayer.player_name, 5);
+                                        acted = this.damageHackCheck(aPlayer, false);
+                                    }
+                                    if (this.useHSKChecker && !acted)
+                                    {
+                                        this.DebugWrite("Preparing to HSK check " + aPlayer.player_name, 5);
+                                        acted = this.aimbotHackCheck(aPlayer, false);
+                                    }
+                                    if (acted)
+                                    {
+                                        this.DebugWrite(aPlayer.player_name + " banned for hacking.", 1);
+                                    }
+                                    else
+                                    {
+                                        this.DebugWrite(aPlayer.player_name + " is clean.", 5);
+                                    }
                                 }
                             }
                             else
@@ -13495,7 +13673,17 @@ namespace PRoConEvents
         {
             ConsoleWrite(msg, ConsoleMessageType.Success);
         }
-        
+
+        public void DebugWrite(string msg, int level)
+        {
+            if (debugLevel >= level)
+            {
+                ConsoleWrite(msg, ConsoleMessageType.Normal);
+            }
+        }
+
+        #endregion
+
         public AdKat_Exception HandleException(AdKat_Exception aException)
         {
             //If it's null, just return
@@ -13507,7 +13695,7 @@ namespace PRoConEvents
             //Always write the exception to console
             this.ConsoleWrite(aException.ToString(), ConsoleMessageType.Exception);
             //Check if the exception attributes to the database
-            if (aException.internalException.GetType() == typeof(System.TimeoutException) || 
+            if (aException.internalException.GetType() == typeof(System.TimeoutException) ||
                 aException.internalException.ToString().Contains("Unable to connect to any of the specified MySQL hosts"))
             {
                 this.HandleDatabaseConnectionInteruption();
@@ -13628,18 +13816,17 @@ namespace PRoConEvents
             }
         }
 
-        public Boolean serverCrashed = false;
-        public void counterServerCrash()
+        public void startRoundTimer()
         {
             //Only handle these errors if all threads are already functioning normally
-            if (this.isEnabled && this.threadsReady && this.isADK)
+            if (this.isEnabled && this.threadsReady)
             {
                 try
                 {
-                    //If the finalizer is still alive, inform the user and disable
-                    if (this.serverCrashHandlingThread != null && this.serverCrashHandlingThread.IsAlive)
+                    //If the thread is still alive, inform the user and return
+                    if (this.roundTimerThread != null && this.roundTimerThread.IsAlive)
                     {
-                        ConsoleError("Tried to enable a crash handler while one was still active.");
+                        ConsoleError("Tried to enable a round timer while one was still active.");
                         return;
                     }
                     if (!this.isEnabled || !this.threadsReady)
@@ -13647,49 +13834,48 @@ namespace PRoConEvents
                         return;
                     }
                     //Create a new thread to handle the disconnect orchestration
-                    this.serverCrashHandlingThread = new Thread(new ThreadStart(delegate()
+                    this.roundTimerThread = new Thread(new ThreadStart(delegate()
                     {
                         try
                         {
-                            this.ConsoleError("starting crash handler");
-                            int roundTimeSeconds = 7 * 60;
-                            for (int timeRemaining = roundTimeSeconds; timeRemaining > 0; timeRemaining--)
+                            this.DebugWrite("starting round timer", 2);
+                            Thread.Sleep(3000);
+                            int roundTimeSeconds = (int)(this.roundTimeMinutes * 60);
+                            for (int secondsRemaining = roundTimeSeconds; secondsRemaining > 0; secondsRemaining--)
                             {
-                                if (this.serverCrashed)
+                                if (this.roundEnded || !this.isEnabled || !this.threadsReady)
                                 {
-                                    this.ConsoleError("Server crashed, exiting round timer.");
-                                    Thread.Sleep(2000);
-                                    this.serverCrashed = false;
+                                    this.ConsoleError("Exiting round timer.");
                                     return;
                                 }
-                                if (timeRemaining == 6 * 60)
+                                if (secondsRemaining == roundTimeSeconds - 60 && secondsRemaining > 60)
                                 {
-                                    this.adminSay("Round will end automatically in ~6 minutes so players keep their points/unlocks");
-                                    this.adminYell("Round will end automatically in ~6 minutes so players keep their points/unlocks");
-                                    this.ConsoleError("Round will end automatically in ~6 minutes so players keep their points/unlocks");
+                                    this.adminSay("Round will end automatically in ~" + ((int)secondsRemaining / 60) + " minutes.");
+                                    this.adminYell("Round will end automatically in ~" + ((int)secondsRemaining / 60) + " minutes.");
+                                    this.DebugWrite("Round will end automatically in ~" + ((int)secondsRemaining / 60) + " minutes.", 3);
                                 }
-                                else if (timeRemaining == 3 * 60)
+                                else if (secondsRemaining == ((int)roundTimeSeconds / 2) && secondsRemaining > 60)
                                 {
-                                    this.adminSay("Round will end automatically in ~3 minutes so players keep their points/unlocks");
-                                    this.adminYell("Round will end automatically in ~3 minutes so players keep their points/unlocks");
-                                    this.ConsoleError("Round will end automatically in ~3 minutes so players keep their points/unlocks");
+                                    this.adminSay("Round will end automatically in ~" + ((int)secondsRemaining / 60) + " minutes.");
+                                    this.adminYell("Round will end automatically in ~" + ((int)secondsRemaining / 60) + " minutes.");
+                                    this.DebugWrite("Round will end automatically in ~" + ((int)secondsRemaining / 60) + " minutes.", 3);
                                 }
-                                else if (timeRemaining == 30)
+                                else if (secondsRemaining == 30)
                                 {
-                                    this.adminSay("Round ends in 30 seconds so players keep their points/unlocks (Current winning team will win)");
-                                    this.adminYell("Round ends in 30 seconds so players keep their points/unlocks. (Current winning team will win)");
-                                    this.ConsoleError("Round ends in 30 seconds so players keep their points/unlocks. (Current winning team will win)");
+                                    this.adminSay("Round ends in 30 seconds. (Current winning team will win)");
+                                    this.adminYell("Round ends in 30 seconds. (Current winning team will win)");
+                                    this.DebugWrite("Round ends in 30 seconds. (Current winning team will win)", 3);
                                 }
-                                else if (timeRemaining == 20)
+                                else if (secondsRemaining == 20)
                                 {
-                                    this.adminSay("Round ends in 20 seconds so players keep their points/unlocks (Current winning team will win)");
-                                    this.adminYell("Round ends in 20 seconds so players keep their points/unlocks. (Current winning team will win)");
-                                    this.ConsoleError("Round ends in 20 seconds so players keep their points/unlocks. (Current winning team will win)");
+                                    this.adminSay("Round ends in 20 seconds. (Current winning team will win)");
+                                    this.adminYell("Round ends in 20 seconds. (Current winning team will win)");
+                                    this.DebugWrite("Round ends in 20 seconds. (Current winning team will win)", 3);
                                 }
-                                else if (timeRemaining <= 10)
+                                else if (secondsRemaining <= 10)
                                 {
-                                    this.adminSay("..." + timeRemaining);
-                                    this.ConsoleError("Round ends in..." + timeRemaining);
+                                    this.adminSay("Round ends in..." + secondsRemaining);
+                                    this.DebugWrite("Round ends in..." + secondsRemaining, 3);
                                 }
                                 //Sleep for 1 second
                                 Thread.Sleep(1000);
@@ -13697,43 +13883,29 @@ namespace PRoConEvents
                             if (this.USTicketCount < this.RUTicketCount)
                             {
                                 this.ExecuteCommand("procon.protected.send", "mapList.endRound", AdKats.RUTeamID + "");
-                                this.ConsoleError("ended " + AdKats.RUTeamID);
+                                this.DebugWrite("Ended Round (" + AdKats.RUTeamID + ")", 4);
                             }
                             else
                             {
                                 this.ExecuteCommand("procon.protected.send", "mapList.endRound", AdKats.USTeamID + "");
-                                this.ConsoleError("ended " + AdKats.USTeamID);
+                                this.DebugWrite("Ended Round (" + AdKats.USTeamID + ")", 4);
                             }
                         }
                         catch (Exception e)
                         {
-                            this.ConsoleError("Error running server crash handler.");
+                            this.HandleException(new AdKat_Exception("Error in round timer thread.", e));
                         }
-                        this.ConsoleSuccess("Exiting server crash Handler.");
+                        this.DebugWrite("Exiting round timer.", 2);
                     }));
 
                     //Start the thread
-                    this.serverCrashHandlingThread.Start();
+                    this.roundTimerThread.Start();
                 }
                 catch (Exception e)
                 {
-                    this.ConsoleError("Error while preventing server crash.");
+                    this.HandleException(new AdKat_Exception("Error starting round timer thread.", e));
                 }
             }
-            else
-            {
-                this.DebugWrite("Attempted to handle server crash when threads not ready or not ADK.", 2);
-            }
         }
-
-        public void DebugWrite(string msg, int level)
-        {
-            if (debugLevel >= level)
-            {
-                ConsoleWrite(msg, ConsoleMessageType.Normal);
-            }
-        }
-
-        #endregion
     } // end AdKats
 } // end namespace PRoConEvents
