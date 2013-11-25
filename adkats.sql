@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS `adkats_commands` (
   `command_id` int(11) unsigned NOT NULL,
   `command_active` enum('Active','Disabled','Invisible') COLLATE utf8_unicode_ci NOT NULL DEFAULT 'Active',
   `command_key` varchar(100) COLLATE utf8_unicode_ci NOT NULL,
+  `command_logging` ENUM('Log', 'Ignore') COLLATE utf8_unicode_ci NOT NULL DEFAULT 'Log',
   `command_name` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
   `command_text` varchar(100) COLLATE utf8_unicode_ci NOT NULL,
   PRIMARY KEY (`command_id`),
