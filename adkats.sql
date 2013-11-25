@@ -318,6 +318,7 @@ CREATE TABLE IF NOT EXISTS `adkats_usersoldiers` (
   KEY `adkats_usersoldiers_fk_player` (`player_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci COMMENT='AdKats - Connection of users to soldiers';
 
+SET FOREIGN_KEY_CHECKS=1;
 
 ALTER TABLE `adkats_bans`
   ADD CONSTRAINT `adkats_bans_fk_latest_record_id` FOREIGN KEY (`latest_record_id`) REFERENCES `adkats_records_main` (`record_id`) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -355,4 +356,3 @@ ALTER TABLE `adkats_users`
 ALTER TABLE `adkats_usersoldiers`
   ADD CONSTRAINT `adkats_usersoldiers_fk_player` FOREIGN KEY (`player_id`) REFERENCES `tbl_playerdata` (`PlayerID`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `adkats_usersoldiers_fk_user` FOREIGN KEY (`user_id`) REFERENCES `adkats_users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE;
-SET FOREIGN_KEY_CHECKS=1;
