@@ -8,7 +8,7 @@ DROP PROCEDURE IF EXISTS addLogPlayerID //
 CREATE PROCEDURE addLogPlayerID()
 BEGIN
 
--- add logSoldierID column safely
+-- add logPlayerID column safely
 IF NOT EXISTS( (SELECT * FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()
         AND COLUMN_NAME='logPlayerID' AND TABLE_NAME='tbl_chatlog') ) THEN
     ALTER TABLE `tbl_chatlog` ADD COLUMN `logPlayerID` INT(10) UNSIGNED DEFAULT NULL AFTER `logSubset`;
