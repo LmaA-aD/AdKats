@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS `adkats_commands` (
   `command_id` int(11) unsigned NOT NULL,
   `command_active` enum('Active','Disabled','Invisible') COLLATE utf8_unicode_ci NOT NULL DEFAULT 'Active',
   `command_key` varchar(100) COLLATE utf8_unicode_ci NOT NULL,
-  `command_logging` ENUM('Log', 'Ignore') COLLATE utf8_unicode_ci NOT NULL DEFAULT 'Log',
+  `command_logging` ENUM('Log','Mandatory','Ignore') CHARACTER SET 'utf8' COLLATE 'utf8_unicode_ci' NOT NULL DEFAULT 'Log',
   `command_name` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
   `command_text` varchar(100) COLLATE utf8_unicode_ci NOT NULL,
   PRIMARY KEY (`command_id`),
@@ -78,42 +78,42 @@ CREATE TABLE IF NOT EXISTS `adkats_commands` (
   UNIQUE KEY `command_text_UNIQUE` (`command_text`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci COMMENT='AdKats - Command List';
 
-INSERT INTO `adkats_commands` VALUES(1, 'Active', 'command_confirm', 'Confirm Command', 'yes');
-INSERT INTO `adkats_commands` VALUES(2, 'Active', 'command_cancel', 'Cancel Command', 'no');
-INSERT INTO `adkats_commands` VALUES(3, 'Active', 'player_kill', 'Kill Player', 'kill');
-INSERT INTO `adkats_commands` VALUES(4, 'Invisible', 'player_kill_lowpop', 'Kill Player (Low Population)', 'lowpopkill');
-INSERT INTO `adkats_commands` VALUES(5, 'Invisible', 'player_kill_repeat', 'Kill Player (Repeat Kill)', 'repeatkill');
-INSERT INTO `adkats_commands` VALUES(6, 'Active', 'player_kick', 'Kick Player', 'kick');
-INSERT INTO `adkats_commands` VALUES(7, 'Active', 'player_tban', 'Temp-Ban Player', 'tban');
-INSERT INTO `adkats_commands` VALUES(8, 'Active', 'player_ban', 'Permaban Player', 'ban');
-INSERT INTO `adkats_commands` VALUES(9, 'Active', 'player_punish', 'Punish Player', 'punish');
-INSERT INTO `adkats_commands` VALUES(10, 'Active', 'player_forgive', 'Forgive Player', 'forgive');
-INSERT INTO `adkats_commands` VALUES(11, 'Active', 'player_mute', 'Mute Player', 'mute');
-INSERT INTO `adkats_commands` VALUES(12, 'Active', 'player_join', 'Join Player', 'join');
-INSERT INTO `adkats_commands` VALUES(13, 'Active', 'player_roundwhitelist', 'Round Whitelist Player', 'roundwhitelist');
-INSERT INTO `adkats_commands` VALUES(14, 'Active', 'player_move', 'On-Death Move Player', 'move');
-INSERT INTO `adkats_commands` VALUES(15, 'Active', 'player_fmove', 'Force Move Player', 'fmove');
-INSERT INTO `adkats_commands` VALUES(16, 'Active', 'self_teamswap', 'Teamswap Self', 'moveme');
-INSERT INTO `adkats_commands` VALUES(17, 'Active', 'self_kill', 'Kill Self', 'killme');
-INSERT INTO `adkats_commands` VALUES(18, 'Active', 'player_report', 'Report Player', 'report');
-INSERT INTO `adkats_commands` VALUES(19, 'Invisible', 'player_report_confirm', 'Report Player (Confirmed)', 'confirmreport');
-INSERT INTO `adkats_commands` VALUES(20, 'Active', 'player_calladmin', 'Call Admin on Player', 'admin');
-INSERT INTO `adkats_commands` VALUES(21, 'Active', 'admin_say', 'Admin Say', 'say');
-INSERT INTO `adkats_commands` VALUES(22, 'Active', 'player_say', 'Player Say', 'psay');
-INSERT INTO `adkats_commands` VALUES(23, 'Active', 'admin_yell', 'Admin Yell', 'yell');
-INSERT INTO `adkats_commands` VALUES(24, 'Active', 'player_yell', 'Player Yell', 'pyell');
-INSERT INTO `adkats_commands` VALUES(25, 'Active', 'admin_tell', 'Admin Tell', 'tell');
-INSERT INTO `adkats_commands` VALUES(26, 'Active', 'player_tell', 'Player Tell', 'ptell');
-INSERT INTO `adkats_commands` VALUES(27, 'Active', 'self_whatis', 'What Is', 'whatis');
-INSERT INTO `adkats_commands` VALUES(28, 'Active', 'self_voip', 'VOIP', 'voip');
-INSERT INTO `adkats_commands` VALUES(29, 'Active', 'self_rules', 'Request Rules', 'rules');
-INSERT INTO `adkats_commands` VALUES(30, 'Active', 'round_restart', 'Restart Current Round', 'restart');
-INSERT INTO `adkats_commands` VALUES(31, 'Active', 'round_next', 'Run Next Round', 'nextlevel');
-INSERT INTO `adkats_commands` VALUES(32, 'Active', 'round_end', 'End Current Round', 'endround');
-INSERT INTO `adkats_commands` VALUES(33, 'Active', 'server_nuke', 'Server Nuke', 'nuke');
-INSERT INTO `adkats_commands` VALUES(34, 'Active', 'server_kickall', 'Kick All Guests', 'kickall');
-INSERT INTO `adkats_commands` VALUES(35, 'Invisible', 'adkats_exception', 'Logged Exception', 'logexception');
-INSERT INTO `adkats_commands` VALUES(36, 'Invisible', 'banenforcer_enforce', 'Enforce Active Ban', 'enforceban');
+INSERT INTO `adkats_commands` VALUES(1, 'Active', 'command_confirm', 'Log', 'Confirm Command', 'yes');
+INSERT INTO `adkats_commands` VALUES(2, 'Active', 'command_cancel', 'Log', 'Cancel Command', 'no');
+INSERT INTO `adkats_commands` VALUES(3, 'Active', 'player_kill', 'Log', 'Kill Player', 'kill');
+INSERT INTO `adkats_commands` VALUES(4, 'Invisible', 'player_kill_lowpop', 'Log', 'Kill Player (Low Population)', 'lowpopkill');
+INSERT INTO `adkats_commands` VALUES(5, 'Invisible', 'player_kill_repeat', 'Log', 'Kill Player (Repeat Kill)', 'repeatkill');
+INSERT INTO `adkats_commands` VALUES(6, 'Active', 'player_kick', 'Log', 'Kick Player', 'kick');
+INSERT INTO `adkats_commands` VALUES(7, 'Active', 'player_tban', 'Log', 'Temp-Ban Player', 'tban');
+INSERT INTO `adkats_commands` VALUES(8, 'Active', 'player_ban', 'Log', 'Permaban Player', 'ban');
+INSERT INTO `adkats_commands` VALUES(9, 'Active', 'player_punish', 'Mandatory', 'Punish Player', 'punish');
+INSERT INTO `adkats_commands` VALUES(10, 'Active', 'player_forgive', 'Mandatory', 'Forgive Player', 'forgive');
+INSERT INTO `adkats_commands` VALUES(11, 'Active', 'player_mute', 'Log', 'Mute Player', 'mute');
+INSERT INTO `adkats_commands` VALUES(12, 'Active', 'player_join', 'Log', 'Join Player', 'join');
+INSERT INTO `adkats_commands` VALUES(13, 'Active', 'player_roundwhitelist', 'Log', 'Round Whitelist Player', 'roundwhitelist');
+INSERT INTO `adkats_commands` VALUES(14, 'Active', 'player_move', 'Log', 'On-Death Move Player', 'move');
+INSERT INTO `adkats_commands` VALUES(15, 'Active', 'player_fmove', 'Log', 'Force Move Player', 'fmove');
+INSERT INTO `adkats_commands` VALUES(16, 'Active', 'self_teamswap', 'Log', 'Teamswap Self', 'moveme');
+INSERT INTO `adkats_commands` VALUES(17, 'Active', 'self_kill', 'Log', 'Kill Self', 'killme');
+INSERT INTO `adkats_commands` VALUES(18, 'Active', 'player_report', 'Log', 'Report Player', 'report');
+INSERT INTO `adkats_commands` VALUES(19, 'Invisible', 'player_report_confirm', 'Log', 'Report Player (Confirmed)', 'confirmreport');
+INSERT INTO `adkats_commands` VALUES(20, 'Active', 'player_calladmin', 'Log', 'Call Admin on Player', 'admin');
+INSERT INTO `adkats_commands` VALUES(21, 'Active', 'admin_say', 'Log', 'Admin Say', 'say');
+INSERT INTO `adkats_commands` VALUES(22, 'Active', 'player_say', 'Log', 'Player Say', 'psay');
+INSERT INTO `adkats_commands` VALUES(23, 'Active', 'admin_yell', 'Log', 'Admin Yell', 'yell');
+INSERT INTO `adkats_commands` VALUES(24, 'Active', 'player_yell', 'Log', 'Player Yell', 'pyell');
+INSERT INTO `adkats_commands` VALUES(25, 'Active', 'admin_tell', 'Log', 'Admin Tell', 'tell');
+INSERT INTO `adkats_commands` VALUES(26, 'Active', 'player_tell', 'Log', 'Player Tell', 'ptell');
+INSERT INTO `adkats_commands` VALUES(27, 'Active', 'self_whatis', 'Ignore', 'What Is', 'whatis');
+INSERT INTO `adkats_commands` VALUES(28, 'Active', 'self_voip', 'Ignore', 'VOIP', 'voip');
+INSERT INTO `adkats_commands` VALUES(29, 'Active', 'self_rules', 'Log', 'Request Rules', 'rules');
+INSERT INTO `adkats_commands` VALUES(30, 'Active', 'round_restart', 'Log', 'Restart Current Round', 'restart');
+INSERT INTO `adkats_commands` VALUES(31, 'Active', 'round_next', 'Log', 'Run Next Round', 'nextlevel');
+INSERT INTO `adkats_commands` VALUES(32, 'Active', 'round_end', 'Log', 'End Current Round', 'endround');
+INSERT INTO `adkats_commands` VALUES(33, 'Active', 'server_nuke', 'Log', 'Server Nuke', 'nuke');
+INSERT INTO `adkats_commands` VALUES(34, 'Active', 'server_kickall', 'Log', 'Kick All Guests', 'kickall');
+INSERT INTO `adkats_commands` VALUES(35, 'Invisible', 'adkats_exception', 'Log', 'Logged Exception', 'logexception');
+INSERT INTO `adkats_commands` VALUES(36, 'Invisible', 'banenforcer_enforce', 'Log', 'Enforce Active Ban', 'enforceban');
 
 DROP TABLE IF EXISTS `adkats_infractions_global`;
 CREATE TABLE IF NOT EXISTS `adkats_infractions_global` (
