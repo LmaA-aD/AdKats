@@ -353,7 +353,8 @@ DROP TABLE IF EXISTS `adkats_users`;
 CREATE TABLE IF NOT EXISTS `adkats_users` (
   `user_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `user_name` varchar(100) COLLATE utf8_unicode_ci NOT NULL,
-  `user_email` varchar(255) COLLATE utf8_unicode_ci NOT NULL DEFAULT 'test@gmail.com',
+  `user_email` varchar(255) COLLATE utf8_unicode_ci,
+  `user_phone` varchar(45) COLLATE utf8_unicode_ci,
   `user_role` int(11) unsigned NOT NULL DEFAULT '1',
   PRIMARY KEY (`user_id`),
   KEY `adkats_users_fk_role` (`user_role`)
