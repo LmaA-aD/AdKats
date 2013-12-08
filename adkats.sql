@@ -14,7 +14,7 @@ BEGIN
 -- add logPlayerID column safely
 IF NOT EXISTS( (SELECT * FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()
         AND COLUMN_NAME='logPlayerID' AND TABLE_NAME='tbl_chatlog') ) THEN
-    ALTER TABLE `tbl_chatlog` ADD COLUMN `logPlayerID` INT(10) UNSIGNED DEFAULT NULL AFTER `logSubset`;
+    ALTER TABLE `tbl_chatlog` ADD COLUMN `logPlayerID` INT(10) UNSIGNED DEFAULT NULL;
 	ALTER TABLE `tbl_chatlog` ADD INDEX (`logPlayerID`);
 	ALTER TABLE `tbl_chatlog` ADD CONSTRAINT `tbl_chatlog_ibfk_player_id` FOREIGN KEY (`logPlayerID`) REFERENCES `tbl_playerdata` (`PlayerID`) ON DELETE CASCADE ON UPDATE CASCADE;
 	UPDATE 
