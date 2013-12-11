@@ -1,0 +1,16 @@
+{
+  BF3:[
+    {
+      id:"id",
+      damage_max:100.00,
+      damage_min:0.00
+    }
+  ],
+  BF4:[
+    {
+      id:"id",
+      damage_max:100.00,
+      damage_min:0.00
+    }
+  ]
+}
