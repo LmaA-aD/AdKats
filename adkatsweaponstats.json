@@ -301,6 +301,16 @@
                         "damage_min":18
                 },
                 {
+                        "id":"mtar-21",
+                        "damage_max":25,
+                        "damage_min":18
+                },
+                {
+                        "id":"rpk-74m",
+                        "damage_max":25,
+                        "damage_min":18
+                },
+                {
                         "id":"shorty-12g",
                         "damage_max":100,
                         "damage_min":0
