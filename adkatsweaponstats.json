@@ -319,6 +319,11 @@
                         "id":"mp7",
                         "damage_max":20,
                         "damage_min":11
+                },
+                {
+                        "id":"m60-e4",
+                        "damage_max":34,
+                        "damage_min":25
                 }
         ]
 }
