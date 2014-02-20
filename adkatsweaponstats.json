@@ -311,6 +311,11 @@
                         "damage_min":18
                 },
                 {
+                        "id":"f2000",
+                        "damage_max":25,
+                        "damage_min":18
+                },
+                {
                         "id":"shorty-12g",
                         "damage_max":100,
                         "damage_min":0
