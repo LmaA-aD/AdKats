@@ -259,6 +259,42 @@
   },
   {
     "command_id": 44,
+    "command_key": "player_blacklistdisperse",
+    "target_weight": 0.00,
+    "source_weight": 0.00
+  },
+  {
+    "command_id": 45,
+    "command_key": "player_whitelistbalance",
+    "target_weight": 0.00,
+    "source_weight": 0.00
+  },
+  {
+    "command_id": 46,
+    "command_key": "player_slotreserved",
+    "target_weight": 0.00,
+    "source_weight": 0.00
+  },
+  {
+    "command_id": 47,
+    "command_key": "player_slotspectator",
+    "target_weight": 0.00,
+    "source_weight": 0.00
+  },
+  {
+    "command_id": 48,
+    "command_key": "player_changename",
+    "target_weight": 0.00,
+    "source_weight": 0.00
+  },
+  {
+    "command_id": 49,
+    "command_key": "player_changeip",
+    "target_weight": 0.00,
+    "source_weight": 0.00
+  },
+  {
+    "command_id": 50,
     "command_key": "player_ban_perm_future",
     "target_weight": -50.00,
     "source_weight": 5.00
