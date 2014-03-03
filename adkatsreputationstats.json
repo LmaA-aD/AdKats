@@ -105,6 +105,11 @@
     "source_weight": 1.00
   },
   {
+    "command_typeaction": "18|42",
+    "target_weight": 0.00,
+    "source_weight": -10.00
+  },
+  {
     "command_typeaction": "19|19",
     "target_weight": -5,
     "source_weight": 1.00
@@ -118,6 +123,11 @@
     "command_typeaction": "20|19",
     "target_weight": -5.00,
     "source_weight": 1.00
+  },
+  {
+    "command_typeaction": "20|42",
+    "target_weight": 0.00,
+    "source_weight": -10.00
   },
   {
     "command_typeaction": "21|21",
