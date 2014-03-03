@@ -15,6 +15,11 @@
     "source_weight": 0.25
   },
   {
+    "command_typeaction": "3|5",
+    "target_weight": 0,
+    "source_weight": 0.25
+  },
+  {
     "command_typeaction": "4|4",
     "target_weight": 0,
     "source_weight": 0.25
@@ -90,14 +95,24 @@
     "source_weight": 0.25
   },
   {
+    "command_typeaction": "18|19",
+    "target_weight": -5.00,
+    "source_weight": 1.00
+  },
+  {
     "command_typeaction": "19|19",
     "target_weight": -5,
-    "source_weight": 1
+    "source_weight": 1.00
   },
   {
     "command_typeaction": "20|20",
     "target_weight": 0,
-    "source_weight": 0
+    "source_weight": 0.25
+  },
+  {
+    "command_typeaction": "20|19",
+    "target_weight": -5.00,
+    "source_weight": 1.00
   },
   {
     "command_typeaction": "21|21",
@@ -261,6 +276,11 @@
   },
   {
     "command_typeaction": "9|4",
+    "target_weight": -5,
+    "source_weight": 0.5
+  },
+  {
+    "command_typeaction": "9|5",
     "target_weight": -5,
     "source_weight": 0.5
   },
