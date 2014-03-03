@@ -280,11 +280,6 @@
     "source_weight": 5
   },
   {
-    "command_typeaction": "9|2",
-    "target_weight": -5,
-    "source_weight": 0.5
-  },
-  {
     "command_typeaction": "9|3",
     "target_weight": -5,
     "source_weight": 0.5
