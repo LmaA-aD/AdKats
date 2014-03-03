@@ -15,6 +15,11 @@
     "source_weight": 0.25
   },
   {
+    "command_typeaction": "3|4",
+    "target_weight": 0,
+    "source_weight": 0.25
+  },
+  {
     "command_typeaction": "3|5",
     "target_weight": 0,
     "source_weight": 0.25
