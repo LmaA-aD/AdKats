@@ -1,302 +1,282 @@
 [
   {
-    "command_id": 1,
-    "command_key": "command_confirm",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "command_typeaction": "1|1",
+    "target_weight": 0,
+    "source_weight": 0
   },
   {
-    "command_id": 2,
-    "command_key": "command_cancel",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "command_typeaction": "2|2",
+    "target_weight": 0,
+    "source_weight": 0
   },
   {
-    "command_id": 3,
-    "command_key": "player_kill",
-    "target_weight": 0.00,
+    "command_typeaction": "3|3",
+    "target_weight": 0,
     "source_weight": 0.25
   },
   {
-    "command_id": 4,
-    "command_key": "player_kill_lowpop",
-    "target_weight": 0.00,
+    "command_typeaction": "4|4",
+    "target_weight": 0,
     "source_weight": 0.25
   },
   {
-    "command_id": 5,
-    "command_key": "player_kill_repeat",
-    "target_weight": 0.00,
+    "command_typeaction": "5|5",
+    "target_weight": 0,
     "source_weight": 0.25
   },
   {
-    "command_id": 6,
-    "command_key": "player_kick",
-    "target_weight": -5.00,
-    "source_weight": 0.75
+    "command_typeaction": "6|6",
+    "target_weight": 0,
+    "source_weight": 0
   },
   {
-    "command_id": 7,
-    "command_key": "player_ban_temp",
-    "target_weight": -15.00,
-    "source_weight": 2.00
+    "command_typeaction": "7|7",
+    "target_weight": -15,
+    "source_weight": 2
   },
   {
-    "command_id": 8,
-    "command_key": "player_ban_perm",
-    "target_weight": -50.00,
-    "source_weight": 5.00
+    "command_typeaction": "8|8",
+    "target_weight": -50,
+    "source_weight": 5
   },
   {
-    "command_id": 9,
-    "command_key": "player_punish",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "command_typeaction": "9|9",
+    "target_weight": -25,
+    "source_weight": 0
   },
   {
-    "command_id": 10,
-    "command_key": "player_forgive",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "command_typeaction": "10|10",
+    "target_weight": 10,
+    "source_weight": 1
   },
   {
-    "command_id": 11,
-    "command_key": "player_mute",
-    "target_weight": -7.00,
+    "command_typeaction": "11|11",
+    "target_weight": -7,
     "source_weight": 0.25
   },
   {
-    "command_id": 12,
-    "command_key": "player_join",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "command_typeaction": "12|12",
+    "target_weight": 0,
+    "source_weight": 0
   },
   {
-    "command_id": 13,
-    "command_key": "player_roundwhitelist",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "command_typeaction": "13|13",
+    "target_weight": 0,
+    "source_weight": 0
   },
   {
-    "command_id": 14,
-    "command_key": "player_move",
-    "target_weight": 0.00,
+    "command_typeaction": "14|14",
+    "target_weight": 0,
     "source_weight": 0.05
   },
   {
-    "command_id": 15,
-    "command_key": "player_fmove",
-    "target_weight": 0.00,
+    "command_typeaction": "15|15",
+    "target_weight": 0,
     "source_weight": 0.05
   },
   {
-    "command_id": 16,
-    "command_key": "self_teamswap",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "command_typeaction": "16|16",
+    "target_weight": 0,
+    "source_weight": 0
   },
   {
-    "command_id": 17,
-    "command_key": "self_kill",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "command_typeaction": "17|17",
+    "target_weight": 0,
+    "source_weight": 0
   },
   {
-    "command_id": 18,
-    "command_key": "player_report",
-    "target_weight": 0.00,
+    "command_typeaction": "18|18",
+    "target_weight": 0,
     "source_weight": 0.25
   },
   {
-    "command_id": 19,
-    "command_key": "player_report_confirm",
-    "target_weight": -5.00,
-    "source_weight": 1.00
+    "command_typeaction": "19|19",
+    "target_weight": -5,
+    "source_weight": 1
   },
   {
-    "command_id": 20,
-    "command_key": "player_calladmin",
-    "target_weight": 0.00,
+    "command_typeaction": "20|20",
+    "target_weight": 0,
+    "source_weight": 0
+  },
+  {
+    "command_typeaction": "21|21",
+    "target_weight": 0,
+    "source_weight": 0.05
+  },
+  {
+    "command_typeaction": "22|22",
+    "target_weight": 0,
+    "source_weight": 0.05
+  },
+  {
+    "command_typeaction": "23|23",
+    "target_weight": 0,
+    "source_weight": 0.05
+  },
+  {
+    "command_typeaction": "24|24",
+    "target_weight": 0,
+    "source_weight": 0.05
+  },
+  {
+    "command_typeaction": "25|25",
+    "target_weight": 0,
+    "source_weight": 0.05
+  },
+  {
+    "command_typeaction": "26|26",
+    "target_weight": 0,
+    "source_weight": 0.05
+  },
+  {
+    "command_typeaction": "27|27",
+    "target_weight": 0,
+    "source_weight": 0
+  },
+  {
+    "command_typeaction": "28|28",
+    "target_weight": 0,
+    "source_weight": 0
+  },
+  {
+    "command_typeaction": "29|29",
+    "target_weight": 0,
+    "source_weight": 0.1
+  },
+  {
+    "command_typeaction": "30|30",
+    "target_weight": 0,
+    "source_weight": 0
+  },
+  {
+    "command_typeaction": "31|31",
+    "target_weight": 0,
+    "source_weight": 0
+  },
+  {
+    "command_typeaction": "32|32",
+    "target_weight": 0,
+    "source_weight": 0
+  },
+  {
+    "command_typeaction": "33|33",
+    "target_weight": 0,
+    "source_weight": 0
+  },
+  {
+    "command_typeaction": "34|34",
+    "target_weight": 0,
+    "source_weight": 0
+  },
+  {
+    "command_typeaction": "35|35",
+    "target_weight": 0,
+    "source_weight": 0
+  },
+  {
+    "command_typeaction": "36|36",
+    "target_weight": 0,
+    "source_weight": 0
+  },
+  {
+    "command_typeaction": "37|37",
+    "target_weight": 0,
+    "source_weight": 0
+  },
+  {
+    "command_typeaction": "38|38",
+    "target_weight": 0,
+    "source_weight": 0
+  },
+  {
+    "command_typeaction": "39|39",
+    "target_weight": 0,
+    "source_weight": 0
+  },
+  {
+    "command_typeaction": "40|40",
+    "target_weight": 0,
     "source_weight": 0.25
   },
   {
-    "command_id": 21,
-    "command_key": "admin_say",
-    "target_weight": 0.00,
-    "source_weight": 0.05
-  },
-  {
-    "command_id": 22,
-    "command_key": "player_say",
-    "target_weight": 0.00,
-    "source_weight": 0.05
-  },
-  {
-    "command_id": 23,
-    "command_key": "admin_yell",
-    "target_weight": 0.00,
-    "source_weight": 0.05
-  },
-  {
-    "command_id": 24,
-    "command_key": "player_yell",
-    "target_weight": 0.00,
-    "source_weight": 0.05
-  },
-  {
-    "command_id": 25,
-    "command_key": "admin_tell",
-    "target_weight": 0.00,
-    "source_weight": 0.05
-  },
-  {
-    "command_id": 26,
-    "command_key": "player_tell",
-    "target_weight": 0.00,
-    "source_weight": 0.05
-  },
-  {
-    "command_id": 27,
-    "command_key": "self_whatis",
-    "target_weight": 0.00,
-    "source_weight": 0.00
-  },
-  {
-    "command_id": 28,
-    "command_key": "self_voip",
-    "target_weight": 0.00,
-    "source_weight": 0.00
-  },
-  {
-    "command_id": 29,
-    "command_key": "self_rules",
-    "target_weight": 0.00,
-    "source_weight": 0.10
-  },
-  {
-    "command_id": 30,
-    "command_key": "round_restart",
-    "target_weight": 0.00,
-    "source_weight": 0.00
-  },
-  {
-    "command_id": 31,
-    "command_key": "round_next",
-    "target_weight": 0.00,
-    "source_weight": 0.00
-  },
-  {
-    "command_id": 32,
-    "command_key": "round_end",
-    "target_weight": 0.00,
-    "source_weight": 0.00
-  },
-  {
-    "command_id": 33,
-    "command_key": "server_nuke",
-    "target_weight": 0.00,
-    "source_weight": 0.00
-  },
-  {
-    "command_id": 34,
-    "command_key": "server_kickall",
-    "target_weight": 0.00,
-    "source_weight": 0.00
-  },
-  {
-    "command_id": 35,
-    "command_key": "adkats_exception",
-    "target_weight": 0.00,
-    "source_weight": 0.00
-  },
-  {
-    "command_id": 36,
-    "command_key": "banenforcer_enforce",
-    "target_weight": 0.00,
-    "source_weight": 0.00
-  },
-  {
-    "command_id": 37,
-    "command_key": "player_unban",
-    "target_weight": 0.00,
-    "source_weight": 0.00
-  },
-  {
-    "command_id": 38,
-    "command_key": "self_admins",
-    "target_weight": 0.00,
-    "source_weight": 0.00
-  },
-  {
-    "command_id": 39,
-    "command_key": "self_lead",
-    "target_weight": 0.00,
-    "source_weight": 0.00
-  },
-  {
-    "command_id": 40,
-    "command_key": "admin_accept",
-    "target_weight": 0.00,
+    "command_typeaction": "41|41",
+    "target_weight": 0,
     "source_weight": 0.25
   },
   {
-    "command_id": 41,
-    "command_key": "admin_deny",
-    "target_weight": 0.00,
-    "source_weight": 0.25
+    "command_typeaction": "42|42",
+    "target_weight": 0,
+    "source_weight": -10
   },
   {
-    "command_id": 42,
-    "command_key": "player_report_deny",
-    "target_weight": 0.00,
-    "source_weight": -10.00
+    "command_typeaction": "43|43",
+    "target_weight": 0,
+    "source_weight": 0
   },
   {
-    "command_id": 43,
-    "command_key": "server_swapnuke",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "command_typeaction": "44|44",
+    "target_weight": 0,
+    "source_weight": 0
   },
   {
-    "command_id": 44,
-    "command_key": "player_blacklistdisperse",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "command_typeaction": "45|45",
+    "target_weight": 0,
+    "source_weight": 0
   },
   {
-    "command_id": 45,
-    "command_key": "player_whitelistbalance",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "command_typeaction": "46|46",
+    "target_weight": 0,
+    "source_weight": 0
   },
   {
-    "command_id": 46,
-    "command_key": "player_slotreserved",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "command_typeaction": "47|47",
+    "target_weight": 0,
+    "source_weight": 0
   },
   {
-    "command_id": 47,
-    "command_key": "player_slotspectator",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "command_typeaction": "48|48",
+    "target_weight": 0,
+    "source_weight": 0
   },
   {
-    "command_id": 48,
-    "command_key": "player_changename",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "command_typeaction": "49|49",
+    "target_weight": 0,
+    "source_weight": 0
   },
   {
-    "command_id": 49,
-    "command_key": "player_changeip",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "command_typeaction": "50|50",
+    "target_weight": -50,
+    "source_weight": 5
   },
   {
-    "command_id": 50,
-    "command_key": "player_ban_perm_future",
-    "target_weight": -50.00,
-    "source_weight": 5.00
+    "command_typeaction": "9|2",
+    "target_weight": -5,
+    "source_weight": 0.5
+  },
+  {
+    "command_typeaction": "9|3",
+    "target_weight": -5,
+    "source_weight": 0.5
+  },
+  {
+    "command_typeaction": "9|4",
+    "target_weight": -5,
+    "source_weight": 0.5
+  },
+  {
+    "command_typeaction": "9|6",
+    "target_weight": -10,
+    "source_weight": 0.5
+  },
+  {
+    "command_typeaction": "9|7",
+    "target_weight": -30,
+    "source_weight": 0.5
+  },
+  {
+    "command_typeaction": "9|8",
+    "target_weight": -100,
+    "source_weight": 0.5
   }
 ]
