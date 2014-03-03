@@ -15,37 +15,37 @@
     "command_id": 3,
     "command_key": "player_kill",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.25
   },
   {
     "command_id": 4,
     "command_key": "player_kill_lowpop",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.25
   },
   {
     "command_id": 5,
     "command_key": "player_kill_repeat",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.25
   },
   {
     "command_id": 6,
     "command_key": "player_kick",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "target_weight": -5.00,
+    "source_weight": 0.75
   },
   {
     "command_id": 7,
     "command_key": "player_ban_temp",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "target_weight": -15.00,
+    "source_weight": 2.00
   },
   {
     "command_id": 8,
     "command_key": "player_ban_perm",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "target_weight": -50.00,
+    "source_weight": 5.00
   },
   {
     "command_id": 9,
@@ -62,8 +62,8 @@
   {
     "command_id": 11,
     "command_key": "player_mute",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "target_weight": -7.00,
+    "source_weight": 0.25
   },
   {
     "command_id": 12,
@@ -81,13 +81,13 @@
     "command_id": 14,
     "command_key": "player_move",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.05
   },
   {
     "command_id": 15,
     "command_key": "player_fmove",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.05
   },
   {
     "command_id": 16,
@@ -105,55 +105,55 @@
     "command_id": 18,
     "command_key": "player_report",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.25
   },
   {
     "command_id": 19,
     "command_key": "player_report_confirm",
-    "target_weight": 0.00,
-    "source_weight": 0.00
+    "target_weight": -5.00,
+    "source_weight": 1.00
   },
   {
     "command_id": 20,
     "command_key": "player_calladmin",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.25
   },
   {
     "command_id": 21,
     "command_key": "admin_say",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.05
   },
   {
     "command_id": 22,
     "command_key": "player_say",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.05
   },
   {
     "command_id": 23,
     "command_key": "admin_yell",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.05
   },
   {
     "command_id": 24,
     "command_key": "player_yell",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.05
   },
   {
     "command_id": 25,
     "command_key": "admin_tell",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.05
   },
   {
     "command_id": 26,
     "command_key": "player_tell",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.05
   },
   {
     "command_id": 27,
@@ -171,7 +171,7 @@
     "command_id": 29,
     "command_key": "self_rules",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.10
   },
   {
     "command_id": 30,
@@ -237,24 +237,30 @@
     "command_id": 40,
     "command_key": "admin_accept",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.25
   },
   {
     "command_id": 41,
     "command_key": "admin_deny",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": 0.25
   },
   {
     "command_id": 42,
     "command_key": "player_report_deny",
     "target_weight": 0.00,
-    "source_weight": 0.00
+    "source_weight": -10.00
   },
   {
     "command_id": 43,
     "command_key": "server_swapnuke",
     "target_weight": 0.00,
     "source_weight": 0.00
+  },
+  {
+    "command_id": 44,
+    "command_key": "player_ban_perm_future",
+    "target_weight": -50.00,
+    "source_weight": 5.00
   }
 ]
