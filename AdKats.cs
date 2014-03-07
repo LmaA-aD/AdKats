@@ -16764,7 +16764,7 @@ namespace PRoConEvents
                     email.From = new MailAddress(SenderEmail, "AdKats Report System");
 
                     Boolean someAdded = false;
-                    Plugin.lock (Plugin._userCache)
+                    lock (Plugin._userCache)
                     {
                         foreach (AdKatsUser aUser in Plugin._userCache.Values)
                         {
@@ -16827,7 +16827,7 @@ namespace PRoConEvents
                     if (Plugin._pluginEnabled)
                     {
                         Plugin.DebugWrite("Preparing to queue email for processing", 6);
-                        Plugin.lock (_EmailProcessingQueue)
+                        lock (_EmailProcessingQueue)
                         {
                             _EmailProcessingQueue.Enqueue(email);
                             Plugin.DebugWrite("Email queued for processing", 6);
@@ -16875,7 +16875,7 @@ namespace PRoConEvents
                             if (_EmailProcessingQueue.Any())
                             {
                                 Plugin.DebugWrite("EMAIL: Preparing to lock inbound mail queue to retrive new mail", 7);
-                                Plugin.lock (_EmailProcessingQueue)
+                                lock (_EmailProcessingQueue)
                                 {
                                     Plugin.DebugWrite("EMAIL: Inbound mail found. Grabbing.", 6);
                                     //Grab all mail in the queue
