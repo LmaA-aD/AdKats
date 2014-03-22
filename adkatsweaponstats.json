@@ -334,6 +334,16 @@
                         "id":"as-val",
                         "damage_max":30,
                         "damage_min":17
+                },
+                {
+                        "id":"ar160",
+                        "damage_max":25,
+                        "damage_min":18
+                },
+                {
+                        "id":"aws",
+                        "damage_max":25,
+                        "damage_min":18
                 }
         ]
 }
