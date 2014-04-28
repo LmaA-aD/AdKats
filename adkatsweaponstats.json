@@ -344,6 +344,11 @@
                         "id":"aws",
                         "damage_max":25,
                         "damage_min":18
+                },
+                {
+                        "id":"sr-2",
+                        "damage_max":26,
+                        "damage_min":12.1
                 }
         ]
 }
