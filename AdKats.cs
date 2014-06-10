@@ -18,8 +18,8 @@
  * Development by ColColonCleaner
  * 
  * AdKats.cs
- * Version 4.2.1.5
- * 6-MAY-2014
+ * Version 4.3.0.1
+ * 10-JUN-2014
  */
 
 using System;
@@ -68,7 +68,7 @@ namespace PRoConEvents {
             Ended
         }
 
-        private const String PluginVersion = "4.2.1.5";
+        private const String PluginVersion = "4.3.0.1";
         private const Boolean FullDebug = false;
         private const Boolean SlowMoOnException = false;
         private const Int32 DbUserFetchFrequency = 300;
